@@ -6,111 +6,25 @@ fontLink.rel = "stylesheet";
 fontLink.href = "https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap";
 document.head.appendChild(fontLink);
 
-// ── French Bulldog SVG Mascot (faithful to original image) ────────
+// ── Golf Ball Logo ───────────────────────────────────────────────
 function ObiLogo({ size = 48, dark = false }) {
-  // In dark mode: white face, dark outlines/features
-  // In light mode: dark face, dark outlines/features
-  const face   = dark ? "#ffffff" : "#2a2a2a";
-  const fill   = dark ? "#ffffff" : "#f8f8f8";
-  const ink    = dark ? "#1e1e1e" : "#2a2a2a";
-  const ball   = "#f5c518";
-  const ballHi = "#fde68a";
-
+  const ballColor = "#f5c518";
+  const shine = "#fde68a";
+  const dimple = dark ? "#1a1a1a" : "#2a2a2a";
+  const stroke = dark ? "#1a1a1a" : "#2a6a35";
   return (
-    <svg width={size} height={size} viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-
-      {/* ── LEFT EAR ── tall, slightly tilted, pointed top */}
-      <path d="M52 95 C46 70 38 48 44 28 C48 16 58 10 64 18 C70 26 72 50 70 72 C68 84 64 92 58 96Z"
-        fill={fill} stroke={ink} strokeWidth="5" strokeLinejoin="round"/>
-      {/* Left ear inner slash */}
-      <path d="M56 85 C52 68 50 50 54 34 C57 26 62 24 64 30"
-        fill="none" stroke={ink} strokeWidth="3.5" strokeLinecap="round"/>
-
-      {/* ── RIGHT EAR ── mirror, slightly different angle */}
-      <path d="M148 95 C154 70 162 48 156 28 C152 16 142 10 136 18 C130 26 128 50 130 72 C132 84 136 92 142 96Z"
-        fill={fill} stroke={ink} strokeWidth="5" strokeLinejoin="round"/>
-      {/* Right ear inner slash */}
-      <path d="M144 85 C148 68 150 50 146 34 C143 26 138 24 136 30"
-        fill="none" stroke={ink} strokeWidth="3.5" strokeLinecap="round"/>
-
-      {/* ── HEAD — wide trapezoid, flat top, wide jaw ── */}
-      <path d="M62 22 C72 14 88 10 100 10 C112 10 128 14 138 22
-               C158 34 168 60 166 88
-               C164 112 154 132 140 144
-               C128 154 116 160 100 160
-               C84 160 72 154 60 144
-               C46 132 36 112 34 88
-               C32 60 42 34 62 22Z"
-        fill={fill} stroke={ink} strokeWidth="5" strokeLinejoin="round"/>
-
-      {/* ── TOP HEAD CREASE — the V dip between ears ── */}
-      <path d="M64 26 C76 18 88 14 100 14 C112 14 124 18 136 26"
-        fill="none" stroke={ink} strokeWidth="4" strokeLinecap="round"/>
-
-      {/* ── BROW BLOCK — large dark angry brow area ── */}
-      {/* Left brow — thick angled slash downward toward center */}
-      <path d="M52 86 C58 78 66 74 74 76 C78 77 80 80 78 83 C74 87 64 88 56 90Z"
-        fill={ink}/>
-      {/* Right brow — mirror */}
-      <path d="M148 86 C142 78 134 74 126 76 C122 77 120 80 122 83 C126 87 136 88 144 90Z"
-        fill={ink}/>
-      {/* Center brow furrow — two lines meeting at bridge */}
-      <path d="M80 76 C88 70 94 68 100 68 C106 68 112 70 120 76"
-        fill="none" stroke={ink} strokeWidth="4" strokeLinecap="round"/>
-
-      {/* ── LEFT EYE — deeply squinted, almost closed slit ── */}
-      <path d="M52 92 C58 86 68 84 76 86 C80 87 82 90 80 93 C76 98 62 100 54 97 C50 95 50 93 52 92Z"
-        fill={ink}/>
-      {/* Left eye glint */}
-      <ellipse cx="61" cy="90" rx="3" ry="2" fill={fill} opacity="0.35" transform="rotate(-10 61 90)"/>
-
-      {/* ── RIGHT EYE — mirror ── */}
-      <path d="M148 92 C142 86 132 84 124 86 C120 87 118 90 120 93 C124 98 138 100 146 97 C150 95 150 93 148 92Z"
-        fill={ink}/>
-      {/* Right eye glint */}
-      <ellipse cx="139" cy="90" rx="3" ry="2" fill={fill} opacity="0.35" transform="rotate(10 139 90)"/>
-
-      {/* ── NOSE — wide, flat, rounded rectangle ── */}
-      <path d="M86 104 C86 98 88 95 100 95 C112 95 114 98 114 104 C114 112 108 116 100 116 C92 116 86 112 86 104Z"
-        fill={ink}/>
-      {/* Nose highlight */}
-      <ellipse cx="94" cy="101" rx="4" ry="3" fill={fill} opacity="0.2"/>
-
-      {/* ── MUZZLE — big wide puffy lower face ── */}
-      <path d="M56 118 C56 108 68 102 100 102 C132 102 144 108 144 118 C144 138 128 154 100 154 C72 154 56 138 56 118Z"
-        fill={fill} stroke={ink} strokeWidth="4" strokeLinejoin="round"/>
-
-      {/* Muzzle center line */}
-      <path d="M100 116 L100 128" stroke={ink} strokeWidth="3" strokeLinecap="round"/>
-
-      {/* ── MOUTH — downturned grumpy frown ── */}
-      <path d="M76 136 C82 128 90 125 100 125 C110 125 118 128 124 136"
-        fill="none" stroke={ink} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
-
-      {/* ── WHISKER DOTS — 3 each side ── */}
-      <circle cx="70" cy="126" r="3" fill={ink} opacity="0.55"/>
-      <circle cx="70" cy="134" r="3" fill={ink} opacity="0.55"/>
-      <circle cx="70" cy="142" r="3" fill={ink} opacity="0.55"/>
-      <circle cx="130" cy="126" r="3" fill={ink} opacity="0.55"/>
-      <circle cx="130" cy="134" r="3" fill={ink} opacity="0.55"/>
-      <circle cx="130" cy="142" r="3" fill={ink} opacity="0.55"/>
-
-      {/* ── GOLF BALL — bottom right, sitting on ground ── */}
-      <circle cx="158" cy="172" r="22" fill={ball} stroke={ink} strokeWidth="3"/>
-      <ellipse cx="153" cy="165" rx="5" ry="3" fill={ballHi} opacity="0.75" transform="rotate(-25 153 165)"/>
-      {/* Dimples */}
-      <circle cx="150" cy="174" r="2" fill={ink} opacity="0.25"/>
-      <circle cx="158" cy="169" r="2" fill={ink} opacity="0.25"/>
-      <circle cx="164" cy="177" r="2" fill={ink} opacity="0.25"/>
-      <circle cx="154" cy="180" r="2" fill={ink} opacity="0.25"/>
-      <circle cx="162" cy="164" r="2" fill={ink} opacity="0.25"/>
-
-      {/* ── GOLF CLUB — leaning against ball from bottom of face ── */}
-      <line x1="118" y1="158" x2="142" y2="172" stroke={ink} strokeWidth="4" strokeLinecap="round"/>
-      {/* Club head */}
-      <path d="M140 170 C144 166 150 166 152 170 C154 174 150 178 144 176Z"
-        fill={ink}/>
-
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="50" cy="50" r="44" fill={ballColor} stroke={stroke} strokeWidth="3"/>
+      <ellipse cx="40" cy="36" rx="10" ry="6" fill={shine} opacity="0.75" transform="rotate(-30 40 36)"/>
+      {/* Dimple pattern */}
+      <circle cx="38" cy="52" r="3.5" fill={dimple} opacity="0.2"/>
+      <circle cx="50" cy="46" r="3.5" fill={dimple} opacity="0.2"/>
+      <circle cx="62" cy="52" r="3.5" fill={dimple} opacity="0.2"/>
+      <circle cx="44" cy="62" r="3.5" fill={dimple} opacity="0.2"/>
+      <circle cx="56" cy="62" r="3.5" fill={dimple} opacity="0.2"/>
+      <circle cx="50" cy="72" r="3.5" fill={dimple} opacity="0.2"/>
+      <circle cx="38" cy="40" r="3"   fill={dimple} opacity="0.15"/>
+      <circle cx="62" cy="40" r="3"   fill={dimple} opacity="0.15"/>
     </svg>
   );
 }
@@ -196,25 +110,46 @@ function scoreLabel(score, par) {
   return { label: d > 0 ? `+${d}` : `${d}`, color: "#ef4444" };
 }
 async function callGemini(apiKey, systemPrompt, messages) {
-  const contents = messages.map(m => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }],
-  }));
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents,
-        generationConfig: { maxOutputTokens: 350, temperature: 0.7 },
-      }),
-    }
-  );
+  if (!apiKey || !apiKey.trim()) throw new Error("NO_KEY");
+
+  // Inject system prompt as a priming exchange (works on all free-tier keys)
+  const primer = [
+    { role: "user",  parts: [{ text: "Caddie instructions: " + systemPrompt }] },
+    { role: "model", parts: [{ text: "Got it. Ready to caddie." }] },
+  ];
+  const contents = [
+    ...primer,
+    ...messages.map(m => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    })),
+  ];
+
+  let res;
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey.trim()}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents,
+          generationConfig: { maxOutputTokens: 350, temperature: 0.7 },
+        }),
+      }
+    );
+  } catch {
+    throw new Error("NETWORK");
+  }
+
   const data = await res.json();
-  if (data.error) throw new Error(data.error.message);
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response.";
+  if (data.error) {
+    const code = data.error.code;
+    if (code === 400 || code === 403) throw new Error("BAD_KEY");
+    if (code === 429) throw new Error("QUOTA");
+    throw new Error(data.error.message || "API_ERROR");
+  }
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response from Obi.";
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -334,7 +269,12 @@ RULES: Only use clubs from player's bag. Account for wind, elevation, lie. Be sp
         setShotHistory(prev => [...prev, { hole, outcome: text }]);
       }
     } catch (e) {
-      setMessages(prev => [...prev, { role: "assistant", content: e.message?.includes("key") ? "Invalid API key. Check Settings." : "Connection issue. Try again." }]);
+      let errMsg = "Connection issue — check your internet and try again.";
+      if (e.message === "NO_KEY")     errMsg = "No API key found. Go to Settings and paste your Gemini key.";
+      if (e.message === "BAD_KEY")    errMsg = "Invalid API key. Go to Settings, delete it, and re-paste from aistudio.google.com.";
+      if (e.message === "QUOTA")      errMsg = "API quota exceeded — your free limit is used up. Wait a minute and try again.";
+      if (e.message === "NETWORK")    errMsg = "Network error — check your internet connection.";
+      setMessages(prev => [...prev, { role: "assistant", content: errMsg }]);
     }
     setLoading(false);
   };
