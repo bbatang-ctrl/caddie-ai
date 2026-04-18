@@ -17,8 +17,11 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           contents: req.body.contents,
           generationConfig: {
-            maxOutputTokens: 500,
+            maxOutputTokens: 2000,
             temperature: 0.7,
+            thinkingConfig: {
+              thinkingBudget: 0,
+            },
           },
         }),
       }
