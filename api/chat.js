@@ -5,20 +5,17 @@ export default async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(200).end();
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "API key not configured on server" });
+  if (!apiKey) return res.status(500).json({ error: "No API key" });
 
   if (req.method === "GET") {
-    const testBody = {
-      contents: [{ role: "user", parts: [{ text: "Say READY" }] }],
-      generationConfig: { maxOutputTokens: 10 },
-    };
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(testBody) }
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
       );
       const data = await response.json();
-      return res.status(200).json({ googleResponse: data });
+      // Return just the model names
+      const names = data.models?.map(m => m.name) || data;
+      return res.status(200).json({ models: names });
     } catch (err) {
       return res.status(500).json({ fetchError: err.message });
     }
