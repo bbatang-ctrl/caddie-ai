@@ -18,7 +18,14 @@ export default async function handler(req, res) {
       }
     );
     const data = await response.json();
-    return res.status(200).json(data);
+    // Log the finish reason so we can see why it stopped
+    const candidate = data.candidates?.[0];
+    const finishReason = candidate?.finishReason;
+    const text = candidate?.content?.parts?.[0]?.text || "";
+    return res.status(200).json({ 
+      ...data,
+      _debug: { finishReason, textLength: text.length }
+    });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
