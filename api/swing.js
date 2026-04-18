@@ -1,3 +1,11 @@
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb',
+    },
+  },
+};
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -12,11 +20,10 @@ export default async function handler(req, res) {
     const { contents } = req.body;
     const part = contents?.[0]?.parts?.[0];
 
-    // If it's a video, use File API upload first
+    // VIDEO — use File API upload
     if (part?.inline_data?.mime_type?.startsWith("video/")) {
       const { data: base64Data, mime_type: mimeType } = part.inline_data;
 
-      // Convert base64 to buffer
       const buffer = Buffer.from(base64Data, "base64");
       const fileSize = buffer.length;
 
@@ -38,10 +45,10 @@ export default async function handler(req, res) {
 
       const uploadUrl = startRes.headers.get("x-goog-upload-url");
       if (!uploadUrl) {
-        return res.status(500).json({ error: "Could not start video upload. Try a shorter video or a photo instead." });
+        return res.status(500).json({ error: "Could not start video upload. Try a shorter clip or a photo instead." });
       }
 
-      // Step 2 — Upload the actual video bytes
+      // Step 2 — Upload video bytes
       const uploadRes = await fetch(uploadUrl, {
         method: "POST",
         headers: {
@@ -57,27 +64,31 @@ export default async function handler(req, res) {
       const fileUri = fileData?.file?.uri;
 
       if (!fileUri) {
-        return res.status(500).json({ error: "Video upload failed. Try a shorter clip under 30 seconds." });
+        return res.status(500).json({ error: "Video upload failed. Try a clip under 30 seconds." });
       }
 
-      // Step 3 — Wait for file to be processed
+      // Step 3 — Wait for Google to process the video
       let fileReady = false;
       let attempts = 0;
-      while (!fileReady && attempts < 10) {
+      while (!fileReady && attempts < 15) {
         await new Promise(r => setTimeout(r, 2000));
         const checkRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/files/${fileData.file.name.split("/").pop()}?key=${apiKey}`
+          `https://generativelanguage.googleapis.com/v1beta/${fileData.file.name}?key=${apiKey}`
         );
         const checkData = await checkRes.json();
-        if (checkData?.file?.state === "ACTIVE") fileReady = true;
+        if (checkData?.state === "ACTIVE" || checkData?.file?.state === "ACTIVE") {
+          fileReady = true;
+        }
         attempts++;
       }
 
       if (!fileReady) {
-        return res.status(500).json({ error: "Video processing timed out. Try a shorter clip." });
+        return res.status(500).json({ error: "Video processing timed out. Try a shorter clip under 15 seconds." });
       }
 
-      // Step 4 — Analyze with Gemini using file URI
+      // Step 4 — Analyze with Gemini
+      const promptText = contents[0].parts[1]?.text || "Analyze this golf swing like a PGA teaching professional.";
+
       const analyzeRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
         {
@@ -88,7 +99,7 @@ export default async function handler(req, res) {
               role: "user",
               parts: [
                 { file_data: { mime_type: mimeType, file_uri: fileUri } },
-                { text: contents[0].parts[1]?.text || "Analyze this golf swing like a PGA teaching professional." }
+                { text: promptText }
               ]
             }],
             generationConfig: {
@@ -105,7 +116,7 @@ export default async function handler(req, res) {
       return res.status(200).json(analyzeData);
 
     } else {
-      // Image — use inline data directly as before
+      // IMAGE — use inline data directly
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
         {
