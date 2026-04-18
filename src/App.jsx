@@ -109,10 +109,8 @@ function scoreLabel(score, par) {
   if (d === 1) return { label: "Bogey", color: "#f87171" };
   return { label: d > 0 ? `+${d}` : `${d}`, color: "#ef4444" };
 }
-async function callGemini(apiKey, systemPrompt, messages) {
-  if (!apiKey || !apiKey.trim()) throw new Error("NO_KEY");
-
-  // Inject system prompt as a priming exchange (works on all free-tier keys)
+async function callGemini(systemPrompt, messages) {
+  // System prompt injected as primer so it works on all tiers
   const primer = [
     { role: "user",  parts: [{ text: "Caddie instructions: " + systemPrompt }] },
     { role: "model", parts: [{ text: "Got it. Ready to caddie." }] },
@@ -125,29 +123,29 @@ async function callGemini(apiKey, systemPrompt, messages) {
     })),
   ];
 
+  // Call our own Vercel proxy instead of Google directly (avoids CORS)
   let res;
   try {
-    res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey.trim()}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents,
-          generationConfig: { maxOutputTokens: 350, temperature: 0.7 },
-        }),
-      }
-    );
+    res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents,
+        generationConfig: { maxOutputTokens: 350, temperature: 0.7 },
+      }),
+    });
   } catch {
     throw new Error("NETWORK");
   }
 
   const data = await res.json();
   if (data.error) {
+    const msg = typeof data.error === "string" ? data.error : data.error.message || "";
     const code = data.error.code;
     if (code === 400 || code === 403) throw new Error("BAD_KEY");
     if (code === 429) throw new Error("QUOTA");
-    throw new Error(data.error.message || "API_ERROR");
+    if (msg.includes("API key not configured")) throw new Error("NO_SERVER_KEY");
+    throw new Error("API_ERROR");
   }
   return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response from Obi.";
 }
@@ -158,9 +156,7 @@ export default function ObiGolf() {
   const T = getTheme(darkMode);
 
   const [screen, setScreen] = useState("splash");
-  const [obStep, setObStep] = useState(0);
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem("obi_gemini_key") || "");
-  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [obStep, setObStep] = useState(1);
   const [profile, setProfile] = useState({ name: "", handicap: "mid", hcp: 13, persona: "pro", missTend: "straight", bag: DEFAULT_BAG });
 
   const [course, setCourse] = useState("");
@@ -188,7 +184,7 @@ export default function ObiGolf() {
   }, [messages, loading]);
 
   useEffect(() => {
-    const t = setTimeout(() => setScreen(apiKey ? "app" : "onboard"), 2200);
+    const t = setTimeout(() => setScreen("onboard"), 2200);
     return () => clearTimeout(t);
   }, []);
 
@@ -262,7 +258,7 @@ RULES: Only use clubs from player's bag. Account for wind, elevation, lie. Be sp
     setMessages(newMsgs);
     setLoading(true);
     try {
-      const reply = await callGemini(apiKey, buildSystem(), newMsgs);
+      const reply = await callGemini(buildSystem(), newMsgs);
       setMessages(prev => [...prev, { role: "assistant", content: reply }]);
       speak(reply);
       if (["pulled","pushed","chunked","topped","shanked","flushed","rough","bunker"].some(w => text.toLowerCase().includes(w))) {
@@ -270,10 +266,10 @@ RULES: Only use clubs from player's bag. Account for wind, elevation, lie. Be sp
       }
     } catch (e) {
       let errMsg = "Connection issue — check your internet and try again.";
-      if (e.message === "NO_KEY")     errMsg = "No API key found. Go to Settings and paste your Gemini key.";
-      if (e.message === "BAD_KEY")    errMsg = "Invalid API key. Go to Settings, delete it, and re-paste from aistudio.google.com.";
-      if (e.message === "QUOTA")      errMsg = "API quota exceeded — your free limit is used up. Wait a minute and try again.";
-      if (e.message === "NETWORK")    errMsg = "Network error — check your internet connection.";
+      if (e.message === "NO_SERVER_KEY") errMsg = "API key not set on server. Add GEMINI_API_KEY in Vercel Environment Variables.";
+      if (e.message === "BAD_KEY")       errMsg = "Invalid API key. Check your Vercel environment variable.";
+      if (e.message === "QUOTA")         errMsg = "API quota exceeded — wait a minute and try again.";
+      if (e.message === "NETWORK")       errMsg = "Network error — check your internet connection.";
       setMessages(prev => [...prev, { role: "assistant", content: errMsg }]);
     }
     setLoading(false);
