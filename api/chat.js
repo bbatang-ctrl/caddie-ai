@@ -7,7 +7,6 @@ export default async function handler(req, res) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "API key not configured on server" });
 
-  // GET — fire a real test message to Google and return raw response
   if (req.method === "GET") {
     const testBody = {
       contents: [{ role: "user", parts: [{ text: "Say the word READY and nothing else." }] }],
@@ -15,7 +14,7 @@ export default async function handler(req, res) {
     };
     try {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
         { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(testBody) }
       );
       const data = await response.json();
@@ -29,7 +28,7 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(req.body) }
     );
     const data = await response.json();
