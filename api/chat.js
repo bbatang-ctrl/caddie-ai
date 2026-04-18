@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   if (!apiKey) return res.status(500).json({ error: "API key not configured on server" });
 
   // Use gemini-2.0-flash-001 — stable, fast, reliable for conversation
-  const MODEL = "gemini-2.0-flash-001";
+  const MODEL = "gemini-2.5-flash";
 
   const body = {
     ...req.body,
