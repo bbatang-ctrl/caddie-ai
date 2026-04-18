@@ -246,7 +246,7 @@ YARDAGE: ${yardage ? `${yardage}y actual, ~${py}y playing` : "not set"}. Lie: ${
 CONDITIONS: ${wx}
 RECENT: ${recentShots || "none"}
 
-RULES: Only use clubs from player's bag. Account for wind, elevation, lie. Be specific with club name and target. No markdown, no bullet points — spoken-friendly only. Keep it short.`;
+RULES: Only use clubs from player's bag. Account for wind, elevation, lie. Be specific with club name and target. No markdown, no bullet points, no asterisks — spoken-friendly only. Always complete your sentences fully. Never stop mid-sentence. Give exactly 2-3 complete sentences per response.`;
   };
 
   const sendMessage = async (overrideText) => {
