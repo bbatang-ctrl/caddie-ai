@@ -131,7 +131,7 @@ async function callGemini(systemPrompt, messages) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents,
-        generationConfig: { maxOutputTokens: 350, temperature: 0.7 },
+        generationConfig: { maxOutputTokens: 800, temperature: 0.7 },
       }),
     });
   } catch {
