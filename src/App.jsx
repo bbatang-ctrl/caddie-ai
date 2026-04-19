@@ -32,10 +32,15 @@ function Ball({ size=32 }) {
   );
 }
 
-function Avatar({ name, size=40, highlight=false }) {
+function Avatar({ name, size=40, highlight=false, photoUrl=null, onClick=null }) {
   const ini = (name||"?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
   return (
-    <div style={{ width:size,height:size,borderRadius:"50%",background:`linear-gradient(135deg,${D.greenDim},${D.surface})`,border:`2px solid ${highlight?D.green:D.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Syne',sans-serif",fontSize:size*0.36,color:D.greenLt,fontWeight:"700",flexShrink:0 }}>{ini}</div>
+    <div onClick={onClick} style={{ width:size,height:size,borderRadius:"50%",overflow:"hidden",border:`2px solid ${highlight?"#22c55e":"#243524"}`,flexShrink:0,cursor:onClick?"pointer":"default",background:"linear-gradient(135deg,#14532d,#141f14)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+      {photoUrl
+        ? <img src={photoUrl} alt={name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+        : <span style={{fontFamily:"'Syne',sans-serif",fontSize:size*0.36,color:"#4ade80",fontWeight:"700"}}>{ini}</span>
+      }
+    </div>
   );
 }
 
@@ -175,7 +180,34 @@ const S={
   pill:{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"5px 12px",fontSize:"12px",color:D.muted,fontFamily:"'DM Sans',sans-serif",cursor:"pointer",whiteSpace:"nowrap"},
 };
 
+// ── Light theme tokens ───────────────────────────────────────────
+const LIGHT = {
+  black:"#f0f7f0", dark:"#e8f4e8", surface:"#ffffff", card:"#f4fbf4",
+  border:"#c8e0c0", green:"#16a34a", greenLt:"#22c55e", greenDim:"#dcfce7",
+  gold:"#d97706", goldLt:"#fef3c7", white:"#111827", text:"#1a3020",
+  muted:"#4a7a55", subtle:"#6b9e7a", red:"#dc2626", blue:"#2563eb",
+};
+const DARK = {
+  black:"#080a08", dark:"#0e150e", surface:"#141f14", card:"#1a2a1a",
+  border:"#243524", green:"#22c55e", greenLt:"#4ade80", greenDim:"#14532d",
+  gold:"#f5c518", goldLt:"#fde68a", white:"#f8fafc", text:"#e8f5e9",
+  muted:"#4a7a55", subtle:"#2d4a35", red:"#f87171", blue:"#60a5fa",
+};
+
 export default function ObiGolf(){
+  const [darkMode,setDarkMode]=useState(()=>localStorage.getItem("obi_dark")!=="false");
+  const D = darkMode ? DARK : LIGHT;
+
+  // Shared styles that depend on theme — defined inside component
+  const S={
+    input:{background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"12px",color:D.text,fontSize:"15px",padding:"13px 16px",outline:"none",fontFamily:"'DM Sans',sans-serif",width:"100%",boxSizing:"border-box"},
+    btnPrimary:{background:`linear-gradient(135deg,${D.green},#16a34a)`,border:"none",borderRadius:"14px",color:"#fff",fontSize:"16px",padding:"15px",cursor:"pointer",fontWeight:"600",fontFamily:"'DM Sans',sans-serif",width:"100%",boxShadow:`0 4px 20px ${D.green}44`},
+    btnSecondary:{background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"14px",color:D.text,fontSize:"15px",padding:"13px",cursor:"pointer",fontWeight:"500",fontFamily:"'DM Sans',sans-serif",width:"100%"},
+    btnGhost:{background:"transparent",border:"none",color:D.muted,fontSize:"14px",padding:"10px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",width:"100%"},
+    card:{background:D.card,border:`1px solid ${D.border}`,borderRadius:"18px",padding:"18px",boxShadow:darkMode?"0 2px 20px rgba(0,0,0,0.3)":"0 2px 12px rgba(0,0,0,0.08)"},
+    pill:{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"5px 12px",fontSize:"12px",color:D.muted,fontFamily:"'DM Sans',sans-serif",cursor:"pointer",whiteSpace:"nowrap"},
+  };
+
   const [user,setUser]=useState(null);
   const [userProfile,setUserProfile]=useState(null);
   const [authScreen,setAuthScreen]=useState("login");
@@ -186,6 +218,10 @@ export default function ObiGolf(){
   const [authError,setAuthError]=useState("");
   const [tab,setTab]=useState("caddie");
   const [subView,setSubView]=useState("chat");
+  const [avatarUrl,setAvatarUrl]=useState(null);
+  const [uploadingAvatar,setUploadingAvatar]=useState(false);
+  const [showAvatarZoom,setShowAvatarZoom]=useState(null);
+  const avatarInputRef=useRef(null);
   const [profile,setProfile]=useState({handicap:"mid",hcp:13,persona:"pro",missTend:"straight",bag:DEFAULT_BAG});
   const [editingBag,setEditingBag]=useState(false);
   const [course,setCourse]=useState("");
@@ -237,10 +273,17 @@ export default function ObiGolf(){
 
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[messages,loading]);
 
+  // Persist dark mode
+  useEffect(()=>{ localStorage.setItem("obi_dark", darkMode); },[darkMode]);
+
+  // Helper to get first name
+  const firstName = (name) => (name||"").split(" ")[0] || "there";
+
   async function loadProfile(uid){
     const {data}=await supabase.from("profiles").select("*").eq("id",uid).single();
     if(data){
       setUserProfile(data);
+      if(data.avatar_url) setAvatarUrl(data.avatar_url);
       setProfile(p=>({...p,handicap:data.handicap_category||"mid",hcp:data.handicap_index||13,persona:data.caddie_persona||"pro",missTend:data.miss_tendency||"straight",bag:data.bag_distances||DEFAULT_BAG}));
       loadSocial(uid);loadRounds(uid);loadSwings(uid);
     } else setAuthScreen("onboard");
@@ -248,8 +291,26 @@ export default function ObiGolf(){
 
   async function saveProfile(){
     if(!user)return;
-    await supabase.from("profiles").upsert({id:user.id,email:user.email,full_name:authName||userProfile?.full_name,handicap_category:profile.handicap,handicap_index:profile.hcp,caddie_persona:profile.persona,miss_tendency:profile.missTend,bag_distances:profile.bag,updated_at:new Date().toISOString()});
+    await supabase.from("profiles").upsert({id:user.id,email:user.email,full_name:authName||userProfile?.full_name,handicap_category:profile.handicap,handicap_index:profile.hcp,caddie_persona:profile.persona,miss_tendency:profile.missTend,bag_distances:profile.bag,avatar_url:avatarUrl||userProfile?.avatar_url||null,updated_at:new Date().toISOString()});
     loadProfile(user.id);setTab("caddie");
+  }
+
+  async function uploadAvatar(file){
+    if(!user||!file)return;
+    setUploadingAvatar(true);
+    try{
+      // Convert to base64 data URL and store directly in profile
+      const reader=new FileReader();
+      reader.onload=(e)=>{
+        const dataUrl=e.target.result;
+        setAvatarUrl(dataUrl);
+        setUploadingAvatar(false);
+      };
+      reader.readAsDataURL(file);
+    }catch(err){
+      console.error("Avatar upload failed:",err);
+      setUploadingAvatar(false);
+    }
   }
 
   async function handleLogin(){setAuthError("");setAuthLoading(true);const{error}=await supabase.auth.signInWithPassword({email:authEmail,password:authPass});if(error)setAuthError(error.message);setAuthLoading(false);}
@@ -294,7 +355,8 @@ export default function ObiGolf(){
     const bagStr=profile.bag.map(b=>`${b.club}:${b.carry}y`).join(", ");
     const wx=weather?`Wind ${weather.wind}mph from ${windDir(weather.windDeg)}. Temp ${weather.temp}F.`:"Weather unavailable.";
     const py=yardage?playingYards(parseInt(yardage),elevation,weather?.wind||0,weather?.windDeg||0):null;
-    return `${pm[profile.persona]}\nPLAYER: HCP ${profile.hcp} (${profile.handicap}). Miss: ${profile.missTend}. Name: ${userProfile?.full_name||"golfer"}.\nBAG: ${bagStr}\nHOLE: ${course||"unknown"}, Hole ${hole}, Par ${holePars[hole-1]}\nYARDAGE: ${yardage?`${yardage}y actual, ~${py}y playing`:"not set"}. Lie: ${lie}. Elevation: ${elevation}ft.\nCONDITIONS: ${wx}\nRECENT: ${shotHistory.slice(-3).map(s=>`H${s.hole}: ${s.outcome}`).join(". ")||"none"}\nRULES: Only clubs from bag. Be specific. No markdown. No bullet points. Always finish sentences completely.`;
+    const name=firstName(userProfile?.full_name);
+    return `${pm[profile.persona]}\nPLAYER: Name is ${name}. Always address them by name. HCP ${profile.hcp} (${profile.handicap}). Miss: ${profile.missTend}.\nBAG: ${bagStr}\nHOLE: ${course||"unknown"}, Hole ${hole}, Par ${holePars[hole-1]}\nYARDAGE: ${yardage?`${yardage}y actual, ~${py}y playing`:"not set"}. Lie: ${lie}. Elevation: ${elevation}ft.\nCONDITIONS: ${wx}\nRECENT: ${shotHistory.slice(-3).map(s=>`H${s.hole}: ${s.outcome}`).join(". ")||"none"}\nRULES: Only clubs from bag. Be specific. No markdown. No bullet points. Always finish sentences. ALWAYS use the player's first name ${name} naturally in your responses.`;
   };
 
   const sendMessage=async(override)=>{
@@ -395,9 +457,9 @@ export default function ObiGolf(){
 
   // LOADING
   if(authLoading)return(
-    <div style={{minHeight:"100vh",background:D.black,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"20px"}}>
+    <div style={{minHeight:"100vh",background:darkMode?"#080a08":"#f0f7f0",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"20px"}}>
       <div style={{animation:"popIn 0.6s cubic-bezier(.34,1.56,.64,1) both"}}><Ball size={80}/></div>
-      <div style={{fontFamily:"'Syne',sans-serif",fontSize:"38px",fontWeight:"800",color:D.white,letterSpacing:"2px",animation:"fadeUp 0.6s 0.2s both"}}>OBI GOLF</div>
+      <div style={{fontFamily:"'Syne',sans-serif",fontSize:"38px",fontWeight:"800",color:darkMode?"#f8fafc":"#111827",letterSpacing:"2px",animation:"fadeUp 0.6s 0.2s both"}}>OBI GOLF</div>
       <div style={{display:"flex",gap:"8px",animation:"fadeUp 0.6s 0.4s both"}}>{[0,1,2].map(i=><div key={i} style={{width:"7px",height:"7px",borderRadius:"50%",background:D.green,animation:`pulse 1.2s infinite ${i*0.2}s`}}/>)}</div>
       <style>{CSS}</style>
     </div>
@@ -513,6 +575,17 @@ export default function ObiGolf(){
   return(
     <div style={{minHeight:"100vh",maxWidth:"480px",margin:"0 auto",background:D.black,fontFamily:"'DM Sans',sans-serif",display:"flex",flexDirection:"column",position:"relative"}}>
       {showCard&&<SummaryModal round={showCard}/>}
+
+      {/* Avatar zoom modal */}
+      {showAvatarZoom&&(
+        <div onClick={()=>setShowAvatarZoom(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+          <div onClick={e=>e.stopPropagation()} style={{maxWidth:"360px",width:"100%",textAlign:"center"}}>
+            <img src={showAvatarZoom} alt="Profile" style={{width:"280px",height:"280px",borderRadius:"50%",objectFit:"cover",border:"3px solid "+D.green,boxShadow:"0 0 40px "+D.green+"44"}}/>
+            <div style={{marginTop:"16px",color:D.muted,fontSize:"13px"}}>Tap anywhere to close</div>
+          </div>
+        </div>
+      )}
+
       {jabPost&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={()=>setJabPost(null)}>
           <div onClick={e=>e.stopPropagation()} style={{...S.card,maxWidth:"320px",width:"100%",textAlign:"center",animation:"popIn 0.3s both"}}>
@@ -534,14 +607,19 @@ export default function ObiGolf(){
           </div>
           {speaking&&<div style={{width:"8px",height:"8px",borderRadius:"50%",background:D.green,animation:"pulse 1s infinite",marginLeft:"4px"}}/>}
         </div>
-        {weather&&(
-          <div style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"5px 12px",display:"flex",alignItems:"center",gap:"6px",fontSize:"12px",color:D.muted}}>
-            <span>{wxIcon(weather.code)}</span>
-            <span style={{color:D.text}}>{weather.temp}°</span>
-            <span style={{color:D.border}}>·</span>
-            <span>{weather.wind}mph {windDir(weather.windDeg)}</span>
-          </div>
-        )}
+        <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+          {weather&&(
+            <div style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"5px 12px",display:"flex",alignItems:"center",gap:"6px",fontSize:"12px",color:D.muted}}>
+              <span>{wxIcon(weather.code)}</span>
+              <span style={{color:D.text}}>{weather.temp}°</span>
+              <span style={{color:D.border}}>·</span>
+              <span>{weather.wind}mph {windDir(weather.windDeg)}</span>
+            </div>
+          )}
+          <button onClick={()=>setDarkMode(d=>!d)} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"6px 10px",cursor:"pointer",fontSize:"14px",color:D.muted,fontFamily:"'DM Sans',sans-serif",lineHeight:1}}>
+            {darkMode?"☀️":"🌙"}
+          </button>
+        </div>
       </div>
 
       {/* BOTTOM NAV */}
@@ -784,7 +862,7 @@ export default function ObiGolf(){
                     return(
                       <div key={i} style={{...S.card,marginBottom:"14px"}}>
                         <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"12px"}}>
-                          <Avatar name={r.profile?.full_name} size={44} highlight={isMe}/>
+                          <Avatar name={r.profile?.full_name} size={44} highlight={isMe} photoUrl={r.profile?.avatar_url} onClick={()=>r.profile?.avatar_url&&setShowAvatarZoom(r.profile.avatar_url)}/>
                           <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{r.profile?.full_name||"Golfer"}{isMe?" (You)":""}</div><div style={{fontSize:"12px",color:D.muted}}>{fmtDateShort(r.played_at)}</div></div>
                           <ScorePill score={r.total_score} par={r.total_par}/>
                         </div>
@@ -815,7 +893,7 @@ export default function ObiGolf(){
                     return(
                       <div key={i} style={{background:i===0?`linear-gradient(135deg,${D.greenDim},${D.surface})`:D.card,border:`1px solid ${i===0?D.green:D.border}`,borderRadius:"16px",padding:"14px 16px",marginBottom:"10px",display:"flex",alignItems:"center",gap:"12px"}}>
                         <div style={{fontSize:"28px",minWidth:"36px",textAlign:"center"}}>{medals[i]||`${i+1}`}</div>
-                        <Avatar name={r.profile?.full_name} size={40} highlight={isMe}/>
+                        <Avatar name={r.profile?.full_name} size={40} highlight={isMe} photoUrl={r.profile?.avatar_url}/>
                         <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"14px"}}>{r.profile?.full_name||"Golfer"}{isMe?" 👈":""}</div><div style={{fontSize:"12px",color:D.muted}}>{r.course_name||"Unknown"} · {fmtDateShort(r.played_at)}</div></div>
                         <div style={{textAlign:"right"}}><div style={{fontFamily:"'Syne',sans-serif",fontSize:"26px",fontWeight:"800",color:diff<0?D.green:diff===0?D.blue:D.red,lineHeight:1}}>{diff>0?`+${diff}`:diff===0?"E":diff}</div><div style={{fontSize:"11px",color:D.muted}}>{r.total_score}</div></div>
                       </div>
@@ -831,7 +909,7 @@ export default function ObiGolf(){
                       <div style={{fontSize:"11px",color:D.gold,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>FRIEND REQUESTS ({friendReqs.length})</div>
                       {friendReqs.map(req=>(
                         <div key={req.id} style={{...S.card,display:"flex",alignItems:"center",gap:"12px",marginBottom:"8px"}}>
-                          <Avatar name={req.requester?.full_name} size={44}/>
+                          <Avatar name={req.requester?.full_name} size={44} photoUrl={req.requester?.avatar_url}/>
                           <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{req.requester?.full_name}</div><div style={{fontSize:"12px",color:D.muted}}>wants to connect</div></div>
                           <button onClick={()=>acceptFriendReq(req.id,req.user_id)} style={{background:`linear-gradient(135deg,${D.green},#16a34a)`,border:"none",borderRadius:"10px",padding:"8px 16px",color:"#fff",fontWeight:"600",fontSize:"13px",cursor:"pointer"}}>Accept</button>
                         </div>
@@ -843,7 +921,7 @@ export default function ObiGolf(){
                     <input placeholder="Search by name..." value={searchQ} onChange={e=>{setSearchQ(e.target.value);searchUsers(e.target.value);}} style={{...S.input,marginBottom:"10px"}}/>
                     {searchRes.map(u=>(
                       <div key={u.id} style={{...S.card,display:"flex",alignItems:"center",gap:"12px",marginBottom:"8px"}}>
-                        <Avatar name={u.full_name} size={44}/>
+                        <Avatar name={u.full_name} size={44} photoUrl={u.avatar_url}/>
                         <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{u.full_name}</div><div style={{fontSize:"12px",color:D.muted}}>HCP {u.handicap_index||"—"} · {u.handicap_category||"golfer"}</div></div>
                         <button onClick={()=>sendFriendReq(u.id)} style={{background:D.greenDim,border:`1px solid ${D.green}44`,borderRadius:"10px",padding:"8px 14px",color:D.green,fontWeight:"600",fontSize:"13px",cursor:"pointer"}}>+ Add</button>
                       </div>
@@ -852,7 +930,7 @@ export default function ObiGolf(){
                   <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>MY FRIENDS ({friends.length})</div>
                   {friends.length===0?<div style={{textAlign:"center",padding:"24px",color:D.muted,fontSize:"14px"}}>Search above to add your first friend</div>:friends.map(f=>(
                     <div key={f.id} style={{...S.card,display:"flex",alignItems:"center",gap:"12px",marginBottom:"8px"}}>
-                      <Avatar name={f.full_name} size={44}/>
+                      <Avatar name={f.full_name} size={44} photoUrl={f.avatar_url} onClick={()=>f.avatar_url&&setShowAvatarZoom(f.avatar_url)}/>
                       <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{f.full_name}</div><div style={{fontSize:"12px",color:D.muted}}>HCP {f.handicap_index||"—"} · {f.handicap_category||"golfer"}</div></div>
                       <div style={{fontSize:"22px"}}>⛳</div>
                     </div>
@@ -887,8 +965,15 @@ export default function ObiGolf(){
         {tab==="profile"&&(
           <div style={{padding:"20px 16px"}}>
             <div style={{background:`linear-gradient(160deg,${D.card} 0%,${D.dark} 100%)`,border:`1px solid ${D.border}`,borderRadius:"20px",padding:"24px",marginBottom:"20px",textAlign:"center"}}>
-              <Avatar name={userProfile?.full_name||user?.email} size={72} highlight/>
-              <div style={{fontFamily:"'Syne',sans-serif",fontSize:"24px",fontWeight:"800",color:D.white,marginTop:"14px"}}>{userProfile?.full_name||"Golfer"}</div>
+              {/* Avatar with upload */}
+              <div style={{position:"relative",display:"inline-block",marginBottom:"4px"}}>
+                <Avatar name={userProfile?.full_name||user?.email} size={80} highlight photoUrl={avatarUrl} onClick={()=>avatarUrl&&setShowAvatarZoom(avatarUrl)}/>
+                <button onClick={()=>avatarInputRef.current?.click()} style={{position:"absolute",bottom:0,right:0,width:"28px",height:"28px",borderRadius:"50%",background:D.green,border:"2px solid "+D.dark,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"14px"}}>
+                  {uploadingAvatar?"⏳":"📷"}
+                </button>
+                <input ref={avatarInputRef} type="file" accept="image/*" onChange={e=>uploadAvatar(e.target.files[0])} style={{display:"none"}}/>
+              </div>
+              <div style={{fontFamily:"'Syne',sans-serif",fontSize:"24px",fontWeight:"800",color:D.white,marginTop:"10px"}}>{userProfile?.full_name||"Golfer"}</div>
               <div style={{fontSize:"13px",color:D.muted,marginTop:"4px"}}>{user?.email}</div>
               <div style={{display:"flex",justifyContent:"center",gap:"28px",marginTop:"20px"}}>
                 {[["Rounds",roundHistory.length,"📋"],["Friends",friends.length,"👥"],["HCP",userProfile?.handicap_index||"—","⛳"]].map(([l,v,icon])=>(
@@ -897,6 +982,17 @@ export default function ObiGolf(){
               </div>
             </div>
             <div style={{fontFamily:"'Syne',sans-serif",fontSize:"18px",fontWeight:"700",color:D.white,marginBottom:"14px"}}>Settings</div>
+
+            {/* Dark / Light mode toggle */}
+            <div style={{marginBottom:"18px"}}>
+              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Display</div>
+              <button onClick={()=>setDarkMode(d=>!d)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"14px",padding:"14px 16px",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>
+                <span style={{color:D.text,fontSize:"15px",fontWeight:"500"}}>{darkMode?"🌙 Dark Mode":"☀️ Light Mode"}</span>
+                <div style={{width:"48px",height:"26px",borderRadius:"13px",background:darkMode?D.greenDim:D.border,border:`1.5px solid ${darkMode?D.green:D.border}`,position:"relative",transition:"all 0.2s"}}>
+                  <div style={{position:"absolute",top:"3px",left:darkMode?"24px":"3px",width:"18px",height:"18px",borderRadius:"50%",background:darkMode?D.green:D.muted,transition:"all 0.2s"}}/>
+                </div>
+              </button>
+            </div>
             <div style={{marginBottom:"18px"}}>
               <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Caddie Style</div>
               {PERSONAS.map(p=>(
