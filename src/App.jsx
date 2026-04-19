@@ -81,6 +81,91 @@ async function analyzeSwing(b64,mime,notes,bag,hcp){
   return data.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
 }
 
+async function analyzeSwingVideo(videoFile, notes, bag, hcp) {
+  const apiKey = await fetch("/api/gemini-key").then(r=>r.json()).then(d=>d.key).catch(()=>null);
+  if (!apiKey) throw new Error("Could not get API key");
+
+  const promptText = `You are an expert PGA teaching professional analyzing a full golf swing video. Player HCP: ${hcp}. Notes: ${notes||"none"}.
+Watch the FULL swing motion in this video and analyze: Setup & Address, Backswing, Downswing & Transition, Impact position, Follow Through & Finish.
+Then give: PRIMARY FAULT (the single most important thing to fix), DRILL (specific step-by-step drill to fix it), POSITIVES (1-2 things they do well).
+Be specific about what you see in the VIDEO MOTION - mention timing, sequencing, speed. Write like a great teaching pro talking to their student.`;
+
+  // Step 1 - Upload video to Google File API directly from browser
+  const uploadRes = await fetch(
+    `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: {
+        "X-Goog-Upload-Protocol": "resumable",
+        "X-Goog-Upload-Command": "start",
+        "X-Goog-Upload-Header-Content-Length": videoFile.size,
+        "X-Goog-Upload-Header-Content-Type": videoFile.type,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ file: { display_name: "golf_swing" } }),
+    }
+  );
+
+  const uploadUrl = uploadRes.headers.get("x-goog-upload-url");
+  if (!uploadUrl) throw new Error("Could not start video upload");
+
+  // Step 2 - Upload video bytes
+  const finalRes = await fetch(uploadUrl, {
+    method: "POST",
+    headers: {
+      "X-Goog-Upload-Command": "upload, finalize",
+      "X-Goog-Upload-Offset": "0",
+      "Content-Type": videoFile.type,
+    },
+    body: videoFile,
+  });
+
+  const fileData = await finalRes.json();
+  const fileUri = fileData?.file?.uri;
+  const fileName = fileData?.file?.name;
+  if (!fileUri) throw new Error("Video upload failed - try a shorter clip");
+
+  // Step 3 - Wait for processing
+  let ready = false;
+  let attempts = 0;
+  while (!ready && attempts < 15) {
+    await new Promise(r => setTimeout(r, 2000));
+    const check = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`
+    ).then(r => r.json());
+    if (check?.state === "ACTIVE" || check?.file?.state === "ACTIVE") ready = true;
+    attempts++;
+  }
+  if (!ready) throw new Error("Video processing timed out - try a clip under 30 seconds");
+
+  // Step 4 - Analyze with Gemini
+  const analyzeRes = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          role: "user",
+          parts: [
+            { file_data: { mime_type: videoFile.type, file_uri: fileUri } },
+            { text: promptText }
+          ]
+        }],
+        generationConfig: {
+          maxOutputTokens: 1500,
+          temperature: 0.7,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
+      }),
+    }
+  );
+
+  const result = await analyzeRes.json();
+  if (result.error) throw new Error(result.error.message || "Analysis failed");
+  return result.candidates?.[0]?.content?.parts?.[0]?.text || "Could not analyze swing.";
+}
+
 const S={
   input:{background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"12px",color:D.text,fontSize:"15px",padding:"13px 16px",outline:"none",fontFamily:"'DM Sans',sans-serif",width:"100%",boxSizing:"border-box"},
   btnPrimary:{background:`linear-gradient(135deg,${D.green},#16a34a)`,border:"none",borderRadius:"14px",color:"#fff",fontSize:"16px",padding:"15px",cursor:"pointer",fontWeight:"600",fontFamily:"'DM Sans',sans-serif",width:"100%",boxShadow:`0 4px 20px ${D.green}44`},
@@ -263,56 +348,34 @@ export default function ObiGolf(){
   async function sendFriendReq(fid){await supabase.from("friendships").insert({user_id:user.id,friend_id:fid,status:"pending"});setSearchRes(prev=>prev.filter(u=>u.id!==fid));}
   async function acceptFriendReq(reqId,requesterId){await supabase.from("friendships").update({status:"accepted"}).eq("id",reqId);await supabase.from("friendships").insert({user_id:user.id,friend_id:requesterId,status:"accepted"});loadSocial(user.id);}
 
-  // Extract a frame from video at impact position
-  function extractVideoFrame(videoFile){
-    return new Promise((resolve,reject)=>{
-      const video=document.createElement("video");
-      const canvas=document.createElement("canvas");
-      const url=URL.createObjectURL(videoFile);
-      video.src=url; video.crossOrigin="anonymous";
-      video.muted=true; video.playsInline=true;
-      video.onloadedmetadata=()=>{ video.currentTime=video.duration*0.5; };
-      video.onseeked=()=>{
-        canvas.width=video.videoWidth; canvas.height=video.videoHeight;
-        canvas.getContext("2d").drawImage(video,0,0);
-        URL.revokeObjectURL(url);
-        canvas.toBlob((blob)=>{
-          resolve(new File([blob],"swing_frame.jpg",{type:"image/jpeg"}));
-        },"image/jpeg",0.85);
-      };
-      video.onerror=()=>reject(new Error("Could not read video file"));
-      video.load();
-    });
-  }
-
   async function runSwingAnalysis(){
     if(!swingFile)return;
     setSwingLoading(true);setSwingAnalysis("");
     try{
-      // Extract frame from video to send as image
-      let fileToSend=swingFile;
-      let mimeType=swingFile.type;
       if(swingFile.type.startsWith("video/")){
-        setSwingAnalysis("Extracting best frame from video...");
-        fileToSend=await extractVideoFrame(swingFile);
-        mimeType="image/jpeg";
-        setSwingAnalysis("");
+        // Send full video directly to Google File API — full motion analysis
+        const analysis=await analyzeSwingVideo(swingFile,swingNotes,profile.bag,profile.hcp);
+        setSwingAnalysis(analysis);
+        if(user){await supabase.from("swing_analyses").insert({user_id:user.id,notes:swingNotes,analysis,analyzed_at:new Date().toISOString()});loadSwings(user.id);}
+      } else {
+        // Image — use existing inline method
+        const reader=new FileReader();
+        reader.onload=async(e)=>{
+          try{
+            const b64=e.target.result.split(",")[1];
+            const analysis=await analyzeSwing(b64,swingFile.type,swingNotes,profile.bag,profile.hcp);
+            setSwingAnalysis(analysis);
+            if(user){await supabase.from("swing_analyses").insert({user_id:user.id,notes:swingNotes,analysis,analyzed_at:new Date().toISOString()});loadSwings(user.id);}
+          }catch(err){setSwingAnalysis("Analysis failed: "+err.message);}
+          setSwingLoading(false);
+        };
+        reader.readAsDataURL(swingFile);
+        return;
       }
-      const reader=new FileReader();
-      reader.onload=async(e)=>{
-        try{
-          const b64=e.target.result.split(",")[1];
-          const analysis=await analyzeSwing(b64,mimeType,swingNotes,profile.bag,profile.hcp);
-          setSwingAnalysis(analysis);
-          if(user){await supabase.from("swing_analyses").insert({user_id:user.id,notes:swingNotes,analysis,analyzed_at:new Date().toISOString()});loadSwings(user.id);}
-        }catch(err){setSwingAnalysis("Analysis failed: "+err.message);}
-        setSwingLoading(false);
-      };
-      reader.readAsDataURL(fileToSend);
     }catch(err){
       setSwingAnalysis("Analysis failed: "+err.message);
-      setSwingLoading(false);
     }
+    setSwingLoading(false);
   }
 
   function shareRound(round){
