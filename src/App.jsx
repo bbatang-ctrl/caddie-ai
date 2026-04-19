@@ -79,7 +79,10 @@ async function callGemini(sys,msgs){
 }
 
 async function analyzeSwing(b64,mime,notes,bag,hcp){
-  const contents=[{role:"user",parts:[{inline_data:{mime_type:mime,data:b64}},{text:`You are an expert PGA teaching professional. Player HCP: ${hcp}. Notes: ${notes||"none"}.\nAnalyze this golf swing covering: Setup & Address, Backswing, Downswing & Transition, Impact, Follow Through.\nThen give: PRIMARY FAULT (the one thing to fix), DRILL (specific step-by-step drill), POSITIVES (what they do well).\nBe encouraging, specific, and visual. Write like a great teaching pro.`}]}];
+  const goalLabels={full_swing:"full swing mechanics",driver:"driver swing",irons:"iron play",short_game:"short game (chips/pitches)",bunker:"bunker play",putting:"putting stroke",tempo:"tempo and rhythm",custom:"the specific area mentioned in notes"};
+  const goalFocus=goalLabels[notes?.split("GOAL:")[1]?.trim()]||"overall swing mechanics";
+  const cleanNotes=notes?.replace(/GOAL:[^\n]*/,"").trim()||"none";
+  const contents=[{role:"user",parts:[{inline_data:{mime_type:mime,data:b64}},{text:`You are an expert PGA teaching professional. Player HCP: ${hcp}. The player wants to focus specifically on: ${goalFocus}. Additional notes: ${cleanNotes}.\nAnalyze this golf swing with a focus on ${goalFocus}. Cover: Setup & Address, Backswing, Downswing & Transition, Impact, Follow Through.\nThen give: PRIMARY FAULT related to ${goalFocus} (the one thing to fix first), DRILL (specific step-by-step drill to fix it), POSITIVES (what they do well).\nBe encouraging, specific, and visual. Write like a great teaching pro talking directly to their student.`}]}];
   const res=await fetch("/api/swing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents})});
   const data=await res.json();
   if(data.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
@@ -194,6 +197,186 @@ const DARK = {
   muted:"#4a7a55", subtle:"#2d4a35", red:"#f87171", blue:"#60a5fa",
 };
 
+
+// ── Multi-Step Onboarding Component ──────────────────────────────
+function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onComplete }) {
+  const [step, setStep] = useState(0);
+  const [localName, setLocalName] = useState(authName || "");
+  const [homeCourse, setHomeCourse] = useState("");
+  const [ageRange, setAgeRange] = useState("");
+
+  const steps = [
+    { id: "name",      title: "What's your name?",           sub: "Obi will use this every time you play" },
+    { id: "dexterity", title: "How do you swing?",           sub: "Obi tailors all advice to your swing side" },
+    { id: "handicap",  title: "What's your level?",          sub: "Helps Obi calibrate strategy and advice" },
+    { id: "age",       title: "What's your age range?",      sub: "Optional — helps personalize coaching style" },
+    { id: "course",    title: "Do you have a home course?",  sub: "Optional — Obi will know it well" },
+    { id: "persona",   title: "Choose your caddie style",    sub: "You can always change this in Settings" },
+  ];
+
+  const current = steps[step];
+  const progress = ((step) / steps.length) * 100;
+
+  const next = () => {
+    if (step === 0) setAuthName(localName);
+    if (step === 4) setProfile(p => ({ ...p, homeCourse }));
+    if (step < steps.length - 1) setStep(s => s + 1);
+    else {
+      setAuthName(localName);
+      setProfile(p => ({ ...p, homeCourse, ageRange }));
+      onComplete();
+    }
+  };
+
+  const skip = () => {
+    if (step < steps.length - 1) setStep(s => s + 1);
+    else onComplete();
+  };
+
+  const canNext = () => {
+    if (current.id === "name") return localName.trim().length > 0;
+    return true;
+  };
+
+  return (
+    <div style={{ animation: "fadeUp 0.4s both" }}>
+      {/* Progress bar */}
+      <div style={{ height: "3px", background: D.border, borderRadius: "2px", marginBottom: "28px", overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${progress}%`, background: `linear-gradient(90deg, ${D.green}, ${D.greenLt})`, borderRadius: "2px", transition: "width 0.4s ease" }}/>
+      </div>
+
+      {/* Step indicator */}
+      <div style={{ fontSize: "11px", color: D.muted, letterSpacing: "2px", textTransform: "uppercase", marginBottom: "8px", textAlign: "center" }}>
+        Step {step + 1} of {steps.length}
+      </div>
+
+      <div style={{ ...S.card, marginBottom: "16px" }}>
+        <div style={{ fontFamily: "'Syne', sans-serif", fontSize: "22px", fontWeight: "700", color: D.white, marginBottom: "6px" }}>{current.title}</div>
+        <div style={{ color: D.muted, fontSize: "14px", marginBottom: "20px" }}>{current.sub}</div>
+
+        {/* STEP 0 — Name */}
+        {current.id === "name" && (
+          <div>
+            <input
+              autoFocus
+              placeholder="Your first name"
+              value={localName}
+              onChange={e => setLocalName(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && canNext() && next()}
+              style={{ ...S.input, fontSize: "18px", fontWeight: "600" }}
+            />
+          </div>
+        )}
+
+        {/* STEP 1 — Dexterity */}
+        {current.id === "dexterity" && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+            {[
+              { v: "right", label: "Right Handed", icon: "🏌️", desc: "Standard swing" },
+              { v: "left",  label: "Left Handed",  icon: "🏌️‍♂️", desc: "Mirror swing" },
+            ].map(dx => (
+              <button key={dx.v} onClick={() => { setProfile(p => ({ ...p, dexterity: dx.v })); }}
+                style={{ background: profile.dexterity === dx.v ? D.greenDim : D.surface, border: `2px solid ${profile.dexterity === dx.v ? D.green : D.border}`, borderRadius: "14px", padding: "20px 12px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", transition: "all 0.2s" }}>
+                <span style={{ fontSize: "36px" }}>{dx.icon}</span>
+                <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: "700", fontSize: "14px", color: profile.dexterity === dx.v ? D.greenLt : D.text }}>{dx.label}</span>
+                <span style={{ fontSize: "11px", color: D.muted }}>{dx.desc}</span>
+                {profile.dexterity === dx.v && <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: D.green, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "12px" }}>✓</div>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* STEP 2 — Handicap */}
+        {current.id === "handicap" && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+            {[
+              { label: "Beginner", sub: "30+",   value: "beginner", hcp: 36, icon: "🌱", desc: "Just starting out" },
+              { label: "High",     sub: "18–29", value: "high",     hcp: 24, icon: "📈", desc: "Building consistency" },
+              { label: "Mid",      sub: "9–17",  value: "mid",      hcp: 13, icon: "⛳", desc: "Breaking 90" },
+              { label: "Low",      sub: "0–8",   value: "low",      hcp: 4,  icon: "🏆", desc: "Scratch territory" },
+            ].map(h => (
+              <button key={h.value} onClick={() => setProfile(p => ({ ...p, handicap: h.value, hcp: h.hcp }))}
+                style={{ background: profile.handicap === h.value ? D.greenDim : D.surface, border: `2px solid ${profile.handicap === h.value ? D.green : D.border}`, borderRadius: "14px", padding: "16px 10px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", transition: "all 0.2s" }}>
+                <span style={{ fontSize: "28px" }}>{h.icon}</span>
+                <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: "700", fontSize: "15px", color: profile.handicap === h.value ? D.greenLt : D.text }}>{h.label}</span>
+                <span style={{ fontSize: "11px", color: D.muted }}>HCP {h.sub}</span>
+                <span style={{ fontSize: "11px", color: D.subtle }}>{h.desc}</span>
+                {profile.handicap === h.value && <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: D.green, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px", marginTop: "4px" }}>✓</div>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* STEP 3 — Age range */}
+        {current.id === "age" && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+            {[
+              { v: "under25", label: "Under 25", icon: "🔥" },
+              { v: "25-40",   label: "25 – 40",  icon: "💪" },
+              { v: "40-55",   label: "40 – 55",  icon: "⛳" },
+              { v: "55plus",  label: "55+",       icon: "🏆" },
+            ].map(a => (
+              <button key={a.v} onClick={() => setAgeRange(a.v)}
+                style={{ background: ageRange === a.v ? D.greenDim : D.surface, border: `2px solid ${ageRange === a.v ? D.green : D.border}`, borderRadius: "14px", padding: "16px 10px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", transition: "all 0.2s" }}>
+                <span style={{ fontSize: "28px" }}>{a.icon}</span>
+                <span style={{ fontFamily: "'Syne', sans-serif", fontWeight: "700", fontSize: "14px", color: ageRange === a.v ? D.greenLt : D.text }}>{a.label}</span>
+                {ageRange === a.v && <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: D.green, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px" }}>✓</div>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* STEP 4 — Home course */}
+        {current.id === "course" && (
+          <div>
+            <input
+              placeholder="e.g. Pebble Beach, Augusta National, my local muni..."
+              value={homeCourse}
+              onChange={e => setHomeCourse(e.target.value)}
+              style={{ ...S.input, marginBottom: "8px" }}
+            />
+            <div style={{ fontSize: "12px", color: D.muted, lineHeight: 1.5 }}>
+              Obi will know your home course layout, typical conditions, and key holes to watch out for.
+            </div>
+          </div>
+        )}
+
+        {/* STEP 5 — Persona */}
+        {current.id === "persona" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {[
+              { id: "pro",       icon: "🏆", label: "Tour Pro",   desc: "Calm, clinical, Tour-level precision. Speaks with quiet authority." },
+              { id: "coach",     icon: "🎯", label: "The Coach",  desc: "Encouraging, warm, confidence-building. Keeps you positive." },
+              { id: "oldschool", icon: "🚬", label: "Old School", desc: "Gritty, direct, zero fluff. Old-school caddie energy." },
+            ].map(p => (
+              <button key={p.id} onClick={() => setProfile(prev => ({ ...prev, persona: p.id }))}
+                style={{ display: "flex", alignItems: "center", gap: "14px", width: "100%", background: profile.persona === p.id ? D.greenDim : D.surface, border: `2px solid ${profile.persona === p.id ? D.green : D.border}`, borderRadius: "14px", padding: "16px", cursor: "pointer", textAlign: "left", transition: "all 0.2s" }}>
+                <span style={{ fontSize: "28px" }}>{p.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: "700", color: D.white, fontSize: "16px" }}>{p.label}</div>
+                  <div style={{ fontSize: "12px", color: D.muted, marginTop: "3px", lineHeight: 1.4 }}>{p.desc}</div>
+                </div>
+                {profile.persona === p.id && <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: D.green, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "13px", flexShrink: 0 }}>✓</div>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Navigation */}
+      <button onClick={next} disabled={!canNext()} style={{ ...S.btnPrimary, opacity: canNext() ? 1 : 0.4, marginBottom: "10px" }}>
+        {step === steps.length - 1 ? "Start Playing Golf 🏌️" : "Next →"}
+      </button>
+      {step > 0 && current.id !== "name" && (
+        <button onClick={skip} style={{ ...S.btnGhost }}>Skip for now</button>
+      )}
+      {step > 0 && (
+        <button onClick={() => setStep(s => s - 1)} style={{ ...S.btnGhost, marginTop: "2px" }}>← Back</button>
+      )}
+    </div>
+  );
+}
+
 export default function ObiGolf(){
   const [darkMode,setDarkMode]=useState(()=>localStorage.getItem("obi_dark")!=="false");
   const D = darkMode ? DARK : LIGHT;
@@ -222,7 +405,8 @@ export default function ObiGolf(){
   const [uploadingAvatar,setUploadingAvatar]=useState(false);
   const [showAvatarZoom,setShowAvatarZoom]=useState(null);
   const avatarInputRef=useRef(null);
-  const [profile,setProfile]=useState({handicap:"mid",hcp:13,persona:"pro",missTend:"straight",bag:DEFAULT_BAG});
+  const [profile,setProfile]=useState({handicap:"mid",hcp:13,persona:"pro",missTend:"straight",bag:DEFAULT_BAG,dexterity:"right",ageRange:"",homeCourse:""});
+  const [onboardStep,setOnboardStep]=useState(0);
   const [editingBag,setEditingBag]=useState(false);
   const [course,setCourse]=useState("");
   const [courseInput,setCourseInput]=useState("");
@@ -284,14 +468,16 @@ export default function ObiGolf(){
     if(data){
       setUserProfile(data);
       if(data.avatar_url) setAvatarUrl(data.avatar_url);
-      setProfile(p=>({...p,handicap:data.handicap_category||"mid",hcp:data.handicap_index||13,persona:data.caddie_persona||"pro",missTend:data.miss_tendency||"straight",bag:data.bag_distances||DEFAULT_BAG}));
+      setProfile(p=>({...p,handicap:data.handicap_category||"mid",hcp:data.handicap_index||13,persona:data.caddie_persona||"pro",missTend:data.miss_tendency||"straight",bag:data.bag_distances||DEFAULT_BAG,dexterity:data.dexterity||"right",ageRange:data.age_range||"",homeCourse:data.home_course||""}));
       loadSocial(uid);loadRounds(uid);loadSwings(uid);
     } else setAuthScreen("onboard");
   }
 
   async function saveProfile(){
     if(!user)return;
-    await supabase.from("profiles").upsert({id:user.id,email:user.email,full_name:authName||userProfile?.full_name,handicap_category:profile.handicap,handicap_index:profile.hcp,caddie_persona:profile.persona,miss_tendency:profile.missTend,bag_distances:profile.bag,avatar_url:avatarUrl||userProfile?.avatar_url||null,updated_at:new Date().toISOString()});
+    const nameInput = document.getElementById("profile-name-input");
+    const newName = nameInput?.value?.trim() || authName || userProfile?.full_name || "";
+    await supabase.from("profiles").upsert({id:user.id,email:user.email,full_name:newName,handicap_category:profile.handicap,handicap_index:profile.hcp,caddie_persona:profile.persona,miss_tendency:profile.missTend,bag_distances:profile.bag,avatar_url:avatarUrl||userProfile?.avatar_url||null,dexterity:profile.dexterity||"right",age_range:profile.ageRange||"",home_course:profile.homeCourse||"",updated_at:new Date().toISOString()});
     loadProfile(user.id);setTab("caddie");
   }
 
@@ -356,7 +542,8 @@ export default function ObiGolf(){
     const wx=weather?`Wind ${weather.wind}mph from ${windDir(weather.windDeg)}. Temp ${weather.temp}F.`:"Weather unavailable.";
     const py=yardage?playingYards(parseInt(yardage),elevation,weather?.wind||0,weather?.windDeg||0):null;
     const name=firstName(userProfile?.full_name);
-    return `${pm[profile.persona]}\nPLAYER: Name is ${name}. Always address them by name. HCP ${profile.hcp} (${profile.handicap}). Miss: ${profile.missTend}.\nBAG: ${bagStr}\nHOLE: ${course||"unknown"}, Hole ${hole}, Par ${holePars[hole-1]}\nYARDAGE: ${yardage?`${yardage}y actual, ~${py}y playing`:"not set"}. Lie: ${lie}. Elevation: ${elevation}ft.\nCONDITIONS: ${wx}\nRECENT: ${shotHistory.slice(-3).map(s=>`H${s.hole}: ${s.outcome}`).join(". ")||"none"}\nRULES: Only clubs from bag. Be specific. No markdown. No bullet points. Always finish sentences. ALWAYS use the player's first name ${name} naturally in your responses.`;
+    const handed=profile.dexterity==="left"?"left-handed":"right-handed";
+    return `${pm[profile.persona]}\nPLAYER: Name is ${name}. ALWAYS address them by first name. ${handed} golfer. HCP ${profile.hcp} (${profile.handicap}). Miss: ${profile.missTend}. Home course: ${profile.homeCourse||"unknown"}.\nBAG: ${bagStr}\nHOLE: ${course||"unknown"}, Hole ${hole}, Par ${holePars[hole-1]}\nYARDAGE: ${yardage?`${yardage}y actual, ~${py}y playing`:"not set"}. Lie: ${lie}. Elevation: ${elevation}ft.\nCONDITIONS: ${wx}\nRECENT: ${shotHistory.slice(-3).map(s=>`H${s.hole}: ${s.outcome}`).join(". ")||"none"}\nRULES: Only clubs from bag. Be specific. No markdown. No bullet points. Always finish sentences. ALWAYS use ${name}'s first name naturally. Tailor all advice to a ${handed} player.`;
   };
 
   const sendMessage=async(override)=>{
@@ -416,7 +603,8 @@ export default function ObiGolf(){
     try{
       if(swingFile.type.startsWith("video/")){
         // Send full video directly to Google File API — full motion analysis
-        const analysis=await analyzeSwingVideo(swingFile,swingNotes,profile.bag,profile.hcp);
+        const notesWithGoal=profile.practiceGoal?`GOAL:${profile.practiceGoal}\n${swingNotes}`:swingNotes;
+        const analysis=await analyzeSwingVideo(swingFile,notesWithGoal,profile.bag,profile.hcp);
         setSwingAnalysis(analysis);
         if(user){await supabase.from("swing_analyses").insert({user_id:user.id,notes:swingNotes,analysis,analyzed_at:new Date().toISOString()});loadSwings(user.id);}
       } else {
@@ -425,7 +613,8 @@ export default function ObiGolf(){
         reader.onload=async(e)=>{
           try{
             const b64=e.target.result.split(",")[1];
-            const analysis=await analyzeSwing(b64,swingFile.type,swingNotes,profile.bag,profile.hcp);
+            const notesWithGoal=profile.practiceGoal?`GOAL:${profile.practiceGoal}\n${swingNotes}`:swingNotes;
+            const analysis=await analyzeSwing(b64,swingFile.type,notesWithGoal,profile.bag,profile.hcp);
             setSwingAnalysis(analysis);
             if(user){await supabase.from("swing_analyses").insert({user_id:user.id,notes:swingNotes,analysis,analyzed_at:new Date().toISOString()});loadSwings(user.id);}
           }catch(err){setSwingAnalysis("Analysis failed: "+err.message);}
@@ -476,31 +665,11 @@ export default function ObiGolf(){
         </div>
 
         {authScreen==="onboard"&&(
-          <div style={{animation:"fadeUp 0.4s both"}}>
-            <div style={{...S.card,marginBottom:"20px"}}>
-              <div style={{fontFamily:"'Syne',sans-serif",fontSize:"20px",fontWeight:"700",color:D.white,marginBottom:"4px"}}>Welcome to Obi Golf</div>
-              <div style={{color:D.muted,fontSize:"14px",marginBottom:"20px"}}>Set up your profile so Obi can caddie for you</div>
-              <input placeholder="Your name" value={authName} onChange={e=>setAuthName(e.target.value)} style={{...S.input,marginBottom:"14px"}}/>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:"10px"}}>Handicap Level</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"20px"}}>
-                {HANDICAPS.map(h=>(
-                  <button key={h.value} onClick={()=>setProfile(p=>({...p,handicap:h.value,hcp:h.hcp}))} style={{background:profile.handicap===h.value?D.greenDim:D.surface,border:`1.5px solid ${profile.handicap===h.value?D.green:D.border}`,borderRadius:"12px",padding:"14px 10px",cursor:"pointer"}}>
-                    <div style={{fontFamily:"'Syne',sans-serif",fontWeight:"700",color:profile.handicap===h.value?D.greenLt:D.text,fontSize:"15px"}}>{h.label}</div>
-                    <div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>HCP {h.sub}</div>
-                  </button>
-                ))}
-              </div>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:"10px"}}>Your Caddie Style</div>
-              {PERSONAS.map(p=>(
-                <button key={p.id} onClick={()=>setProfile(prev=>({...prev,persona:p.id}))} style={{display:"flex",alignItems:"center",gap:"14px",width:"100%",background:profile.persona===p.id?D.greenDim:D.surface,border:`1.5px solid ${profile.persona===p.id?D.green:D.border}`,borderRadius:"12px",padding:"14px",marginBottom:"8px",cursor:"pointer",textAlign:"left"}}>
-                  <span style={{fontSize:"24px"}}>{p.icon}</span>
-                  <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{p.label}</div><div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{p.desc}</div></div>
-                  {profile.persona===p.id&&<div style={{width:"20px",height:"20px",borderRadius:"50%",background:D.green,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"12px",color:"#fff"}}>✓</div>}
-                </button>
-              ))}
-            </div>
-            <button onClick={saveProfile} style={S.btnPrimary}>{"Let's Play Golf 🏌️"}</button>
-          </div>
+          <OnboardingFlow
+            D={D} S={S} profile={profile} setProfile={setProfile}
+            authName={authName} setAuthName={setAuthName}
+            onComplete={saveProfile}
+          />
         )}
 
         {authScreen==="login"&&!user&&(
@@ -795,41 +964,140 @@ export default function ObiGolf(){
         {tab==="practice"&&(
           <div style={{padding:"20px 16px"}}>
             <div style={{fontFamily:"'Syne',sans-serif",fontSize:"26px",fontWeight:"800",color:D.white,marginBottom:"4px"}}>Swing Lab</div>
-            <div style={{color:D.muted,fontSize:"14px",marginBottom:"20px",lineHeight:1.6}}>Upload a swing video and Obi analyzes it like a PGA teaching pro — finding your primary fault and giving you a specific drill to fix it.</div>
-            <div onClick={()=>fileRef.current?.click()} style={{background:swingFile?D.greenDim:D.surface,border:`2px dashed ${swingFile?D.green:D.border}`,borderRadius:"18px",padding:"28px",textAlign:"center",cursor:"pointer",marginBottom:"14px"}}>
+            <div style={{color:D.muted,fontSize:"14px",marginBottom:"20px",lineHeight:1.6}}>
+              Upload a swing video and Obi analyzes it like a PGA teaching pro.
+            </div>
+
+            {/* GOAL SELECTOR */}
+            <div style={{marginBottom:"16px"}}>
+              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>What are we working on today?</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"10px"}}>
+                {[
+                  {v:"full_swing",    label:"Full Swing",       icon:"🏌️", desc:"Overall swing mechanics"},
+                  {v:"driver",        label:"Driver",           icon:"💥", desc:"Distance & accuracy off tee"},
+                  {v:"irons",         label:"Irons",            icon:"🎯", desc:"Approach shot consistency"},
+                  {v:"short_game",    label:"Short Game",       icon:"🌿", desc:"Chips, pitches & flops"},
+                  {v:"bunker",        label:"Bunker Play",      icon:"🏖", desc:"Sand shots & escapes"},
+                  {v:"putting",       label:"Putting",          icon:"⛳", desc:"Stroke & green reading"},
+                  {v:"tempo",         label:"Tempo & Rhythm",   icon:"🎵", desc:"Timing & sequencing"},
+                  {v:"custom",        label:"Something Else",   icon:"💬", desc:"Describe it below"},
+                ].map(g=>(
+                  <button key={g.v}
+                    onClick={()=>setProfile(p=>({...p,practiceGoal:g.v}))}
+                    style={{
+                      background:profile.practiceGoal===g.v?D.greenDim:D.surface,
+                      border:`1.5px solid ${profile.practiceGoal===g.v?D.green:D.border}`,
+                      borderRadius:"12px",padding:"12px 10px",cursor:"pointer",
+                      display:"flex",flexDirection:"column",alignItems:"flex-start",gap:"4px",
+                      textAlign:"left",transition:"all 0.15s",
+                    }}>
+                    <div style={{display:"flex",alignItems:"center",gap:"6px",width:"100%"}}>
+                      <span style={{fontSize:"18px"}}>{g.icon}</span>
+                      <span style={{fontFamily:"'Syne',sans-serif",fontWeight:"700",fontSize:"13px",color:profile.practiceGoal===g.v?D.greenLt:D.text,flex:1}}>{g.label}</span>
+                      {profile.practiceGoal===g.v&&<div style={{width:"16px",height:"16px",borderRadius:"50%",background:D.green,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:"10px",flexShrink:0}}>✓</div>}
+                    </div>
+                    <span style={{fontSize:"11px",color:D.muted,paddingLeft:"24px"}}>{g.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* SPECIFIC NOTES — always visible, required if "custom" */}
+            <div style={{marginBottom:"16px"}}>
+              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"8px"}}>
+                {profile.practiceGoal==="custom" ? "Describe what you want to work on *" : "Any specific details? (optional)"}
+              </div>
+              <textarea
+                placeholder={
+                  profile.practiceGoal==="driver"     ? "e.g. I keep slicing it left, losing 30 yards off the tee..." :
+                  profile.practiceGoal==="irons"      ? "e.g. I chunk my 7-iron, struggling with ball-first contact..." :
+                  profile.practiceGoal==="short_game" ? "e.g. My chips run past the hole, can't control distance..." :
+                  profile.practiceGoal==="putting"    ? "e.g. I push putts right, my stroke feels inconsistent..." :
+                  profile.practiceGoal==="bunker"     ? "e.g. I thin it across the green, scared of the sand..." :
+                  profile.practiceGoal==="tempo"      ? "e.g. I rush my downswing and lose all my power..." :
+                  profile.practiceGoal==="custom"     ? "Describe exactly what you want Obi to focus on..." :
+                  "e.g. I've been struggling with my takeaway, pull the club inside..."
+                }
+                value={swingNotes}
+                onChange={e=>setSwingNotes(e.target.value)}
+                rows={3}
+                style={{...S.input,resize:"none",lineHeight:1.6,fontSize:"14px"}}
+              />
+            </div>
+
+            {/* VIDEO UPLOAD */}
+            <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"8px"}}>Upload Your Swing</div>
+            <div onClick={()=>fileRef.current?.click()} style={{background:swingFile?D.greenDim:D.surface,border:`2px dashed ${swingFile?D.green:D.border}`,borderRadius:"18px",padding:"24px",textAlign:"center",cursor:"pointer",marginBottom:"14px",transition:"all 0.2s"}}>
               <input ref={fileRef} type="file" accept="video/*,image/*" onChange={e=>setSwingFile(e.target.files[0])} style={{display:"none"}}/>
               {swingFile?(
-                <div><div style={{fontSize:"40px",marginBottom:"8px"}}>🎬</div><div style={{color:D.green,fontWeight:"600",fontSize:"15px"}}>{swingFile.name}</div><div style={{color:D.muted,fontSize:"12px",marginTop:"4px"}}>Tap to change</div></div>
+                <div>
+                  <div style={{fontSize:"36px",marginBottom:"8px"}}>🎬</div>
+                  <div style={{color:D.green,fontWeight:"600",fontSize:"15px"}}>{swingFile.name}</div>
+                  <div style={{color:D.muted,fontSize:"12px",marginTop:"4px"}}>Tap to change</div>
+                </div>
               ):(
-                <div><div style={{fontSize:"48px",marginBottom:"10px"}}>📹</div><div style={{color:D.white,fontWeight:"600",fontSize:"16px"}}>Upload Swing Video</div><div style={{color:D.muted,fontSize:"13px",marginTop:"6px",lineHeight:1.5}}>Face-on or down-the-line · Video or photo</div></div>
+                <div>
+                  <div style={{fontSize:"44px",marginBottom:"10px"}}>📹</div>
+                  <div style={{color:D.white,fontWeight:"600",fontSize:"16px"}}>Upload Swing Video</div>
+                  <div style={{color:D.muted,fontSize:"13px",marginTop:"6px",lineHeight:1.5}}>Face-on or down-the-line · Video or photo · Under 30 seconds</div>
+                </div>
               )}
             </div>
-            <input placeholder="Any notes? e.g. 'struggling with slice' or 'driver swing'" value={swingNotes} onChange={e=>setSwingNotes(e.target.value)} style={{...S.input,marginBottom:"14px"}}/>
-            <button onClick={runSwingAnalysis} disabled={!swingFile||swingLoading} style={{...S.btnPrimary,opacity:swingFile&&!swingLoading?1:0.4,marginBottom:"20px"}}>{swingLoading?"🔍 Analyzing your swing...":"🎯 Analyze My Swing"}</button>
+
+            <button
+              onClick={runSwingAnalysis}
+              disabled={!swingFile||swingLoading||(profile.practiceGoal==="custom"&&!swingNotes.trim())}
+              style={{...S.btnPrimary,opacity:(swingFile&&!swingLoading&&(profile.practiceGoal!=="custom"||swingNotes.trim()))?1:0.4,marginBottom:"20px"}}>
+              {swingLoading?"🔍 Obi is analyzing...":"🎯 Analyze My Swing"}
+            </button>
+
             {swingLoading&&(
-              <div style={{...S.card,textAlign:"center",padding:"28px"}}>
-                <div style={{display:"flex",gap:"6px",justifyContent:"center",marginBottom:"14px"}}>{[0,1,2].map(i=><div key={i} style={{width:"10px",height:"10px",borderRadius:"50%",background:D.green,animation:`bounce 1s infinite ${i*0.15}s`}}/>)}</div>
-                <div style={{color:D.text,fontWeight:"600",marginBottom:"4px"}}>Obi is watching your swing</div>
-                <div style={{color:D.muted,fontSize:"13px"}}>This takes 15-20 seconds</div>
+              <div style={{...S.card,textAlign:"center",padding:"28px",marginBottom:"16px"}}>
+                <div style={{display:"flex",gap:"6px",justifyContent:"center",marginBottom:"14px"}}>
+                  {[0,1,2].map(i=><div key={i} style={{width:"10px",height:"10px",borderRadius:"50%",background:D.green,animation:`bounce 1s infinite ${i*0.15}s`}}/>)}
+                </div>
+                <div style={{color:D.text,fontWeight:"600",fontSize:"15px",marginBottom:"4px"}}>Obi is watching your swing</div>
+                <div style={{color:D.muted,fontSize:"13px"}}>
+                  {profile.practiceGoal==="driver"?"Focusing on your driver mechanics...":
+                   profile.practiceGoal==="putting"?"Analyzing your putting stroke...":
+                   profile.practiceGoal==="short_game"?"Studying your short game technique...":
+                   "This takes 15-20 seconds..."}
+                </div>
               </div>
             )}
+
             {swingAnalysis&&!swingLoading&&(
               <div style={{...S.card,marginBottom:"20px"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"14px"}}><Ball size={32}/><div style={{fontFamily:"'Syne',sans-serif",fontSize:"17px",fontWeight:"700",color:D.white}}>{"Obi's Analysis"}</div></div>
+                <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"14px"}}>
+                  <Ball size={32}/>
+                  <div>
+                    <div style={{fontFamily:"'Syne',sans-serif",fontSize:"17px",fontWeight:"700",color:D.white}}>{"Obi's Analysis"}</div>
+                    {profile.practiceGoal&&<div style={{fontSize:"12px",color:D.green,marginTop:"2px"}}>
+                      {{full_swing:"Full Swing",driver:"Driver",irons:"Irons",short_game:"Short Game",bunker:"Bunker Play",putting:"Putting",tempo:"Tempo & Rhythm",custom:"Custom Focus"}[profile.practiceGoal]||""}
+                    </div>}
+                  </div>
+                </div>
                 <div style={{fontSize:"14px",color:D.text,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{swingAnalysis}</div>
-                <button onClick={()=>speak(swingAnalysis)} style={{marginTop:"12px",background:"none",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",padding:0,fontFamily:"'DM Sans',sans-serif"}}>🔊 Read aloud</button>
+                <div style={{display:"flex",gap:"8px",marginTop:"14px"}}>
+                  <button onClick={()=>speak(swingAnalysis)} style={{...S.pill}}>🔊 Read aloud</button>
+                  <button onClick={()=>{setSwingAnalysis("");setSwingFile(null);setSwingNotes("");}} style={{...S.pill}}>🔄 New analysis</button>
+                </div>
               </div>
             )}
+
             {swingHistory.length>0&&(
               <div>
                 <div style={{fontFamily:"'Syne',sans-serif",fontSize:"18px",fontWeight:"700",color:D.white,margin:"0 0 12px"}}>Previous Analyses</div>
                 {swingHistory.map((s,i)=>(
                   <div key={i} style={{...S.card,marginBottom:"10px",cursor:"pointer"}} onClick={()=>setSelectedSwing(selectedSwing?.id===s.id?null:s)}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"}}>
                       <div style={{color:D.muted,fontSize:"13px"}}>{fmtDate(s.analyzed_at)}</div>
-                      {s.notes&&<div style={{fontSize:"12px",color:D.subtle,fontStyle:"italic",maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.notes}</div>}
+                      {s.notes&&<div style={{fontSize:"12px",color:D.green,fontStyle:"italic",maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.notes}</div>}
                     </div>
-                    {selectedSwing?.id===s.id?<div style={{fontSize:"13px",color:D.text,lineHeight:1.6,marginTop:"10px",whiteSpace:"pre-wrap"}}>{s.analysis}</div>:<div style={{fontSize:"13px",color:D.muted,marginTop:"6px"}}>{s.analysis.slice(0,100)}… <span style={{color:D.green}}>Read more</span></div>}
+                    {selectedSwing?.id===s.id
+                      ?<div style={{fontSize:"13px",color:D.text,lineHeight:1.6,marginTop:"10px",whiteSpace:"pre-wrap"}}>{s.analysis}</div>
+                      :<div style={{fontSize:"13px",color:D.muted,marginTop:"4px"}}>{s.analysis.slice(0,120)}… <span style={{color:D.green}}>Read more</span></div>
+                    }
                   </div>
                 ))}
               </div>
@@ -983,6 +1251,17 @@ export default function ObiGolf(){
             </div>
             <div style={{fontFamily:"'Syne',sans-serif",fontSize:"18px",fontWeight:"700",color:D.white,marginBottom:"14px"}}>Settings</div>
 
+            {/* Name */}
+            <div style={{marginBottom:"18px"}}>
+              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Your Name</div>
+              <input
+                placeholder="Enter your full name"
+                defaultValue={userProfile?.full_name||""}
+                id="profile-name-input"
+                style={{...S.input}}
+              />
+            </div>
+
             {/* Dark / Light mode toggle */}
             <div style={{marginBottom:"18px"}}>
               <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Display</div>
@@ -1027,6 +1306,26 @@ export default function ObiGolf(){
                 </div>
               ))}
             </div>
+            {/* Dexterity */}
+            <div style={{marginBottom:"18px"}}>
+              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Dexterity</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
+                {[{v:"right",label:"Right Handed",icon:"🏌️"},{v:"left",label:"Left Handed",icon:"🏌️‍♂️"}].map(dx=>(
+                  <button key={dx.v} onClick={()=>setProfile(p=>({...p,dexterity:dx.v}))} style={{background:profile.dexterity===dx.v?D.greenDim:D.surface,border:`1.5px solid ${profile.dexterity===dx.v?D.green:D.border}`,borderRadius:"14px",padding:"14px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"6px"}}>
+                    <span style={{fontSize:"24px"}}>{dx.icon}</span>
+                    <span style={{fontFamily:"'Syne',sans-serif",fontWeight:"700",fontSize:"13px",color:profile.dexterity===dx.v?D.greenLt:D.text}}>{dx.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Home Course */}
+            <div style={{marginBottom:"18px"}}>
+              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Home Course</div>
+              <input placeholder="e.g. Pebble Beach, Augusta National..." value={profile.homeCourse||""} onChange={e=>setProfile(p=>({...p,homeCourse:e.target.value}))} style={{...S.input}}/>
+              <div style={{fontSize:"11px",color:D.muted,marginTop:"6px"}}>Obi will use this to give you course-specific tips</div>
+            </div>
+
             <div style={{marginBottom:"18px"}}>
               <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Typical Miss</div>
               <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
