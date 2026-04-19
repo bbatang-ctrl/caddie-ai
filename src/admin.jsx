@@ -52,7 +52,7 @@ function timeAgo(d) {
 
 // ── ADMIN CREDENTIALS (change these!) ────────────────────────────
 const ADMIN_EMAIL = "bbatang@yahoo.com";
-const ADMIN_PASSWORD = "obigolf!";
+const ADMIN_PASSWORD = "obigolfp855!";
 
 // ═════════════════════════════════════════════════════════════════
 export default function AdminPanel() {
