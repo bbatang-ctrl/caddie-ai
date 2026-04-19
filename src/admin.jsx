@@ -51,8 +51,8 @@ function timeAgo(d) {
 }
 
 // ── ADMIN CREDENTIALS (change these!) ────────────────────────────
-const ADMIN_EMAIL = "admin@obigolf.app";
-const ADMIN_PASSWORD = "ObiAdmin2025!";
+const ADMIN_EMAIL = "bbatang@yahoo.com";
+const ADMIN_PASSWORD = "obigolf!";
 
 // ═════════════════════════════════════════════════════════════════
 export default function AdminPanel() {
