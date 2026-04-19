@@ -263,20 +263,56 @@ export default function ObiGolf(){
   async function sendFriendReq(fid){await supabase.from("friendships").insert({user_id:user.id,friend_id:fid,status:"pending"});setSearchRes(prev=>prev.filter(u=>u.id!==fid));}
   async function acceptFriendReq(reqId,requesterId){await supabase.from("friendships").update({status:"accepted"}).eq("id",reqId);await supabase.from("friendships").insert({user_id:user.id,friend_id:requesterId,status:"accepted"});loadSocial(user.id);}
 
+  // Extract a frame from video at impact position
+  function extractVideoFrame(videoFile){
+    return new Promise((resolve,reject)=>{
+      const video=document.createElement("video");
+      const canvas=document.createElement("canvas");
+      const url=URL.createObjectURL(videoFile);
+      video.src=url; video.crossOrigin="anonymous";
+      video.muted=true; video.playsInline=true;
+      video.onloadedmetadata=()=>{ video.currentTime=video.duration*0.5; };
+      video.onseeked=()=>{
+        canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+        canvas.getContext("2d").drawImage(video,0,0);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((blob)=>{
+          resolve(new File([blob],"swing_frame.jpg",{type:"image/jpeg"}));
+        },"image/jpeg",0.85);
+      };
+      video.onerror=()=>reject(new Error("Could not read video file"));
+      video.load();
+    });
+  }
+
   async function runSwingAnalysis(){
     if(!swingFile)return;
     setSwingLoading(true);setSwingAnalysis("");
-    const reader=new FileReader();
-    reader.onload=async(e)=>{
-      try{
-        const b64=e.target.result.split(",")[1];
-        const analysis=await analyzeSwing(b64,swingFile.type,swingNotes,profile.bag,profile.hcp);
-        setSwingAnalysis(analysis);
-        if(user){await supabase.from("swing_analyses").insert({user_id:user.id,notes:swingNotes,analysis,analyzed_at:new Date().toISOString()});loadSwings(user.id);}
-      }catch(err){setSwingAnalysis("Analysis failed: "+err.message);}
+    try{
+      // Extract frame from video to send as image
+      let fileToSend=swingFile;
+      let mimeType=swingFile.type;
+      if(swingFile.type.startsWith("video/")){
+        setSwingAnalysis("Extracting best frame from video...");
+        fileToSend=await extractVideoFrame(swingFile);
+        mimeType="image/jpeg";
+        setSwingAnalysis("");
+      }
+      const reader=new FileReader();
+      reader.onload=async(e)=>{
+        try{
+          const b64=e.target.result.split(",")[1];
+          const analysis=await analyzeSwing(b64,mimeType,swingNotes,profile.bag,profile.hcp);
+          setSwingAnalysis(analysis);
+          if(user){await supabase.from("swing_analyses").insert({user_id:user.id,notes:swingNotes,analysis,analyzed_at:new Date().toISOString()});loadSwings(user.id);}
+        }catch(err){setSwingAnalysis("Analysis failed: "+err.message);}
+        setSwingLoading(false);
+      };
+      reader.readAsDataURL(fileToSend);
+    }catch(err){
+      setSwingAnalysis("Analysis failed: "+err.message);
       setSwingLoading(false);
-    };
-    reader.readAsDataURL(swingFile);
+    }
   }
 
   function shareRound(round){
