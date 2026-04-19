@@ -218,13 +218,18 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
   const progress = ((step) / steps.length) * 100;
 
   const next = () => {
+    // Save data at each step
     if (step === 0) setAuthName(localName);
+    if (step === 3) setProfile(p => ({ ...p, ageRange }));
     if (step === 4) setProfile(p => ({ ...p, homeCourse }));
-    if (step < steps.length - 1) setStep(s => s + 1);
-    else {
+
+    if (step < steps.length - 1) {
+      setStep(s => s + 1);
+    } else {
+      // Final step — save everything and complete
       setAuthName(localName);
       setProfile(p => ({ ...p, homeCourse, ageRange }));
-      onComplete();
+      setTimeout(() => onComplete(), 50);
     }
   };
 
@@ -365,7 +370,7 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
 
       {/* Navigation */}
       <button onClick={next} disabled={!canNext()} style={{ ...S.btnPrimary, opacity: canNext() ? 1 : 0.4, marginBottom: "10px" }}>
-        {step === steps.length - 1 ? "Start Playing Golf 🏌️" : "Next →"}
+        {step === steps.length - 1 ? "Let's Play Golf 🏌️" : step === steps.length - 2 ? "Almost there →" : "Next →"}
       </button>
       {step > 0 && current.id !== "name" && (
         <button onClick={skip} style={{ ...S.btnGhost }}>Skip for now</button>
