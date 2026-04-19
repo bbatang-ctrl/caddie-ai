@@ -35,7 +35,7 @@ function Ball({ size=32 }) {
 function Avatar({ name, size=40, highlight=false, photoUrl=null, onClick=null }) {
   const ini = (name||"?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
   return (
-    <div onClick={onClick} style={{ width:size,height:size,borderRadius:"50%",overflow:"hidden",border:`2px solid ${highlight?"#22c55e":"#243524"}`,flexShrink:0,cursor:onClick?"pointer":"default",background:"linear-gradient(135deg,#14532d,#141f14)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+    <div onClick={onClick} style={{ width:size,height:size,borderRadius:"50%",overflow:"hidden",border:`2px solid ${highlight?"#22c55e":"#243524"}`,flexShrink:0,cursor:onClick?"pointer":"default",background:"linear-gradient(135deg,#14532d,#141f14)",display:"flex",alignItems:"center",justifyContent:"center" }}>
       {photoUrl
         ? <img src={photoUrl} alt={name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
         : <span style={{fontFamily:"'Syne',sans-serif",fontSize:size*0.36,color:"#4ade80",fontWeight:"700"}}>{ini}</span>
