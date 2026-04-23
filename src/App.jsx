@@ -2210,6 +2210,6 @@ function ObiGolfApp(){
       </div>
     </div>
   );
-}
+}}
 
 export default function ObiGolf(){ return <ErrorBoundary><ObiGolfApp/></ErrorBoundary>; }
