@@ -7,7 +7,7 @@ fontLink.rel  = "stylesheet";
 fontLink.href = "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap";
 if(!document.querySelector('link[href*="Space+Grotesk"]')) document.head.appendChild(fontLink);
 
-// ── Design System ─────────────────────────────────────────────────
+// -- Design System ------------------------------------------------─
 // Accent: clean golf-flag green used sparingly as an action color only
 // Base: near-black / near-white with warm neutral cards
 const DARK_THEME = {
@@ -17,7 +17,7 @@ const DARK_THEME = {
   card:     "#1e1e27",      // cards
   cardHov:  "#232330",      // card hover
   border:   "#2a2a38",      // subtle borders
-  accent:   "#34d399",      // emerald — used SPARINGLY for CTAs only
+  accent:   "#34d399",      // emerald - used SPARINGLY for CTAs only
   accentDim:"#064e3b",      // accent background tint
   gold:     "#f59e0b",      // scores, highlights
   goldDim:  "#451a03",      // gold tint bg
@@ -242,7 +242,7 @@ const CSS=`
 `;
 
 
-// ── Shot Shape Diagram Component ─────────────────────────────────
+// -- Shot Shape Diagram Component --------------------------------─
 function ShotShapeDiagram({ result, club, dexterity, T }) {
   const [progress, setProgress] = useState(0);
   T = T || DARK_THEME;
@@ -288,7 +288,7 @@ function ShotShapeDiagram({ result, club, dexterity, T }) {
   const contactColor = contact==="flush" ? "#34d399"
     : (contact.includes("thin")||contact.includes("fat")) ? "#f87171" : "#f59e0b";
 
-  // ── Overhead view (top-down) ──────────────────────────
+  // -- Overhead view (top-down) --------------------------
   const OW=320, OH=200;
   const oSx=OW*0.5, oSy=OH*0.88;   // tee at bottom-center
   const oEx=OW*0.5 + OW*cfg.curve*0.55, oEy=OH*0.08;  // carry point at top
@@ -309,7 +309,7 @@ function ShotShapeDiagram({ result, club, dexterity, T }) {
   const oBx=(1-ot)*(1-ot)*oSx+2*(1-ot)*ot*oMx+ot*ot*oEx;
   const oBy=(1-ot)*(1-ot)*oSy+2*(1-ot)*ot*oMy+ot*ot*oEy;
 
-  // ── Side view (height profile) ────────────────────────
+  // -- Side view (height profile) ------------------------
   const SW=320, SH=120;
   const sSx=30, sSy=SH*0.88;
   const sEx=SW-20, sEy=SH*0.88;
@@ -347,7 +347,7 @@ function ShotShapeDiagram({ result, club, dexterity, T }) {
         </div>
       </div>
 
-      {/* ── TOP DOWN VIEW ── */}
+      {/* -- TOP DOWN VIEW -- */}
       <div style={{padding:"10px 16px 0",borderBottom:`1px solid ${T.border}40`}}>
         <div style={{fontSize:"9px",color:T.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"4px"}}>TOP-DOWN SHAPE</div>
         <svg width="100%" viewBox={`0 0 ${OW} ${OH}`} style={{display:"block"}}>
@@ -414,9 +414,9 @@ function ShotShapeDiagram({ result, club, dexterity, T }) {
         </svg>
       </div>
 
-      {/* ── SIDE PROFILE VIEW ── */}
+      {/* -- SIDE PROFILE VIEW -- */}
       <div style={{padding:"10px 16px 6px",borderBottom:`1px solid ${T.border}40`}}>
-        <div style={{fontSize:"9px",color:T.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"4px"}}>SIDE PROFILE — HEIGHT</div>
+        <div style={{fontSize:"9px",color:T.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"4px"}}>SIDE PROFILE - HEIGHT</div>
         <svg width="100%" viewBox={`0 0 ${SW} ${SH}`} style={{display:"block"}}>
           <defs>
             <linearGradient id="heightGrad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -471,7 +471,7 @@ function ShotShapeDiagram({ result, club, dexterity, T }) {
         </svg>
       </div>
 
-      {/* ── Stats grid ── */}
+      {/* -- Stats grid -- */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1px",background:T.border}}>
         {[
           ["Carry",   `${carry}y`,      cfg.color],
@@ -488,7 +488,7 @@ function ShotShapeDiagram({ result, club, dexterity, T }) {
         ))}
       </div>
 
-      {/* ── Tip ── */}
+      {/* -- Tip -- */}
       {tip&&(
         <div style={{padding:"12px 16px",display:"flex",gap:"10px",alignItems:"flex-start"}}>
           <div style={{fontSize:"16px",flexShrink:0}}>💡</div>
@@ -499,7 +499,7 @@ function ShotShapeDiagram({ result, club, dexterity, T }) {
   );
 }
 
-// ── Error Boundary ───────────────────────────────────────────────
+// -- Error Boundary ----------------------------------------------─
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state={hasError:false,error:null}; }
   static getDerivedStateFromError(e){ return {hasError:true,error:e}; }
@@ -518,7 +518,7 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// ── Multi-Step Onboarding Component ──────────────────────────────
+// -- Multi-Step Onboarding Component ------------------------------
 function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onComplete }) {
   const [step, setStep] = useState(0);
   const [localName, setLocalName] = useState(authName || "");
@@ -529,8 +529,8 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
     { id: "name",      title: "What's your name?",           sub: "Obi will use this every time you play" },
     { id: "dexterity", title: "How do you swing?",           sub: "Obi tailors all advice to your swing side" },
     { id: "handicap",  title: "What's your level?",          sub: "Helps Obi calibrate strategy and advice" },
-    { id: "age",       title: "What's your age range?",      sub: "Optional — helps personalize coaching style" },
-    { id: "course",    title: "Do you have a home course?",  sub: "Optional — Obi will know it well" },
+    { id: "age",       title: "What's your age range?",      sub: "Optional - helps personalize coaching style" },
+    { id: "course",    title: "Do you have a home course?",  sub: "Optional - Obi will know it well" },
     { id: "persona",   title: "Choose your caddie style",    sub: "You can always change this in Settings" },
   ];
 
@@ -546,7 +546,7 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
     if (step < steps.length - 1) {
       setStep(s => s + 1);
     } else {
-      // Final step — save everything and complete
+      // Final step - save everything and complete
       setAuthName(localName);
       setProfile(p => ({ ...p, homeCourse, ageRange }));
       setTimeout(() => onComplete(), 50);
@@ -579,7 +579,7 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
         <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: "22px", fontWeight: "700", color: D.white, marginBottom: "6px" }}>{current.title}</div>
         <div style={{ color: D.muted, fontSize: "14px", marginBottom: "20px" }}>{current.sub}</div>
 
-        {/* STEP 0 — Name */}
+        {/* STEP 0 - Name */}
         {current.id === "name" && (
           <div>
             <input
@@ -593,7 +593,7 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
           </div>
         )}
 
-        {/* STEP 1 — Dexterity */}
+        {/* STEP 1 - Dexterity */}
         {current.id === "dexterity" && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
             {[
@@ -611,7 +611,7 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
           </div>
         )}
 
-        {/* STEP 2 — Handicap */}
+        {/* STEP 2 - Handicap */}
         {current.id === "handicap" && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
             {[
@@ -632,7 +632,7 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
           </div>
         )}
 
-        {/* STEP 3 — Age range */}
+        {/* STEP 3 - Age range */}
         {current.id === "age" && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
             {[
@@ -651,7 +651,7 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
           </div>
         )}
 
-        {/* STEP 4 — Home course */}
+        {/* STEP 4 - Home course */}
         {current.id === "course" && (
           <div>
             <input
@@ -666,7 +666,7 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
           </div>
         )}
 
-        {/* STEP 5 — Persona */}
+        {/* STEP 5 - Persona */}
         {current.id === "persona" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             {[
@@ -696,7 +696,7 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
         <button onClick={skip} style={{ ...S.btnGhost }}>Skip for now</button>
       )}
       {step > 0 && (
-        <button onClick={() => setStep(s => s - 1)} style={{ ...S.btnGhost, marginTop: "2px" }}>← Back</button>
+        <button onClick={() => setStep(s => s - 1)} style={{ ...S.btnGhost, marginTop: "2px" }}>Back</button>
       )}
     </div>
   );
@@ -706,7 +706,7 @@ function ObiGolfApp(){
   const [darkMode,setDarkMode]=useState(()=>{ const saved=localStorage.getItem("obi_dark"); return saved===null?true:saved!=="false"; });
   const D = darkMode ? DARK_THEME : LIGHT_THEME;
 
-  // Shared styles — theme-reactive
+  // Shared styles - theme-reactive
   const S={
     input:{background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"12px",color:D.text,fontSize:"15px",padding:"13px 16px",outline:"none",fontFamily:"'Inter',sans-serif",width:"100%",boxSizing:"border-box",transition:"border-color 0.2s"},
     btnPrimary:{background:D.accent,border:"none",borderRadius:"12px",color:"#fff",fontSize:"15px",padding:"14px",cursor:"pointer",fontWeight:"600",fontFamily:"'Inter',sans-serif",width:"100%",letterSpacing:"-0.2px"},
@@ -850,7 +850,7 @@ function ObiGolfApp(){
       // Compress image before upload
       const compressed = await compressImage(file, 400);
 
-      // Upload to Supabase Storage — file named by user ID
+      // Upload to Supabase Storage - file named by user ID
       const ext = "jpg"; // always save as jpg after compression
       const path = `${user.id}.${ext}`;
 
@@ -977,7 +977,7 @@ function ObiGolfApp(){
       if(["pulled","pushed","chunked","topped","shanked","flushed","rough","bunker"].some(w=>text.toLowerCase().includes(w)))
         setShotHistory(prev=>[...prev,{hole,outcome:text}]);
     }catch(e){
-      const msg=e.message?.includes("quota")||e.message?.includes("429")?"API quota hit — wait a minute.":"Connection issue. Try again.";
+      const msg=e.message?.includes("quota")||e.message?.includes("429")?"API quota hit - wait a minute.":"Connection issue. Try again.";
       setMessages(prev=>[...prev,{role:"assistant",content:msg}]);
     }
     setLoading(false);
@@ -1045,7 +1045,7 @@ function ObiGolfApp(){
       // Most common launch
       const launches=stats[club].launches;
       stats[club].typicalLaunch=Object.keys(launches).sort((a,b)=>launches[b]-launches[a])[0]||"mid";
-      // Consistency — coefficient of variation
+      // Consistency - coefficient of variation
       if(carries.length>1){
         const mean=stats[club].avgCarry;
         const variance=carries.reduce((a,b)=>a+Math.pow(b-mean,2),0)/carries.length;
@@ -1077,7 +1077,7 @@ function ObiGolfApp(){
 
     const promptText = "You are a golf expert analyzing a swing. Player: "+handed+", Club: "+club+" (~"+knownCarry+"y carry).\nRespond ONLY with JSON, nothing else:\n{\"shot_shape\":\"straight\",\"launch_angle\":\"mid\",\"estimated_carry\":"+knownCarry+",\"contact_quality\":\"flush\",\"swing_path\":\"neutral\",\"ball_flight\":\"mid-trajectory\",\"tip\":\"Stay balanced through impact.\"}\nshot_shape: straight,slight draw,draw,strong draw,hook,slight fade,fade,strong fade,slice\nlaunch_angle: low,mid-low,mid,mid-high,high  contact_quality: flush,slightly thin,thin,fat,toe,heel";
 
-    // Extract a frame from video — avoids ALL size/upload issues
+    // Extract a frame from video - avoids ALL size/upload issues
     const frameBlob = await new Promise((resolve, reject) => {
       const video = document.createElement("video");
       const canvas = document.createElement("canvas");
@@ -1111,7 +1111,7 @@ function ObiGolfApp(){
       };
 
       // Fallback timeout
-      setTimeout(() => { cleanup(); reject(new Error("Video read timeout — try a shorter clip")); }, 10000);
+      setTimeout(() => { cleanup(); reject(new Error("Video read timeout - try a shorter clip")); }, 10000);
       video.load();
     });
 
@@ -1123,7 +1123,7 @@ function ObiGolfApp(){
       reader.readAsDataURL(frameBlob);
     });
 
-    // Send frame image through proxy — always small, never hits size limit
+    // Send frame image through proxy - always small, never hits size limit
     const res = await fetch("/api/swing", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1193,7 +1193,7 @@ function ObiGolfApp(){
           loadRangeHistory(user.id);
         } catch(dbErr){
           console.error("DB save failed:", dbErr);
-          // Don't crash — result still shows
+          // Don't crash - result still shows
         }
       }
     } catch(err){
@@ -1213,13 +1213,13 @@ function ObiGolfApp(){
     setSwingLoading(true);setSwingAnalysis("");
     try{
       if(swingFile.type.startsWith("video/")){
-        // Send full video directly to Google File API — full motion analysis
+        // Send full video directly to Google File API - full motion analysis
         const notesWithGoal=profile.practiceGoal?`GOAL:${profile.practiceGoal}\n${swingNotes}`:swingNotes;
         const analysis=await analyzeSwingVideo(swingFile,notesWithGoal,profile.bag,profile.hcp);
         setSwingAnalysis(analysis);
         if(user){await supabase.from("swing_analyses").insert({user_id:user.id,notes:swingNotes,analysis,analyzed_at:new Date().toISOString()});loadSwings(user.id);}
       } else {
-        // Image — use existing inline method
+        // Image - use existing inline method
         const reader=new FileReader();
         reader.onload=async(e)=>{
           try{
@@ -1271,7 +1271,7 @@ function ObiGolfApp(){
         <div style={{textAlign:"center",marginBottom:"36px",animation:"fadeUp 0.5s both"}}>
           <Ball size={56}/>
           <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"36px",fontWeight:"800",color:D.white,letterSpacing:"2px",marginTop:"12px"}}>OBI GOLF</div>
-          <div style={{color:D.muted,fontSize:"14px",marginTop:"4px",letterSpacing:"1px"}}>AI CADDIE · COACH · COMMUNITY</div>
+          <div style={{color:D.muted,fontSize:"14px",marginTop:"4px",letterSpacing:"1px"}}>AI CADDIE - COACH - COMMUNITY</div>
         </div>
 
         {authScreen==="onboard"&&(
@@ -1340,9 +1340,9 @@ function ObiGolfApp(){
           </div>
           <div style={{background:D.surface,borderRadius:"14px",padding:"14px 16px",marginBottom:"20px",borderLeft:`3px solid ${D.accent}`}}>
             <div style={{fontSize:"11px",color:D.accent,letterSpacing:"1.5px",marginBottom:"6px"}}>OBI SAYS</div>
-            <div style={{fontSize:"14px",color:D.text,lineHeight:1.6,fontStyle:"italic"}}>"{diff<0?"Outstanding round. That's the kind of golf that gets talked about in the clubhouse.":diff===0?"Solid par golf. Consistent — let's find those birdies next time.":"Every round is data. Obi will have you better prepared next time."}"</div>
+            <div style={{fontSize:"14px",color:D.text,lineHeight:1.6,fontStyle:"italic"}}>"{diff<0?"Outstanding round. That's the kind of golf that gets talked about in the clubhouse.":diff===0?"Solid par golf. Consistent - let's find those birdies next time.":"Every round is data. Obi will have you better prepared next time."}"</div>
           </div>
-          <div style={{fontSize:"12px",color:D.muted,textAlign:"center",marginBottom:"20px"}}>🏌️ {userProfile?.full_name||"Golfer"} · HCP {userProfile?.handicap_index||"—"} · obigolf.app</div>
+          <div style={{fontSize:"12px",color:D.muted,textAlign:"center",marginBottom:"20px"}}>🏌️ {userProfile?.full_name||"Golfer"} - HCP {userProfile?.handicap_index||"-"} - obigolf.app</div>
           <div style={{display:"flex",gap:"10px"}}>
             <button onClick={()=>shareRound(round)} style={{...S.btnPrimary,flex:1}}>📤 Share</button>
             <button onClick={()=>setShowCard(null)} style={{...S.btnSecondary,flex:1}}>Done</button>
@@ -1391,7 +1391,7 @@ function ObiGolfApp(){
             <div style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"5px 12px",display:"flex",alignItems:"center",gap:"6px",fontSize:"12px",color:D.muted}}>
               <span>{wxIcon(weather.code)}</span>
               <span style={{color:D.text}}>{weather.temp}°</span>
-              <span style={{color:D.border}}>·</span>
+              <span style={{color:D.border}}>-</span>
               <span>{weather.wind}mph {windDir(weather.windDeg)}</span>
             </div>
           )}
@@ -1426,23 +1426,23 @@ function ObiGolfApp(){
         {tab==="caddie"&&(
           <div style={{display:"flex",flexDirection:"column",minHeight:"100%"}}>
 
-            {/* ── Hole setup row — always visible, compact ── */}
+            {/* -- Hole setup row - always visible, compact -- */}
             <div style={{padding:"10px 16px",background:D.dark,borderBottom:`1px solid ${D.border}`,position:"sticky",top:"52px",zIndex:10}}>
               {/* Collapsed row */}
               <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
                 {/* Hole stepper */}
                 <div style={{display:"flex",alignItems:"center",gap:"4px",flexShrink:0}}>
-                  <button onClick={()=>setHole(h=>Math.max(1,h-1))} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"8px",color:D.muted,padding:"4px 9px",cursor:"pointer",fontSize:"15px",lineHeight:1}}>‹</button>
+                  <button onClick={()=>setHole(h=>Math.max(1,h-1))} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"8px",color:D.muted,padding:"4px 9px",cursor:"pointer",fontSize:"15px",lineHeight:1}}>&#8249;</button>
                   <div style={{textAlign:"center",minWidth:"42px"}}>
                     <div style={{fontSize:"8px",color:D.muted,letterSpacing:"1.5px",textTransform:"uppercase"}}>HOLE</div>
                     <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:D.white,lineHeight:1}}>{hole}</div>
                   </div>
-                  <button onClick={()=>setHole(h=>Math.min(18,h+1))} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"8px",color:D.muted,padding:"4px 9px",cursor:"pointer",fontSize:"15px",lineHeight:1}}>›</button>
+                  <button onClick={()=>setHole(h=>Math.min(18,h+1))} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"8px",color:D.muted,padding:"4px 9px",cursor:"pointer",fontSize:"15px",lineHeight:1}}>&#8250;</button>
                 </div>
                 {/* Yardage */}
                 <input type="number" placeholder="Yds" value={yardage} onChange={e=>setYardage(e.target.value)}
                   style={{...S.input,width:"68px",padding:"6px 8px",fontSize:"15px",fontWeight:"600",textAlign:"center",flexShrink:0}}/>
-                {/* Lie — compact */}
+                {/* Lie - compact */}
                 <select value={lie} onChange={e=>setLie(e.target.value)}
                   style={{...S.input,flex:1,padding:"6px 8px",fontSize:"13px",minWidth:0}}>
                   {["tee box","fairway","light rough","deep rough","bunker","hardpan","uphill lie","downhill lie"].map(l=>(
@@ -1455,7 +1455,7 @@ function ObiGolfApp(){
                 </button>
               </div>
 
-              {/* Expanded — par, course, wind */}
+              {/* Expanded - par, course, wind */}
               {holeOpen&&(
                 <div style={{marginTop:"10px",display:"flex",flexDirection:"column",gap:"8px",animation:"fadeUp 0.15s both"}}>
                   <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
@@ -1482,7 +1482,7 @@ function ObiGolfApp(){
                     <div style={{display:"flex",alignItems:"center",gap:"8px",fontSize:"12px",color:D.muted,padding:"4px 0"}}>
                       <span>{weather.icon}</span>
                       <span>{weather.temp}°{weather.unit}</span>
-                      <span>·</span>
+                      <span>-</span>
                       <span>Wind {weather.wind}mph {windDir(weather.windDeg)}</span>
                     </div>
                   )}
@@ -1490,7 +1490,7 @@ function ObiGolfApp(){
               )}
             </div>
 
-            {/* ── Chat messages ── */}
+            {/* -- Chat messages -- */}
             <div style={{flex:1,padding:"12px 16px",display:"flex",flexDirection:"column",gap:"10px"}}>
               {messages.length===0&&(
                 <div style={{textAlign:"center",padding:"32px 16px 16px"}}>
@@ -1541,7 +1541,7 @@ function ObiGolfApp(){
               )}
             </div>
 
-            {/* ── Scorecard strip (compact, only if playing) ── */}
+            {/* -- Scorecard strip (compact, only if playing) -- */}
             {played>0&&(
               <div style={{padding:"8px 16px",background:D.surface,borderTop:`1px solid ${D.border}`,display:"flex",alignItems:"center",gap:"12px",overflowX:"auto"}}>
                 <div style={{flexShrink:0}}>
@@ -1562,7 +1562,7 @@ function ObiGolfApp(){
               </div>
             )}
 
-            {/* ── Input bar ── */}
+            {/* -- Input bar -- */}
             <div style={{padding:"10px 12px",background:D.dark,borderTop:`1px solid ${D.border}`,display:"flex",gap:"8px",alignItems:"center",position:"sticky",bottom:0}}>
               <input
                 value={input} onChange={e=>setInput(e.target.value)}
@@ -1597,7 +1597,7 @@ function ObiGolfApp(){
               ))}
             </div>
 
-            {/* ── SWING LAB ── */}
+            {/* -- SWING LAB -- */}
             {practiceSubTab==="swinglab"&&(
               <div style={{padding:"20px 16px"}}>
                 <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"4px"}}>Swing Lab</div>
@@ -1636,7 +1636,7 @@ function ObiGolfApp(){
                 <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"8px"}}>Upload Your Swing</div>
                 <div onClick={()=>fileRef.current?.click()} style={{background:swingFile?D.accentDim:D.surface,border:`2px dashed ${swingFile?D.accent:D.border}`,borderRadius:"18px",padding:"24px",textAlign:"center",cursor:"pointer",marginBottom:"14px",transition:"all 0.2s"}}>
                   <input ref={fileRef} type="file" accept="video/*,image/*" onChange={e=>setSwingFile(e.target.files[0])} style={{display:"none"}}/>
-                  {swingFile?<div><div style={{fontSize:"36px",marginBottom:"8px"}}>🎬</div><div style={{color:D.accent,fontWeight:"600",fontSize:"15px"}}>{swingFile.name}</div><div style={{color:D.muted,fontSize:"12px",marginTop:"4px"}}>Tap to change</div></div>:<div><div style={{fontSize:"44px",marginBottom:"10px"}}>📹</div><div style={{color:D.white,fontWeight:"600",fontSize:"16px"}}>Upload Swing Video</div><div style={{color:D.muted,fontSize:"13px",marginTop:"6px",lineHeight:1.5}}>Face-on or down-the-line · Video or photo</div></div>}
+                  {swingFile?<div><div style={{fontSize:"36px",marginBottom:"8px"}}>🎬</div><div style={{color:D.accent,fontWeight:"600",fontSize:"15px"}}>{swingFile.name}</div><div style={{color:D.muted,fontSize:"12px",marginTop:"4px"}}>Tap to change</div></div>:<div><div style={{fontSize:"44px",marginBottom:"10px"}}>📹</div><div style={{color:D.white,fontWeight:"600",fontSize:"16px"}}>Upload Swing Video</div><div style={{color:D.muted,fontSize:"13px",marginTop:"6px",lineHeight:1.5}}>Face-on or down-the-line - Video or photo</div></div>}
                 </div>
 
                 <button onClick={runSwingAnalysis} disabled={!swingFile||swingLoading||(profile.practiceGoal==="custom"&&!swingNotes.trim())} style={{...S.btnPrimary,opacity:(swingFile&&!swingLoading)?1:0.4,marginBottom:"20px"}}>
@@ -1647,7 +1647,7 @@ function ObiGolfApp(){
 
                 {swingAnalysis&&!swingLoading&&(
                   <div style={{...S.card,marginBottom:"20px"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"14px"}}><Ball size={32}/><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.white}}>Obi's Analysis</div></div>
+                    <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"14px"}}><Ball size={32}/><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.white}}>Obi&apos;s Analysis</div></div>
                     <div style={{fontSize:"14px",color:D.text,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{swingAnalysis}</div>
                     <div style={{display:"flex",gap:"8px",marginTop:"14px"}}>
                       <button onClick={()=>speak(swingAnalysis)} style={{...S.pill}}>🔊 Read aloud</button>
@@ -1691,7 +1691,7 @@ function ObiGolfApp(){
               </div>
             )}
 
-            {/* ── RANGE MODE ── */}
+            {/* -- RANGE MODE -- */}
             {practiceSubTab==="range"&&(
               <div style={{padding:"20px 16px"}}>
                 <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"4px"}}>Range Mode</div>
@@ -1731,7 +1731,7 @@ function ObiGolfApp(){
                 {clubStats[rangeClub]?.count>=3&&(
                   <div style={{...S.card,marginBottom:"16px",background:`linear-gradient(135deg,${D.accentDim},${D.surface})`}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
-                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"16px",fontWeight:"700",color:D.white}}>{rangeClub} — Your Numbers</div>
+                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"16px",fontWeight:"700",color:D.white}}>{rangeClub} - Your Numbers</div>
                       <button onClick={()=>setShowClubProfile(rangeClub)} style={{...S.pill,color:D.accent,borderColor:D.accent+"44"}}>Full Profile</button>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px",marginBottom:"12px"}}>
@@ -1805,9 +1805,9 @@ function ObiGolfApp(){
                       <div style={{width:"10px",height:"10px",borderRadius:"50%",background:D.red,animation:"pulse 1s infinite"}}/>
                       <span style={{color:D.red,fontWeight:"600",fontSize:"15px",fontFamily:"'Space Grotesk',sans-serif"}}>Recording your shot...</span>
                     </div>
-                    <div style={{color:D.muted,fontSize:"13px",marginBottom:"14px"}}>Swing when ready · auto-stops at 15s</div>
+                    <div style={{color:D.muted,fontSize:"13px",marginBottom:"14px"}}>Swing when ready - auto-stops at 15s</div>
                     <button onClick={()=>{ if(mediaRecorder&&mediaRecorder.state==="recording") mediaRecorder.stop(); }} style={{background:D.red,border:"none",borderRadius:"10px",color:"#fff",fontWeight:"600",fontSize:"14px",padding:"10px 24px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
-                      Done — Stop Recording
+                      Done - Stop Recording
                     </button>
                   </div>
                 )}
@@ -1818,7 +1818,7 @@ function ObiGolfApp(){
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={D.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
                     <div style={{flex:1}}>
                       <div style={{color:D.accent,fontWeight:"600",fontSize:"14px"}}>Shot recorded ✓</div>
-                      <div style={{color:D.muted,fontSize:"12px",marginTop:"1px"}}>{rangeClub} · tap analyze when ready</div>
+                      <div style={{color:D.muted,fontSize:"12px",marginTop:"1px"}}>{rangeClub} - tap analyze when ready</div>
                     </div>
                     <button onClick={()=>setRangeFile(null)} style={{background:"transparent",border:"none",color:D.muted,cursor:"pointer",padding:"4px"}}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -1836,7 +1836,7 @@ function ObiGolfApp(){
                   <div style={{...S.card,textAlign:"center",padding:"28px",marginBottom:"16px"}}>
                     <div style={{display:"flex",gap:"6px",justifyContent:"center",marginBottom:"14px"}}>{[0,1,2].map(i=><div key={i} style={{width:"10px",height:"10px",borderRadius:"50%",background:D.accent,animation:`bounce 1s infinite ${i*0.15}s`}}/>)}</div>
                     <div style={{color:D.text,fontWeight:"600",fontSize:"15px",marginBottom:"4px"}}>Reading your ball flight...</div>
-                    <div style={{color:D.muted,fontSize:"13px"}}>Analyzing shape, carry, and contact · 15-20 seconds</div>
+                    <div style={{color:D.muted,fontSize:"13px"}}>Analyzing shape, carry, and contact - 15-20 seconds</div>
                   </div>
                 )}
 
@@ -1867,7 +1867,7 @@ function ObiGolfApp(){
                         <div style={{fontSize:"14px",color:D.muted}}>yards</div>
                         {clubStats[rangeClub]?.avgCarry&&(
                           <div style={{fontSize:"12px",color:D.muted,marginTop:"6px"}}>
-                            Your avg: {clubStats[rangeClub].avgCarry}y · {rangeShotResult.estimated_carry>clubStats[rangeClub].avgCarry?`+${rangeShotResult.estimated_carry-clubStats[rangeClub].avgCarry} above avg`:`${rangeShotResult.estimated_carry-clubStats[rangeClub].avgCarry} below avg`}
+                            Your avg: {clubStats[rangeClub].avgCarry}y - {rangeShotResult.estimated_carry>clubStats[rangeClub].avgCarry?`+${rangeShotResult.estimated_carry-clubStats[rangeClub].avgCarry} above avg`:`${rangeShotResult.estimated_carry-clubStats[rangeClub].avgCarry} below avg`}
                           </div>
                         )}
                       </div>
@@ -1884,7 +1884,7 @@ function ObiGolfApp(){
                         ].map(([l,v,c])=>(
                           <div key={l} style={{background:"rgba(0,0,0,0.2)",borderRadius:"10px",padding:"10px 8px",textAlign:"center"}}>
                             <div style={{fontSize:"9px",color:D.muted,letterSpacing:"1px",marginBottom:"4px",textTransform:"uppercase"}}>{l}</div>
-                            <div style={{fontSize:"12px",color:c,fontWeight:"600",textTransform:"capitalize"}}>{v||"—"}</div>
+                            <div style={{fontSize:"12px",color:c,fontWeight:"600",textTransform:"capitalize"}}>{v||"-"}</div>
                           </div>
                         ))}
                       </div>
@@ -1920,8 +1920,8 @@ function ObiGolfApp(){
                           </div>
                           <div style={{flex:1}}>
                             <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
-                              <span style={{...S.pill,fontSize:"11px",padding:"2px 8px"}}>{s.shot_shape||"—"}</span>
-                              <span style={{...S.pill,fontSize:"11px",padding:"2px 8px"}}>{s.contact_quality||"—"}</span>
+                              <span style={{...S.pill,fontSize:"11px",padding:"2px 8px"}}>{s.shot_shape||"-"}</span>
+                              <span style={{...S.pill,fontSize:"11px",padding:"2px 8px"}}>{s.contact_quality||"-"}</span>
                             </div>
                           </div>
                           <div style={{textAlign:"right"}}>
@@ -1942,12 +1942,12 @@ function ObiGolfApp(){
                     })}
                     {!showAllShots&&rangeHistory.length>5&&(
                       <button onClick={()=>setShowAllShots(true)} style={{width:"100%",background:D.surface,border:`1px solid ${D.border}`,borderRadius:"10px",padding:"10px",color:D.muted,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",marginTop:"4px"}}>
-                        View {rangeHistory.length-5} more shots ↓
+                        View {rangeHistory.length-5} more shots v
                       </button>
                     )}
                     {showAllShots&&rangeHistory.length>5&&(
                       <button onClick={()=>setShowAllShots(false)} style={{width:"100%",background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"6px",marginTop:"2px"}}>
-                        Show less ↑
+                        Show less ^
                       </button>
                     )}
                   </div>
@@ -1959,7 +1959,7 @@ function ObiGolfApp(){
         {tab==="social"&&(
           <div>
             <div style={{display:"flex",background:D.dark,borderBottom:`1px solid ${D.border}`,position:"sticky",top:"52px",zIndex:10}}>
-              {[{id:"feed",label:"Feed"},{id:"rounds",label:"My Rounds"},{id:"friends",label:`Friends${friendReqs.length>0?" ·"+friendReqs.length:""}`}].map(t=>(
+              {[{id:"feed",label:"Feed"},{id:"rounds",label:"My Rounds"},{id:"friends",label:`Friends${friendReqs.length>0?" -"+friendReqs.length:""}`}].map(t=>(
                 <button key={t.id} onClick={()=>setSocialView(t.id)}
                   style={{flex:1,padding:"11px 4px",background:"transparent",border:"none",borderBottom:`2px solid ${socialView===t.id?D.accent:"transparent"}`,color:socialView===t.id?D.accent:D.muted,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:socialView===t.id?"600":"400",transition:"all 0.15s"}}>
                   {t.label}
@@ -1991,7 +1991,7 @@ function ObiGolfApp(){
                                 <div style={{fontWeight:"600",color:D.white,fontSize:"14px",fontFamily:"'Space Grotesk',sans-serif"}}>
                                   {r.profile?.full_name||"Golfer"}{isMe&&<span style={{color:D.accent,fontSize:"10px",marginLeft:"6px"}}>you</span>}
                                 </div>
-                                <div style={{fontSize:"12px",color:D.muted,marginTop:"1px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.course_name||"Unknown course"} · {fmtDateShort(r.played_at)}</div>
+                                <div style={{fontSize:"12px",color:D.muted,marginTop:"1px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.course_name||"Unknown course"} - {fmtDateShort(r.played_at)}</div>
                               </div>
                               <div style={{textAlign:"right",flexShrink:0}}>
                                 <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:diff<0?D.accent:diff===0?D.blue:D.red,lineHeight:1}}>{diff>0?"+"+diff:diff===0?"E":diff}</div>
@@ -2007,11 +2007,11 @@ function ObiGolfApp(){
                       })}
                       {!showAllFeed&&feed.length>5&&(
                         <button onClick={()=>setShowAllFeed(true)} style={{width:"100%",background:D.surface,border:`1px solid ${D.border}`,borderRadius:"12px",padding:"12px",color:D.muted,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
-                          View {feed.length-5} more rounds ↓
+                          View {feed.length-5} more rounds v
                         </button>
                       )}
                       {showAllFeed&&feed.length>5&&(
-                        <button onClick={()=>setShowAllFeed(false)} style={{width:"100%",background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"8px"}}>Show less ↑</button>
+                        <button onClick={()=>setShowAllFeed(false)} style={{width:"100%",background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"8px"}}>Show less ^</button>
                       )}
                     </>
                   )}
@@ -2030,7 +2030,7 @@ function ObiGolfApp(){
                       <div key={i} style={{...S.card,marginBottom:"10px",display:"flex",alignItems:"center",gap:"12px"}}>
                         <div style={{flex:1}}>
                           <div style={{fontWeight:"600",color:D.white,fontSize:"14px",fontFamily:"'Space Grotesk',sans-serif"}}>{r.course_name||"Unknown course"}</div>
-                          <div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{r.holes_played} holes · {fmtDate(r.played_at)}</div>
+                          <div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{r.holes_played} holes - {fmtDate(r.played_at)}</div>
                         </div>
                         <div style={{textAlign:"right"}}>
                           <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:diff<0?D.accent:diff===0?D.blue:D.red,lineHeight:1}}>{diff>0?"+"+diff:diff===0?"E":diff}</div>
@@ -2210,6 +2210,6 @@ function ObiGolfApp(){
       </div>
     </div>
   );
-}}
+}
 
 export default function ObiGolf(){ return <ErrorBoundary><ObiGolfApp/></ErrorBoundary>; }
