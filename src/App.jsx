@@ -728,6 +728,9 @@ function ObiGolfApp(){
   const [authName,setAuthName]=useState("");
   const [authError,setAuthError]=useState("");
   const [tab,setTab]=useState("caddie");
+  const [holeOpen,setHoleOpen]=useState(false);
+  const [socialView,setSocialView]=useState("feed"); // feed | rounds | friends
+  const [profileSection,setProfileSection]=useState(null); // null | game | bag | app
   // Stop speech when navigating away
   const changeTab = (newTab) => {
     if(window.speechSynthesis) window.speechSynthesis.cancel();
@@ -788,6 +791,7 @@ function ObiGolfApp(){
   const [roundHistory,setRoundHistory]=useState([]);
   const [socialTab,setSocialTab]=useState("feed");
   const [showAllFeed,setShowAllFeed]=useState(false);
+  const [showAllShots,setShowAllShots]=useState(false);
   const [searchQ,setSearchQ]=useState("");
   const [searchRes,setSearchRes]=useState([]);
   const [jabPost,setJabPost]=useState(null);
@@ -1406,167 +1410,160 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
 
         {/* CADDIE TAB */}
         {tab==="caddie"&&(
-          <div style={{display:"flex",flexDirection:"column"}}>
-            {/* Course bar */}
-            <div style={{padding:"12px 16px",background:D.dark,borderBottom:`1px solid ${D.border}`}}>
-              <input placeholder="⛳  Course name — e.g. Pebble Beach, Augusta..." value={courseInput} onChange={e=>setCourseInput(e.target.value)}
-                onBlur={()=>{if(courseInput&&courseInput!==course){setCourse(courseInput);sendMessage(`I'm playing ${courseInput}. Quick key tips and what should I know about hole ${hole}?`);}}}
-                onKeyDown={e=>{if(e.key==="Enter"&&courseInput&&courseInput!==course){setCourse(courseInput);sendMessage(`I'm playing ${courseInput}. Quick key tips and what should I know about hole ${hole}?`);}}}
-                style={{...S.input,marginBottom:"10px",fontSize:"14px"}}/>
-              <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"4px"}}>
-                  <button onClick={()=>setHole(h=>Math.max(1,h-1))} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"8px",color:D.muted,padding:"4px 10px",cursor:"pointer",fontSize:"16px"}}>‹</button>
-                  <div style={{textAlign:"center",minWidth:"48px"}}>
-                    <div style={{fontSize:"9px",color:D.muted,letterSpacing:"1.5px",textTransform:"uppercase"}}>HOLE</div>
-                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,lineHeight:1}}>{hole}</div>
+          <div style={{display:"flex",flexDirection:"column",minHeight:"100%"}}>
+
+            {/* ── Hole setup row — always visible, compact ── */}
+            <div style={{padding:"10px 16px",background:D.dark,borderBottom:`1px solid ${D.border}`,position:"sticky",top:"52px",zIndex:10}}>
+              {/* Collapsed row */}
+              <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
+                {/* Hole stepper */}
+                <div style={{display:"flex",alignItems:"center",gap:"4px",flexShrink:0}}>
+                  <button onClick={()=>setHole(h=>Math.max(1,h-1))} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"8px",color:D.muted,padding:"4px 9px",cursor:"pointer",fontSize:"15px",lineHeight:1}}>‹</button>
+                  <div style={{textAlign:"center",minWidth:"42px"}}>
+                    <div style={{fontSize:"8px",color:D.muted,letterSpacing:"1.5px",textTransform:"uppercase"}}>HOLE</div>
+                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:D.white,lineHeight:1}}>{hole}</div>
                   </div>
-                  <button onClick={()=>setHole(h=>Math.min(18,h+1))} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"8px",color:D.muted,padding:"4px 10px",cursor:"pointer",fontSize:"16px"}}>›</button>
+                  <button onClick={()=>setHole(h=>Math.min(18,h+1))} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"8px",color:D.muted,padding:"4px 9px",cursor:"pointer",fontSize:"15px",lineHeight:1}}>›</button>
                 </div>
-                <div style={{display:"flex",gap:"3px"}}>
-                  {[3,4,5].map(p=>(
-                    <button key={p} onClick={()=>{const n=[...holePars];n[hole-1]=p;setHolePars(n);}} style={{background:par===p?D.accentDim:D.surface,border:`1px solid ${par===p?D.green:D.border}`,borderRadius:"8px",color:par===p?D.accent:D.muted,padding:"4px 10px",fontSize:"12px",cursor:"pointer",fontWeight:"600"}}>P{p}</button>
-                  ))}
-                </div>
-                <input type="number" placeholder="Yds" value={yardage} onChange={e=>setYardage(e.target.value)} style={{...S.input,width:"70px",padding:"6px 10px",fontSize:"15px",fontWeight:"600",textAlign:"center"}}/>
-                <select value={lie} onChange={e=>setLie(e.target.value)} style={{...S.input,padding:"6px 8px",fontSize:"12px",flex:1}}>
+                {/* Yardage */}
+                <input type="number" placeholder="Yds" value={yardage} onChange={e=>setYardage(e.target.value)}
+                  style={{...S.input,width:"68px",padding:"6px 8px",fontSize:"15px",fontWeight:"600",textAlign:"center",flexShrink:0}}/>
+                {/* Lie — compact */}
+                <select value={lie} onChange={e=>setLie(e.target.value)}
+                  style={{...S.input,flex:1,padding:"6px 8px",fontSize:"13px",minWidth:0}}>
                   {["tee box","fairway","light rough","deep rough","bunker","hardpan","uphill lie","downhill lie"].map(l=>(
                     <option key={l} value={l}>{l.charAt(0).toUpperCase()+l.slice(1)}</option>
                   ))}
                 </select>
+                {/* Expand toggle */}
+                <button onClick={()=>setHoleOpen(o=>!o)} style={{background:holeOpen?D.accentDim:D.surface,border:`1px solid ${holeOpen?D.accent:D.border}`,borderRadius:"8px",color:holeOpen?D.accent:D.muted,padding:"6px 9px",cursor:"pointer",fontSize:"13px",flexShrink:0,lineHeight:1}}>
+                  {holeOpen?"▲":"▼"}
+                </button>
               </div>
+
+              {/* Expanded — par, course, wind */}
+              {holeOpen&&(
+                <div style={{marginTop:"10px",display:"flex",flexDirection:"column",gap:"8px",animation:"fadeUp 0.15s both"}}>
+                  <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+                    <span style={{fontSize:"12px",color:D.muted,width:"30px",flexShrink:0}}>Par</span>
+                    <div style={{display:"flex",gap:"4px"}}>
+                      {[3,4,5].map(p=>(
+                        <button key={p} onClick={()=>{const n=[...holePars];n[hole-1]=p;setHolePars(n);}}
+                          style={{background:par===p?D.accentDim:D.surface,border:`1px solid ${par===p?D.accent:D.border}`,borderRadius:"8px",color:par===p?D.accent:D.muted,padding:"5px 14px",fontSize:"13px",cursor:"pointer",fontWeight:"600"}}>
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                    {py&&recClub&&(
+                      <div style={{marginLeft:"auto",fontSize:"12px",color:D.accent,fontWeight:"600"}}>
+                        {py}y plays → <span style={{color:D.white}}>{recClub.club}</span>
+                      </div>
+                    )}
+                  </div>
+                  <input placeholder="Course name (optional)" value={courseInput} onChange={e=>setCourseInput(e.target.value)}
+                    onBlur={()=>{if(courseInput&&courseInput!==course){setCourse(courseInput);sendMessage(`I'm playing ${courseInput}. Tips for hole ${hole}?`);}}}
+                    onKeyDown={e=>{if(e.key==="Enter"&&courseInput&&courseInput!==course){setCourse(courseInput);sendMessage(`I'm playing ${courseInput}. Tips for hole ${hole}?`);}}}
+                    style={{...S.input,fontSize:"13px",padding:"8px 12px"}}/>
+                  {weather&&(
+                    <div style={{display:"flex",alignItems:"center",gap:"8px",fontSize:"12px",color:D.muted,padding:"4px 0"}}>
+                      <span>{weather.icon}</span>
+                      <span>{weather.temp}°{weather.unit}</span>
+                      <span>·</span>
+                      <span>Wind {weather.wind}mph {windDir(weather.windDeg)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Sub tabs */}
-            <div style={{display:"flex",background:D.dark,borderBottom:`1px solid ${D.border}`}}>
-              {[{id:"chat",label:"Chat"},{id:"situations",label:"Situations"},{id:"scorecard",label:"Scorecard"}].map(t=>(
-                <button key={t.id} onClick={()=>setSubView(t.id)} style={{flex:1,padding:"10px",background:"transparent",border:"none",borderBottom:`2px solid ${subView===t.id?D.green:"transparent"}`,color:subView===t.id?D.green:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:subView===t.id?"600":"400",transition:"all 0.15s"}}>{t.label}</button>
+            {/* ── Chat messages ── */}
+            <div style={{flex:1,padding:"12px 16px",display:"flex",flexDirection:"column",gap:"10px"}}>
+              {messages.length===0&&(
+                <div style={{textAlign:"center",padding:"32px 16px 16px"}}>
+                  <div style={{marginBottom:"12px"}}><Ball size={48}/></div>
+                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:D.white,marginBottom:"6px"}}>
+                    Hey{profile.name?` ${profile.name.split(" ")[0]}`:""}! 👋
+                  </div>
+                  <div style={{fontSize:"14px",color:D.muted,lineHeight:1.6,marginBottom:"20px"}}>
+                    Set your yardage above and I'll recommend a club, or just ask me anything.
+                  </div>
+                  {/* Quick prompts */}
+                  <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+                    {[
+                      {label:"🏌️  Club for this yardage",msg:`I'm ${yardage||150} yards out from ${lie}. What club?`},
+                      {label:"🌬️  Wind adjustment",msg:`Wind is blowing. How should I adjust my shot?`},
+                      {label:"🎯  Course strategy",msg:`What's the smart play on a par ${par} at ${yardage||150} yards?`},
+                      {label:"📊  Check my scorecard",msg:`My current score is ${totalScore} after ${played} holes, ${scoreDiff>0?"+"+scoreDiff:scoreDiff} vs par. How am I doing?`},
+                    ].map(({label,msg})=>(
+                      <button key={label} onClick={()=>sendMessage(msg)}
+                        style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"12px",padding:"12px 16px",color:D.text,fontSize:"14px",cursor:"pointer",fontFamily:"'Inter',sans-serif",textAlign:"left",transition:"all 0.15s"}}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {messages.map((m,i)=>(
+                <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}>
+                  {m.role==="assistant"&&(
+                    <div style={{width:"28px",height:"28px",borderRadius:"50%",background:D.accentDim,display:"flex",alignItems:"center",justifyContent:"center",marginRight:"8px",flexShrink:0,alignSelf:"flex-end",marginBottom:"2px"}}>
+                      <Ball size={18}/>
+                    </div>
+                  )}
+                  <div style={{maxWidth:"80%",padding:"10px 14px",borderRadius:m.role==="user"?"18px 18px 4px 18px":"18px 18px 18px 4px",background:m.role==="user"?D.accent:D.card,color:m.role==="user"?"#fff":D.text,fontSize:"14px",lineHeight:1.6,fontFamily:"'Inter',sans-serif",boxShadow:`0 1px 3px rgba(0,0,0,0.2)`}}>
+                    {m.content}
+                  </div>
+                  {m.role==="assistant"&&(
+                    <button onClick={()=>speak(m.content)} style={{background:"none",border:"none",cursor:"pointer",padding:"0 0 0 6px",color:D.muted,alignSelf:"flex-end",marginBottom:"4px",flexShrink:0}}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                    </button>
+                  )}
+                </div>
               ))}
+              {loading&&(
+                <div style={{display:"flex",gap:"5px",padding:"10px 14px",background:D.card,borderRadius:"18px 18px 18px 4px",alignSelf:"flex-start",marginLeft:"36px"}}>
+                  {[0,1,2].map(i=><div key={i} style={{width:"6px",height:"6px",borderRadius:"50%",background:D.accent,animation:`pulse 1.2s infinite ${i*0.2}s`}}/>)}
+                </div>
+              )}
             </div>
 
-            {/* CHAT */}
-            {subView==="chat"&&(
-              <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 230px)"}}>
-                {py&&yardage&&(
-                  <div style={{margin:"10px 16px 0",background:D.surface,border:`1px solid ${D.border}`,borderRadius:"14px",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <div style={{textAlign:"center"}}>
-                      <div style={{fontSize:"10px",color:D.muted,marginBottom:"3px"}}>Actual</div>
-                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"26px",fontWeight:"700",color:D.white,lineHeight:1}}>{yardage}<span style={{fontSize:"13px",fontWeight:"400",color:D.muted}}>y</span></div>
-                    </div>
-                    <div style={{color:D.subtle,fontSize:"16px"}}>→</div>
-                    <div style={{textAlign:"center"}}>
-                      <div style={{fontSize:"10px",color:D.accent,marginBottom:"3px"}}>Playing</div>
-                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"26px",fontWeight:"700",color:D.accent,lineHeight:1}}>{py}<span style={{fontSize:"13px",fontWeight:"400"}}>y</span></div>
-                    </div>
-                    {recClub&&(<>
-                      <div style={{color:D.subtle,fontSize:"16px"}}>→</div>
-                      <div style={{textAlign:"center"}}>
-                        <div style={{fontSize:"10px",color:D.gold,marginBottom:"3px"}}>Club</div>
-                        <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:D.gold,lineHeight:1}}>{recClub.club}</div>
-                      </div>
-                    </>)}
+            {/* ── Scorecard strip (compact, only if playing) ── */}
+            {played>0&&(
+              <div style={{padding:"8px 16px",background:D.surface,borderTop:`1px solid ${D.border}`,display:"flex",alignItems:"center",gap:"12px",overflowX:"auto"}}>
+                <div style={{flexShrink:0}}>
+                  <div style={{fontSize:"9px",color:D.muted,letterSpacing:"1px",textTransform:"uppercase"}}>Score</div>
+                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"18px",fontWeight:"700",color:scoreDiff<0?D.accent:scoreDiff===0?D.blue:D.red,lineHeight:1}}>
+                    {scoreDiff>0?"+"+scoreDiff:scoreDiff===0?"E":scoreDiff}
                   </div>
-                )}
-                <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"16px",display:"flex",flexDirection:"column",gap:"12px"}}>
-                  {messages.length===0&&(
-                    <div style={{textAlign:"center",padding:"40px 20px",animation:"fadeUp 0.5s both"}}>
-                      <Ball size={56}/>
-                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:D.white,marginTop:"14px"}}>Obi is ready.</div>
-                      <div style={{color:D.muted,fontSize:"14px",marginTop:"6px",lineHeight:1.6}}>Enter the course name above<br/>or ask anything about your shot</div>
-                    </div>
-                  )}
-                  {messages.map((m,i)=>(
-                    <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",animation:"fadeUp 0.3s both"}}>
-                      {m.role==="assistant"&&<div style={{marginRight:"10px",marginTop:"4px",flexShrink:0}}><Ball size={28}/></div>}
-                      <div style={{maxWidth:"78%",background:m.role==="user"?D.accent:D.surface,border:`1px solid ${m.role==="user"?"transparent":D.border}`,borderRadius:m.role==="user"?"20px 20px 4px 20px":"20px 20px 20px 4px",padding:"11px 15px"}}>
-                        <div style={{fontSize:"14px",lineHeight:1.65,color:m.role==="user"?"#fff":D.text}}>{m.content}</div>
-                        {m.role==="assistant"&&<button onClick={()=>speak(m.content)} style={{background:"none",border:"none",color:D.muted,fontSize:"11px",cursor:"pointer",padding:"4px 0 0",fontFamily:"'Inter',sans-serif"}}>🔊 Replay</button>}
-                      </div>
-                    </div>
-                  ))}
-                  {loading&&(
-                    <div style={{display:"flex",gap:"6px",alignItems:"center",paddingLeft:"4px"}}>
-                      <Ball size={28}/>
-                      <div style={{display:"flex",gap:"4px",marginLeft:"10px"}}>{[0,1,2].map(i=><div key={i} style={{width:"8px",height:"8px",borderRadius:"50%",background:D.accent,animation:`bounce 1s infinite ${i*0.15}s`}}/>)}</div>
-                    </div>
-                  )}
                 </div>
-                <div style={{padding:"8px 16px",display:"flex",gap:"8px",overflowX:"auto",scrollbarWidth:"none"}}>
-                  {QUICK_PROMPTS.map(q=><button key={q.label} onClick={()=>sendMessage(q.prompt)} style={{...S.pill,flexShrink:0}}>{q.label}</button>)}
-                </div>
-                <div style={{padding:"10px 16px 16px",display:"flex",gap:"10px",alignItems:"center",background:D.dark,borderTop:`1px solid ${D.border}`}}>
-                  <button onClick={startListening} style={{width:"46px",height:"46px",borderRadius:"50%",background:listening?D.green:D.surface,border:`1.5px solid ${listening?D.green:D.border}`,fontSize:"18px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,animation:listening?"pulse 1s infinite":"none",boxShadow:listening?`0 0 0 4px ${D.accentDim}`:"none"}}>
-                    {listening?"🔴":"🎙"}
-                  </button>
-                  <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendMessage()} placeholder="Ask Obi anything..." style={{...S.input,flex:1,padding:"12px 16px"}}/>
-                  <button onClick={()=>sendMessage()} disabled={loading||!input.trim()} style={{width:"46px",height:"46px",borderRadius:"50%",background:input.trim()?`linear-gradient(135deg,${D.green},#16a34a)`:D.surface,border:`1.5px solid ${input.trim()?D.green:D.border}`,color:"#fff",fontSize:"18px",cursor:input.trim()?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:input.trim()?`0 4px 16px ${D.accent}44`:"none"}}>➤</button>
+                <div style={{width:"1px",height:"28px",background:D.border,flexShrink:0}}/>
+                <div style={{display:"flex",gap:"4px",overflowX:"auto"}}>
+                  {scores.slice(0,played).map((s,i)=>{
+                    const diff=s-(holePars[i]||4);
+                    const bg=diff<=-2?"#7c3aed":diff===-1?D.accent:diff===0?D.surface:diff===1?"#f59e0b44":D.red+"44";
+                    const col=diff<=-2?"#fff":diff===-1?"#fff":diff===0?D.muted:diff===1?D.gold:D.red;
+                    return <div key={i} style={{width:"22px",height:"22px",borderRadius:"6px",background:bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",fontWeight:"700",color:col,flexShrink:0}}>{s}</div>;
+                  })}
                 </div>
               </div>
             )}
 
-            {/* SITUATIONS */}
-            {subView==="situations"&&(
-              <div style={{padding:"16px"}}>
-                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"4px"}}>Shot Situations</div>
-                <div style={{color:D.muted,fontSize:"14px",marginBottom:"16px"}}>Tap any situation for instant advice from Obi</div>
-                {[{icon:"🌿",title:"In the Rough",prompt:`I'm in ${lie} with ${yardage||"unknown"} yards to pin. Ball sitting down. What club and technique?`},{icon:"🏖",title:"Greenside Bunker",prompt:"I'm in a greenside bunker. Walk me through club, setup, and technique."},{icon:"⛰",title:"Uneven Lie",prompt:"I have an uneven lie. How does this affect my shot and what adjustments do I make?"},{icon:"🍃",title:"Punch Out",prompt:"I need to punch out from under trees. What club and where do I aim?"},{icon:"💦",title:"Carry the Water",prompt:`Need to carry water. ${yardage?`${yardage} yards.`:""}Risk/reward and recommended play?`},{icon:"🎯",title:"Tight Pin",prompt:"Pin is tucked tight. Attack it or play center? Smart play for my handicap?"},{icon:"🌬",title:"Into the Wind",prompt:`Wind is ${weather?.wind||"strong"}mph from ${weather?windDir(weather.windDeg):"the front"}. Club and shape?`},{icon:"🔄",title:"Reset After Mishit",prompt:"I just mishit badly. Help me identify what went wrong and reset mentally."}].map(s=>(
-                  <button key={s.title} onClick={()=>{setSubView("chat");sendMessage(s.prompt);}} style={{display:"flex",alignItems:"center",gap:"14px",width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:"16px",padding:"16px",marginBottom:"10px",cursor:"pointer",textAlign:"left"}}>
-                    <div style={{width:"48px",height:"48px",borderRadius:"14px",background:D.surface,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"24px",flexShrink:0}}>{s.icon}</div>
-                    <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{s.title}</div><div style={{color:D.muted,fontSize:"12px",marginTop:"3px",lineHeight:1.4}}>{s.prompt.slice(0,58)}…</div></div>
-                    <div style={{color:D.muted,fontSize:"18px"}}>›</div>
-                  </button>
-                ))}
-                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"16px",fontWeight:"700",color:D.text,margin:"20px 0 10px"}}>Log Shot Outcome</div>
-                <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
-                  {["Flushed it 👌","Pulled left","Pushed right","Chunked it","Thinned it","Perfect draw","Good fade","Found bunker","In the rough"].map(o=>(
-                    <button key={o} onClick={()=>{setShotHistory(prev=>[...prev,{hole,outcome:o}]);setSubView("chat");sendMessage(`Shot result: ${o}. What's my next play?`);}} style={{...S.pill}}>{o}</button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* SCORECARD */}
-            {subView==="scorecard"&&(
-              <div style={{padding:"16px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px"}}>
-                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white}}>Scorecard</div>
-                  {played>0&&<ScorePill score={totalScore} par={holePars.slice(0,played).reduce((a,b)=>a+b,0)} large/>}
-                </div>
-                {[{label:"FRONT 9",r:[0,9]},{label:"BACK 9",r:[9,18]}].map(({label,r})=>(
-                  <div key={label} style={{marginBottom:"16px"}}>
-                    <div style={{fontSize:"10px",color:D.muted,letterSpacing:"2.5px",marginBottom:"8px"}}>{label}</div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(9,1fr)",gap:"4px"}}>
-                      {Array.from({length:9},(_,i)=>i+r[0]).map(idx=>{
-                        const h=idx+1;
-                        const sc=scores[idx];
-                        const d=sc?sc-holePars[idx]:null;
-                        const sc_color=d===null?D.border:d<=-2?D.gold:d===-1?D.green:d===0?D.blue:D.red;
-                        return(
-                          <div key={h} style={{display:"flex",flexDirection:"column",gap:"3px"}}>
-                            <div style={{textAlign:"center",fontSize:"9px",color:hole===h?D.green:D.muted,fontWeight:hole===h?"700":"400"}}>{h}</div>
-                            <div style={{textAlign:"center",fontSize:"9px",color:D.subtle}}>P{holePars[idx]}</div>
-                            <input type="number" min="1" max="15" value={scores[idx]||""} onChange={e=>{const ns=[...scores];ns[idx]=parseInt(e.target.value)||null;setScores(ns);}}
-                              style={{background:hole===h?D.accentDim:D.surface,border:`1.5px solid ${sc_color}`,borderRadius:"8px",color:d!==null?sc_color:D.text,textAlign:"center",fontSize:"15px",fontWeight:"700",padding:"6px 2px",outline:"none",fontFamily:"'Space Grotesk',sans-serif",width:"100%",boxSizing:"border-box"}}/>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-                <div style={{...S.card,marginBottom:"12px"}}>
-                  {[["Total strokes",totalScore||"—",D.white],["Holes played",`${played}/18`,D.muted],played>0&&["vs Par",scoreDiff>0?`+${scoreDiff}`:scoreDiff===0?"Even":`${scoreDiff}`,scoreDiff>0?D.red:scoreDiff<0?D.green:D.blue]].filter(Boolean).map(([l,v,c])=>(
-                    <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}>
-                      <span style={{color:D.muted,fontSize:"14px"}}>{l}</span>
-                      <span style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:c}}>{v}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{display:"flex",gap:"10px",marginBottom:"10px"}}>
-                  <button onClick={()=>{setSubView("chat");sendMessage(`Round done. Score ${totalScore} on par ${holePars.reduce((a,b)=>a+b,0)}. ${scoreDiff>0?`+${scoreDiff}`:"Even par"}. Honest debrief please.`);}} style={{...S.btnSecondary,flex:1}}>🧠 Debrief</button>
-                  <button onClick={saveRound} style={{...S.btnPrimary,flex:1}}>💾 Save Round</button>
-                </div>
-                <button onClick={()=>{setMessages([]);setScores(Array(18).fill(null));setHole(1);setYardage("");setCourse("");setCourseInput("");setShotHistory([]);const g={pro:"New round. Ready.",coach:"Fresh start! Let's go.",oldschool:"New round. Let's go."}[profile.persona];setMessages([{role:"assistant",content:g}]);setSubView("chat");}} style={S.btnGhost}>🗑 New Round</button>
-              </div>
-            )}
+            {/* ── Input bar ── */}
+            <div style={{padding:"10px 12px",background:D.dark,borderTop:`1px solid ${D.border}`,display:"flex",gap:"8px",alignItems:"center",position:"sticky",bottom:0}}>
+              <input
+                value={input} onChange={e=>setInput(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&(e.preventDefault(),sendMessage(input))}
+                placeholder="Ask Obi anything…"
+                style={{...S.input,flex:1,padding:"10px 14px",fontSize:"14px",borderRadius:"12px"}}
+              />
+              <button onClick={startListening} style={{background:listening?D.red:D.surface,border:`1px solid ${listening?D.red:D.border}`,borderRadius:"10px",padding:"10px",cursor:"pointer",color:listening?"#fff":D.muted,display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s",flexShrink:0}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              </button>
+              <button onClick={()=>sendMessage(input)} disabled={!input.trim()||loading}
+                style={{background:input.trim()&&!loading?D.accent:D.surface,border:"none",borderRadius:"10px",padding:"10px 14px",cursor:input.trim()&&!loading?"pointer":"default",color:input.trim()&&!loading?"#fff":D.muted,display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s",flexShrink:0}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </div>
           </div>
         )}
 
@@ -1899,7 +1896,7 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
                 {rangeHistory.length>0&&(
                   <div>
                     <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.white,margin:"0 0 12px"}}>Recent Shots</div>
-                    {rangeHistory.slice(0,20).map((s,i)=>{
+                    {(showAllShots?rangeHistory:rangeHistory.slice(0,5)).map((s,i)=>{
                       const diff=clubStats[s.club]?.avgCarry?s.estimated_carry-clubStats[s.club].avgCarry:null;
                       return(
                         <div key={i} style={{display:"flex",alignItems:"center",gap:"12px",padding:"10px 14px",background:D.surface,borderRadius:"10px",border:`1px solid ${D.border}`,marginBottom:"6px"}}>
@@ -1917,67 +1914,35 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
                             <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"800",color:D.accent,lineHeight:1}}>{s.estimated_carry}</div>
                             <div style={{fontSize:"10px",color:diff>0?D.green:diff<0?D.red:D.muted}}>{diff!=null?(diff>0?`+${diff}`:`${diff}`):""}y</div>
                           </div>
+                          <button onClick={async(e)=>{
+                            e.stopPropagation();
+                            if(!window.confirm("Delete this shot?"))return;
+                            const{error}=await supabase.from("range_shots").delete().eq("id",s.id).eq("user_id",user.id);
+                            if(error){alert("Delete failed: "+error.message);return;}
+                            loadRangeHistory(user.id);
+                          }} style={{background:"transparent",border:"none",color:D.muted,cursor:"pointer",padding:"4px",flexShrink:0,display:"flex",alignItems:"center",marginLeft:"auto"}}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                          </button>
                         </div>
                       );
                     })}
+                    {!showAllShots&&rangeHistory.length>5&&(
+                      <button onClick={()=>setShowAllShots(true)} style={{width:"100%",background:D.surface,border:`1px solid ${D.border}`,borderRadius:"10px",padding:"10px",color:D.muted,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",marginTop:"4px"}}>
+                        View {rangeHistory.length-5} more shots ↓
+                      </button>
+                    )}
+                    {showAllShots&&rangeHistory.length>5&&(
+                      <button onClick={()=>setShowAllShots(false)} style={{width:"100%",background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"6px",marginTop:"2px"}}>
+                        Show less ↑
+                      </button>
+                    )}
                   </div>
                 )}
 
                 {/* All club profiles summary */}
                 {Object.keys(clubStats).length>0&&(
                   <div style={{marginTop:"20px"}}>
-                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.white,margin:"0 0 12px"}}>My Club Profiles</div>
-                    <div style={{color:D.muted,fontSize:"13px",marginBottom:"14px"}}>Based on your actual range data — used by Obi for on-course advice</div>
-                    {Object.entries(clubStats).sort((a,b)=>(b[1].avgCarry||0)-(a[1].avgCarry||0)).map(([club,cs])=>(
-                      <div key={club} style={{...S.card,marginBottom:"10px",cursor:"pointer"}} onClick={()=>setShowClubProfile(showClubProfile===club?null:club)}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
-                            <div style={{textAlign:"center",minWidth:"60px"}}>
-                              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",letterSpacing:"-0.3px",color:D.accent,lineHeight:1}}>{cs.avgCarry||"—"}</div>
-                              <div style={{fontSize:"10px",color:D.muted}}>avg yards</div>
-                            </div>
-                            <div>
-                              <div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{club}</div>
-                              <div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{cs.count} shots · {cs.typicalShape}</div>
-                            </div>
-                          </div>
-                          <div style={{textAlign:"right"}}>
-                            <div style={{fontSize:"12px",color:D.muted}}>{cs.minCarry}–{cs.maxCarry}y</div>
-                            <div style={{fontSize:"11px",color:cs.consistencyStars>=4?D.green:cs.consistencyStars>=3?D.gold:D.red,marginTop:"2px"}}>{cs.consistency}</div>
-                          </div>
-                        </div>
-                        {showClubProfile===club&&(
-                          <div style={{marginTop:"14px",paddingTop:"14px",borderTop:`1px solid ${D.border}`}}>
-                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
-                              <div>
-                                <div style={{fontSize:"11px",color:D.muted,marginBottom:"6px",textTransform:"uppercase",letterSpacing:"1px"}}>Shot Shapes</div>
-                                {Object.entries(cs.shapes).sort((a,b)=>b[1]-a[1]).map(([shape,count])=>(
-                                  <div key={shape} style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
-                                    <span style={{fontSize:"12px",color:D.text,textTransform:"capitalize"}}>{shape}</span>
-                                    <span style={{fontSize:"12px",color:D.muted}}>{count} ({Math.round((count/cs.count)*100)}%)</span>
-                                  </div>
-                                ))}
-                              </div>
-                              <div>
-                                <div style={{fontSize:"11px",color:D.muted,marginBottom:"6px",textTransform:"uppercase",letterSpacing:"1px"}}>Launch Angles</div>
-                                {Object.entries(cs.launches).sort((a,b)=>b[1]-a[1]).map(([launch,count])=>(
-                                  <div key={launch} style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
-                                    <span style={{fontSize:"12px",color:D.text,textTransform:"capitalize"}}>{launch}</span>
-                                    <span style={{fontSize:"12px",color:D.muted}}>{count} ({Math.round((count/cs.count)*100)}%)</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                            <div style={{marginTop:"12px",fontSize:"13px",color:D.muted,fontStyle:"italic"}}>
-                              Distance range: {cs.minCarry}y (min) — {cs.avgCarry}y (avg) — {cs.maxCarry}y (max)
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                    <div style={              </div>
             )}
           </div>
         )}
@@ -2122,6 +2087,273 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
 
         {/* PROFILE TAB */}
         {tab==="profile"&&(
+          <div style={{padding:"16px"}}>
+
+            {/* ── Avatar + name hero ── */}
+            <div style={{...S.card,marginBottom:"12px",display:"flex",alignItems:"center",gap:"14px"}}>
+              <div style={{position:"relative",flexShrink:0}}>
+                <Avatar name={userProfile?.full_name||user?.email} size={60} photoUrl={avatarUrl} T={D}/>
+                <button onClick={()=>avatarInputRef.current?.click()} style={{position:"absolute",bottom:0,right:0,width:"22px",height:"22px",borderRadius:"50%",background:D.accent,border:`2px solid ${D.bg}`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",padding:0}}>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </button>
+                <input ref={avatarInputRef} type="file" accept="image/*" onChange={e=>e.target.files[0]&&uploadAvatar(e.target.files[0])} style={{display:"none"}}/>
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"18px",fontWeight:"700",color:D.white}}>{userProfile?.full_name||"Your Name"}</div>
+                <div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{user?.email}</div>
+                <div style={{display:"flex",gap:"6px",marginTop:"6px",flexWrap:"wrap"}}>
+                  {profile.homeCourse&&<span style={{fontSize:"11px",color:D.muted,background:D.surface,borderRadius:"99px",padding:"2px 8px"}}>📍 {profile.homeCourse}</span>}
+                  <span style={{fontSize:"11px",color:D.accent,background:D.accentDim,borderRadius:"99px",padding:"2px 8px"}}>{profile.handicap=="scratch"?"Scratch":profile.handicap=="plus"?"+Handicap":profile.handicap=="low"?"Low handicap":profile.handicap=="mid"?"Mid handicap":"High handicap"}</span>
+                </div>
+              </div>
+              {uploadingAvatar&&<div style={{fontSize:"12px",color:D.accent,flexShrink:0}}>Uploading…</div>}
+            </div>
+
+            {/* ── Collapsible sections ── */}
+            {[
+              {
+                id:"game",
+                label:"⛳ My Game",
+                content:(
+                  <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
+                    <div>
+                      <div style={{fontSize:"12px",color:D.muted,marginBottom:"6px",fontWeight:"500"}}>Handicap</div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                        {[{v:"plus",l:"+HCP"},{v:"scratch",l:"Scratch"},{v:"low",l:"Low (1-9)"},{v:"mid",l:"Mid (10-18)"},{v:"high",l:"High (19+)"}].map(({v,l})=>(
+                          <button key={v} onClick={()=>setProfile(p=>({...p,handicap:v}))} style={{background:profile.handicap===v?D.accentDim:D.surface,border:`1px solid ${profile.handicap===v?D.accent:D.border}`,borderRadius:"8px",color:profile.handicap===v?D.accent:D.muted,padding:"6px 12px",fontSize:"13px",cursor:"pointer"}}>{l}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{fontSize:"12px",color:D.muted,marginBottom:"6px",fontWeight:"500"}}>Typical miss</div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                        {["straight","slight fade","fade","slice","slight draw","draw","hook"].map(v=>(
+                          <button key={v} onClick={()=>setProfile(p=>({...p,missTend:v}))} style={{background:profile.missTend===v?D.accentDim:D.surface,border:`1px solid ${profile.missTend===v?D.accent:D.border}`,borderRadius:"8px",color:profile.missTend===v?D.accent:D.muted,padding:"6px 12px",fontSize:"12px",cursor:"pointer",textTransform:"capitalize"}}>{v}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{fontSize:"12px",color:D.muted,marginBottom:"6px",fontWeight:"500"}}>Home course</div>
+                      <input placeholder="e.g. Pebble Beach" value={profile.homeCourse||""} onChange={e=>setProfile(p=>({...p,homeCourse:e.target.value}))} style={{...S.input}}/>
+                    </div>
+                    <div>
+                      <div style={{fontSize:"12px",color:D.muted,marginBottom:"6px",fontWeight:"500"}}>Caddie persona</div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                        {[{v:"hype",l:"🔥 Hype Man"},{v:"pro",l:"🎯 Tour Pro"},{v:"coach",l:"📚 Coach"},{v:"savage",l:"😂 Savage"}].map(({v,l})=>(
+                          <button key={v} onClick={()=>setProfile(p=>({...p,persona:v}))} style={{background:profile.persona===v?D.accentDim:D.surface,border:`1px solid ${profile.persona===v?D.accent:D.border}`,borderRadius:"8px",color:profile.persona===v?D.accent:D.muted,padding:"6px 12px",fontSize:"13px",cursor:"pointer"}}>{l}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <button onClick={saveProfile} style={{...S.btnPrimary,marginTop:"4px"}}>Save Changes</button>
+                  </div>
+                )
+              },
+              {
+                id:"bag",
+                label:"🏌️ My Bag",
+                content:(
+                  <div>
+                    <div style={{fontSize:"13px",color:D.muted,marginBottom:"12px"}}>Set your carry distances so Obi can recommend the right club.</div>
+                    {profile.bag.map((b,i)=>(
+                      <div key={b.club} style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"8px"}}>
+                        <div style={{width:"64px",fontSize:"13px",color:D.text,fontWeight:"500",flexShrink:0}}>{b.club}</div>
+                        <input type="number" value={b.carry||""} onChange={e=>{const n=[...profile.bag];n[i]={...b,carry:parseInt(e.target.value)||0};setProfile(p=>({...p,bag:n}));}}
+                          placeholder="yds" style={{...S.input,width:"80px",padding:"7px 10px",fontSize:"14px",textAlign:"center"}}/>
+                        <div style={{fontSize:"12px",color:D.muted}}>yards</div>
+                      </div>
+                    ))}
+                    <button onClick={saveProfile} style={{...S.btnPrimary,marginTop:"8px"}}>Save Bag</button>
+                  </div>
+                )
+              },
+              {
+                id:"app",
+                label:"⚙️ App Settings",
+                content:(
+                  <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"4px 0"}}>
+                      <span style={{fontSize:"14px",color:D.text}}>Dark Mode</span>
+                      <button onClick={()=>setDarkMode(d=>!d)} style={{background:darkMode?D.accent:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"4px",cursor:"pointer",width:"44px",height:"26px",position:"relative",transition:"background 0.2s"}}>
+                        <div style={{position:"absolute",top:"3px",left:darkMode?"20px":"3px",width:"20px",height:"20px",borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
+                      </button>
+                    </div>
+                    <div style={{height:"1px",background:D.border}}/>
+                    <button onClick={()=>setWeatherRefreshing&&fetchWeather()} style={{...S.btnSecondary,fontSize:"14px"}}>Refresh Weather</button>
+                    <button onClick={handleLogout} style={{background:"transparent",border:`1.5px solid ${D.red}44`,borderRadius:"12px",color:D.red,fontSize:"14px",padding:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",width:"100%"}}>Sign Out</button>
+                  </div>
+                )
+              }
+            ].map(section=>(
+              <div key={section.id} style={{...S.card,marginBottom:"10px",overflow:"hidden",padding:0}}>
+                <button onClick={()=>setProfileSection(s=>s===section.id?null:section.id)}
+                  style={{width:"100%",background:"transparent",border:"none",padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",color:D.white,fontFamily:"'Space Grotesk',sans-serif",fontSize:"15px",fontWeight:"600"}}>
+                  {section.label}
+                  <span style={{color:D.muted,fontSize:"12px",transition:"transform 0.2s",transform:profileSection===section.id?"rotate(180deg)":"none"}}>▼</span>
+                </button>
+                {profileSection===section.id&&(
+                  <div style={{padding:"0 16px 16px",borderTop:`1px solid ${D.border}`,paddingTop:"14px"}}>
+                    {section.content}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+      </div>
+      <style>{CSS}</style>
+    </div>
+  );
+}
+
+export default function ObiGolf(){ return <ErrorBoundary><ObiGolfApp/></ErrorBoundary>; }        {/* SOCIAL TAB */}
+        {tab==="social"&&(
+          <div>
+            {/* Sub-nav: Feed / Rounds / Friends */}
+            <div style={{display:"flex",background:D.dark,borderBottom:`1px solid ${D.border}`,position:"sticky",top:"52px",zIndex:10}}>
+              {[{id:"feed",label:"Feed"},{id:"rounds",label:"My Rounds"},{id:"friends",label:`Friends${friendReqs.length>0?" ·"+friendReqs.length:""}`}].map(t=>(
+                <button key={t.id} onClick={()=>setSocialView(t.id)}
+                  style={{flex:1,padding:"11px 4px",background:"transparent",border:"none",borderBottom:`2px solid ${socialView===t.id?D.accent:"transparent"}`,color:socialView===t.id?D.accent:D.muted,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:socialView===t.id?"600":"400",transition:"all 0.15s"}}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{padding:"16px"}}>
+
+              {/* ── FEED ── */}
+              {socialView==="feed"&&(
+                <>
+                  {feed.length===0?(
+                    <div style={{textAlign:"center",padding:"48px 20px"}}>
+                      <div style={{fontSize:"40px",marginBottom:"12px"}}>👥</div>
+                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"18px",fontWeight:"700",color:D.white,marginBottom:"6px"}}>Add friends to see their rounds</div>
+                      <div style={{color:D.muted,fontSize:"14px",marginBottom:"20px"}}>Your feed will show up here</div>
+                      <button onClick={()=>setSocialView("friends")} style={{...S.btnPrimary,width:"auto",padding:"10px 24px"}}>Find Friends</button>
+                    </div>
+                  ):(
+                    <>
+                      {(showAllFeed?feed:feed.slice(0,5)).map((r,i)=>{
+                        const diff=r.total_score-r.total_par;
+                        const isMe=r.user_id===user?.id;
+                        return(
+                          <div key={i} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:"14px",marginBottom:"10px",overflow:"hidden"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:"10px",padding:"12px 14px"}}>
+                              <Avatar name={r.profile?.full_name} size={36} highlight={isMe} photoUrl={r.profile?.avatar_url} T={D} onClick={()=>r.profile?.avatar_url&&setShowAvatarZoom(r.profile.avatar_url)}/>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontWeight:"600",color:D.white,fontSize:"14px",fontFamily:"'Space Grotesk',sans-serif"}}>
+                                  {r.profile?.full_name||"Golfer"}{isMe&&<span style={{color:D.accent,fontSize:"10px",marginLeft:"6px"}}>you</span>}
+                                </div>
+                                <div style={{fontSize:"12px",color:D.muted,marginTop:"1px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.course_name||"Unknown course"} · {fmtDateShort(r.played_at)}</div>
+                              </div>
+                              <div style={{textAlign:"right",flexShrink:0}}>
+                                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:diff<0?D.accent:diff===0?D.blue:D.red,lineHeight:1}}>{diff>0?"+"+diff:diff===0?"E":diff}</div>
+                                <div style={{fontSize:"11px",color:D.muted}}>{r.total_score} strokes</div>
+                              </div>
+                            </div>
+                            <div style={{display:"flex",borderTop:`1px solid ${D.border}`}}>
+                              <button onClick={()=>{const j=randJab();setJabPost(j);}} style={{flex:1,background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"8px",display:"flex",alignItems:"center",justifyContent:"center",gap:"5px"}}>😂 Jab</button>
+                              {isMe&&<button onClick={()=>shareRound(r)} style={{flex:1,background:"transparent",border:"none",borderLeft:`1px solid ${D.border}`,color:D.accent,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"8px",fontWeight:"600",display:"flex",alignItems:"center",justifyContent:"center",gap:"5px"}}>📤 Share</button>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {!showAllFeed&&feed.length>5&&(
+                        <button onClick={()=>setShowAllFeed(true)} style={{width:"100%",background:D.surface,border:`1px solid ${D.border}`,borderRadius:"12px",padding:"12px",color:D.muted,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
+                          View {feed.length-5} more rounds ↓
+                        </button>
+                      )}
+                      {showAllFeed&&feed.length>5&&(
+                        <button onClick={()=>setShowAllFeed(false)} style={{width:"100%",background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"8px"}}>Show less ↑</button>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* ── MY ROUNDS ── */}
+              {socialView==="rounds"&&(
+                <>
+                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.white,marginBottom:"14px"}}>My Rounds</div>
+                  {myRounds.length===0?(
+                    <div style={{textAlign:"center",padding:"32px 20px",color:D.muted,fontSize:"14px"}}>No rounds saved yet. Finish a round on the Caddie tab to save it.</div>
+                  ):myRounds.map((r,i)=>{
+                    const diff=r.total_score-r.total_par;
+                    return(
+                      <div key={i} style={{...S.card,marginBottom:"10px",display:"flex",alignItems:"center",gap:"12px"}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontWeight:"600",color:D.white,fontSize:"14px",fontFamily:"'Space Grotesk',sans-serif"}}>{r.course_name||"Unknown course"}</div>
+                          <div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{r.holes_played} holes · {fmtDate(r.played_at)}</div>
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:diff<0?D.accent:diff===0?D.blue:D.red,lineHeight:1}}>{diff>0?"+"+diff:diff===0?"E":diff}</div>
+                          <div style={{fontSize:"11px",color:D.muted}}>{r.total_score}</div>
+                        </div>
+                        <button onClick={()=>shareRound(r)} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"10px",padding:"8px",cursor:"pointer",color:D.muted}}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* ── FRIENDS ── */}
+              {socialView==="friends"&&(
+                <>
+                  {/* Pending requests */}
+                  {friendReqs.length>0&&(
+                    <div style={{marginBottom:"20px"}}>
+                      <div style={{fontSize:"12px",color:D.accent,fontWeight:"600",letterSpacing:"1px",textTransform:"uppercase",marginBottom:"10px"}}>Requests</div>
+                      {friendReqs.map((req,i)=>(
+                        <div key={i} style={{...S.card,marginBottom:"8px",display:"flex",alignItems:"center",gap:"10px"}}>
+                          <Avatar name={req.requester?.full_name} size={36} photoUrl={req.requester?.avatar_url} T={D}/>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:"600",color:D.white,fontSize:"14px"}}>{req.requester?.full_name}</div>
+                            <div style={{fontSize:"12px",color:D.muted}}>wants to connect</div>
+                          </div>
+                          <button onClick={()=>acceptFriendReq(req.id,req.user_id)} style={{background:D.accentDim,border:`1px solid ${D.accent}44`,borderRadius:"8px",color:D.accent,fontSize:"12px",cursor:"pointer",padding:"6px 12px",fontWeight:"600"}}>Accept</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Search */}
+                  <div style={{marginBottom:"16px"}}>
+                    <input placeholder="Search by name…" value={friendSearch} onChange={e=>{setFriendSearch(e.target.value);searchUsers(e.target.value);}}
+                      style={{...S.input}}/>
+                  </div>
+                  {searchRes.map((u,i)=>(
+                    <div key={i} style={{...S.card,marginBottom:"8px",display:"flex",alignItems:"center",gap:"10px"}}>
+                      <Avatar name={u.full_name} size={36} photoUrl={u.avatar_url} T={D}/>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:"600",color:D.white,fontSize:"14px"}}>{u.full_name}</div>
+                        <div style={{fontSize:"12px",color:D.muted}}>{u.handicap_category||"Golfer"}</div>
+                      </div>
+                      <button onClick={()=>sendFriendReq(u.id)} style={{background:D.accentDim,border:`1px solid ${D.accent}44`,borderRadius:"8px",color:D.accent,fontSize:"12px",cursor:"pointer",padding:"6px 12px",fontWeight:"600"}}>Add</button>
+                    </div>
+                  ))}
+                  {/* Current friends */}
+                  {friends.length>0&&!friendSearch&&(
+                    <>
+                      <div style={{fontSize:"12px",color:D.muted,fontWeight:"600",letterSpacing:"1px",textTransform:"uppercase",marginBottom:"10px",marginTop:"4px"}}>Your Friends</div>
+                      {friends.map((f,i)=>(
+                        <div key={i} style={{...S.card,marginBottom:"8px",display:"flex",alignItems:"center",gap:"10px"}}>
+                          <Avatar name={f.full_name} size={36} photoUrl={f.avatar_url} T={D}/>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:"600",color:D.white,fontSize:"14px"}}>{f.full_name}</div>
+                            <div style={{fontSize:"12px",color:D.muted}}>{f.handicap_category||"Golfer"}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+        {/* PROFILE TAB */}
+        {tab==="profile"&&(
           <div style={{padding:"20px 16px"}}>
             <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:"20px",padding:"24px",marginBottom:"20px",textAlign:"center"}}>
               {/* Avatar with upload */}
@@ -2236,4 +2468,3 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
   );
 }
 
-export default function ObiGolf(){ return <ErrorBoundary><ObiGolfApp/></ErrorBoundary>; }
