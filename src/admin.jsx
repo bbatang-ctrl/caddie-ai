@@ -51,15 +51,17 @@ function timeAgo(d) {
 }
 
 // ── ADMIN CREDENTIALS (change these!) ────────────────────────────
-const ADMIN_EMAIL = "bbatang@yahoo.com";
-const ADMIN_PASSWORD = "obigolfp855!";
+const ADMIN_EMAIL = "admin@obigolf.app";
+const ADMIN_PASSWORD = "ObiAdmin2025!";
 
 // ═════════════════════════════════════════════════════════════════
 export default function AdminPanel() {
-  const [authed, setAuthed] = useState(false);
+  const [authed, setAuthed] = useState(() => sessionStorage.getItem("obi_admin") === "true");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPass, setLoginPass] = useState("");
   const [loginErr, setLoginErr] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMsg, setActionMsg] = useState("");
   const [tab, setTab] = useState("dashboard");
   const [users, setUsers] = useState([]);
   const [rounds, setRounds] = useState([]);
@@ -71,13 +73,14 @@ export default function AdminPanel() {
   const [stats, setStats] = useState({ total: 0, active7: 0, active30: 0, newToday: 0, totalRounds: 0, totalSwings: 0 });
   const [activityLog, setActivityLog] = useState([]);
 
-  // Simple admin auth check
+  // Admin auth — persists for the browser session
   const handleLogin = () => {
-    if (loginEmail === ADMIN_EMAIL && loginPass === ADMIN_PASSWORD) {
+    if (loginEmail.trim() === ADMIN_EMAIL && loginPass === ADMIN_PASSWORD) {
+      sessionStorage.setItem("obi_admin", "true");
       setAuthed(true);
       loadAll();
     } else {
-      setLoginErr("Invalid credentials");
+      setLoginErr("Invalid credentials — check email and password");
     }
   };
 
@@ -142,27 +145,16 @@ export default function AdminPanel() {
     setActivityLog(log);
   }
 
+  async function deleteUserData(userId) {
+    await callAdminAction(userId, "delete");
+  }
+
   async function suspendUser(userId) {
-    await supabase.from("profiles").update({ suspended: true, updated_at: new Date().toISOString() }).eq("id", userId);
-    setConfirmAction(null);
-    setSelectedUser(null);
-    loadUsers();
+    await callAdminAction(userId, "suspend");
   }
 
   async function unsuspendUser(userId) {
-    await supabase.from("profiles").update({ suspended: false, updated_at: new Date().toISOString() }).eq("id", userId);
-    loadUsers();
-  }
-
-  async function deleteUserData(userId) {
-    // Delete all user data (rounds, swings, friendships)
-    await supabase.from("rounds").delete().eq("user_id", userId);
-    await supabase.from("swing_analyses").delete().eq("user_id", userId);
-    await supabase.from("friendships").delete().or(`user_id.eq.${userId},friend_id.eq.${userId}`);
-    await supabase.from("profiles").delete().eq("id", userId);
-    setConfirmAction(null);
-    setSelectedUser(null);
-    loadUsers();
+    await callAdminAction(userId, "unsuspend");
   }
 
   const filteredUsers = users.filter(u =>
@@ -208,10 +200,13 @@ export default function AdminPanel() {
           </div>
         )}
         <div style={{ display: "flex", gap: "10px" }}>
-          <button onClick={() => setConfirmAction(null)} style={{ ...S.btn(D.muted), flex: 1, padding: "10px" }}>Cancel</button>
-          <button onClick={() => confirmAction.type === "delete" ? deleteUserData(confirmAction.user.id) : suspendUser(confirmAction.user.id)}
-            style={{ ...S.btn(confirmAction.type === "delete" ? D.red : D.orange), flex: 1, padding: "10px", background: (confirmAction.type === "delete" ? D.red : D.orange) + "22" }}>
-            {confirmAction.type === "delete" ? "Delete Forever" : "Suspend User"}
+          {actionMsg && <div style={{ color: actionMsg.startsWith("Error") ? D.red : D.green, fontSize: "13px", marginBottom: "10px", padding: "8px", background: "rgba(0,0,0,0.3)", borderRadius: "8px" }}>{actionMsg}</div>}
+          <button onClick={() => { setConfirmAction(null); setActionMsg(""); }} style={{ ...S.btn(D.muted), flex: 1, padding: "10px" }}>Cancel</button>
+          <button
+            disabled={actionLoading}
+            onClick={() => confirmAction.type === "delete" ? deleteUserData(confirmAction.user.id) : suspendUser(confirmAction.user.id)}
+            style={{ ...S.btn(confirmAction.type === "delete" ? D.red : D.orange), flex: 1, padding: "10px", background: (confirmAction.type === "delete" ? D.red : D.orange) + "22", opacity: actionLoading ? 0.5 : 1 }}>
+            {actionLoading ? "Working..." : confirmAction.type === "delete" ? "Delete Forever" : "Suspend User"}
           </button>
         </div>
       </div>
@@ -297,7 +292,7 @@ export default function AdminPanel() {
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           {loading && <div style={{ fontSize: "12px", color: D.muted }}>Loading...</div>}
           <button onClick={loadAll} style={{ ...S.btn(D.green) }}>🔄 Refresh</button>
-          <button onClick={() => setAuthed(false)} style={{ ...S.btn(D.red) }}>Sign Out</button>
+          <button onClick={() => { sessionStorage.removeItem("obi_admin"); setAuthed(false); }} style={{ ...S.btn(D.red) }}>Sign Out</button>
         </div>
       </div>
 
