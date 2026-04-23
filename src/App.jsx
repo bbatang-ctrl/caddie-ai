@@ -408,7 +408,7 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
 }
 
 export default function ObiGolf(){
-  const [darkMode,setDarkMode]=useState(()=>localStorage.getItem("obi_dark")!=="false");
+  const [darkMode,setDarkMode]=useState(()=>{ const saved=localStorage.getItem("obi_dark"); return saved===null?true:saved!=="false"; });
   const D = darkMode ? DARK_THEME : LIGHT_THEME;
 
   // Shared styles — theme-reactive
@@ -503,7 +503,11 @@ export default function ObiGolf(){
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[messages,loading]);
 
   // Persist dark mode
-  useEffect(()=>{ localStorage.setItem("obi_dark", darkMode); },[darkMode]);
+  useEffect(()=>{
+    localStorage.setItem("obi_dark", darkMode);
+    document.body.style.background = darkMode ? "#0c0c0f" : "#fafafa";
+    document.body.style.transition = "background 0.2s";
+  },[darkMode]);
 
   // Helper to get first name
   const firstName = (name) => (name||"").split(" ")[0] || "there";
@@ -530,19 +534,59 @@ export default function ObiGolf(){
     if(!user||!file)return;
     setUploadingAvatar(true);
     try{
-      // Convert to base64 data URL and store directly in profile
-      const reader=new FileReader();
-      reader.onload=(e)=>{
-        const dataUrl=e.target.result;
-        setAvatarUrl(dataUrl);
-        setUploadingAvatar(false);
-      };
-      reader.readAsDataURL(file);
+      // Compress image before upload
+      const compressed = await compressImage(file, 400);
+
+      // Upload to Supabase Storage
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `avatars/${user.id}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, compressed, { upsert: true, contentType: compressed.type });
+
+      if(uploadError) throw uploadError;
+
+      // Get public URL
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      const url = data.publicUrl + "?t=" + Date.now(); // cache bust
+
+      setAvatarUrl(url);
+
+      // Save to profile immediately
+      await supabase.from("profiles").update({
+        avatar_url: url,
+        updated_at: new Date().toISOString(),
+      }).eq("id", user.id);
+
     }catch(err){
-      console.error("Avatar upload failed:",err);
-      setUploadingAvatar(false);
+      console.error("Avatar upload failed:", err);
+      alert("Photo upload failed: " + err.message);
     }
+    setUploadingAvatar(false);
   }
+
+  // Compress image to max width/height using canvas
+  function compressImage(file, maxSize=400){
+    return new Promise((resolve)=>{
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = ()=>{
+        const canvas = document.createElement("canvas");
+        let w = img.width, h = img.height;
+        if(w > h){ if(w > maxSize){ h = h*(maxSize/w); w = maxSize; } }
+        else { if(h > maxSize){ w = w*(maxSize/h); h = maxSize; } }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        canvas.toBlob((blob)=>{
+          resolve(new File([blob], file.name, { type: "image/jpeg" }));
+        }, "image/jpeg", 0.82);
+      };
+      img.src = url;
+    });
+  }
+
 
   async function handleLogin(){setAuthError("");setAuthLoading(true);const{error}=await supabase.auth.signInWithPassword({email:authEmail,password:authPass});if(error)setAuthError(error.message);setAuthLoading(false);}
   async function handleSignup(){setAuthError("");setAuthLoading(true);const{error}=await supabase.auth.signUp({email:authEmail,password:authPass});if(error)setAuthError(error.message);else setAuthScreen("onboard");setAuthLoading(false);}
@@ -858,7 +902,7 @@ Respond in this EXACT JSON format with no other text:
 
   // AUTH
   if(!user||authScreen==="onboard")return(
-    <div style={{minHeight:"100vh",background:D.black,fontFamily:"'Inter',sans-serif",backgroundImage:`radial-gradient(ellipse at 20% 10%,${D.accentDim}66 0%,transparent 50%),radial-gradient(ellipse at 80% 90%,${D.accentDim}33 0%,transparent 50%)`}}>
+    <div style={{minHeight:"100vh",background:D.bg,fontFamily:"'Inter',sans-serif",backgroundImage:darkMode?`radial-gradient(ellipse at 20% 10%,${D.accentDim}66 0%,transparent 50%),radial-gradient(ellipse at 80% 90%,${D.accentDim}33 0%,transparent 50%)`:"none"}}>
       <div style={{maxWidth:"420px",margin:"0 auto",padding:"40px 24px",display:"flex",flexDirection:"column",minHeight:"100vh",justifyContent:"center"}}>
         <div style={{textAlign:"center",marginBottom:"36px",animation:"fadeUp 0.5s both"}}>
           <Ball size={56}/>
@@ -947,7 +991,7 @@ Respond in this EXACT JSON format with no other text:
 
   // MAIN APP
   return(
-    <div style={{minHeight:"100vh",maxWidth:"480px",margin:"0 auto",background:D.black,fontFamily:"'Inter',sans-serif",display:"flex",flexDirection:"column",position:"relative"}}>
+    <div style={{minHeight:"100vh",maxWidth:"480px",margin:"0 auto",background:D.bg,fontFamily:"'Inter',sans-serif",display:"flex",flexDirection:"column",position:"relative",transition:"background 0.2s,color 0.2s"}}>
       {showCard&&<SummaryModal round={showCard}/>}
 
       {/* Avatar zoom modal */}
