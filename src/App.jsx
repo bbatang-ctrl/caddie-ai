@@ -226,6 +226,24 @@ Be specific about what you see in the VIDEO MOTION - mention timing, sequencing,
 }
 
 
+
+const CSS=`
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+  @keyframes popIn    {from{opacity:0;transform:scale(0.88)}to{opacity:1;transform:scale(1)}}
+  @keyframes fadeUp   {from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @keyframes slideIn  {from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+  @keyframes pulse    {0%,100%{opacity:1}50%{opacity:0.35}}
+  @keyframes bounce   {0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  @keyframes shimmer  {0%{background-position:-200px 0}100%{background-position:200px 0}}
+  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+  select option{background:#1e1e27;color:#e2e8f0}
+  ::-webkit-scrollbar{width:3px;height:3px}
+  ::-webkit-scrollbar-thumb{background:#2a2a38;border-radius:2px}
+  *{-webkit-tap-highlight-color:transparent;box-sizing:border-box}
+  input:focus,textarea:focus,select:focus{border-color:#34d399 !important;outline:none}
+  button:active{transform:scale(0.97)}
+`;
+
 // ── Error Boundary — prevents blank screen crashes ──────────────
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -2111,19 +2129,3 @@ export default function ObiGolf() {
   return React.createElement(ErrorBoundary, null, React.createElement(ObiGolfInner, null));
 }
 
-const CSS=`
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
-  @keyframes popIn    {from{opacity:0;transform:scale(0.88)}to{opacity:1;transform:scale(1)}}
-  @keyframes fadeUp   {from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-  @keyframes slideIn  {from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
-  @keyframes pulse    {0%,100%{opacity:1}50%{opacity:0.35}}
-  @keyframes bounce   {0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-  @keyframes shimmer  {0%{background-position:-200px 0}100%{background-position:200px 0}}
-  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
-  select option{background:#1e1e27;color:#e2e8f0}
-  ::-webkit-scrollbar{width:3px;height:3px}
-  ::-webkit-scrollbar-thumb{background:#2a2a38;border-radius:2px}
-  *{-webkit-tap-highlight-color:transparent;box-sizing:border-box}
-  input:focus,textarea:focus,select:focus{border-color:#34d399 !important;outline:none}
-  button:active{transform:scale(0.97)}
-`;
