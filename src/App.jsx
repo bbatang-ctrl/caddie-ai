@@ -222,13 +222,15 @@ Be specific about what you see in the VIDEO MOTION - mention timing, sequencing,
   return result.candidates?.[0]?.content?.parts?.[0]?.text || "Could not analyze swing.";
 }
 
+// S is a static style baseline using DARK_THEME defaults.
+// Inside the component, override per-property with the live D theme token where needed.
 const S={
-  input:{background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"12px",color:D.text,fontSize:"15px",padding:"13px 16px",outline:"none",fontFamily:"'Inter',sans-serif",width:"100%",boxSizing:"border-box"},
-  btnPrimary:{background:`linear-gradient(135deg,${D.green},#16a34a)`,border:"none",borderRadius:"14px",color:"#fff",fontSize:"16px",padding:"15px",cursor:"pointer",fontWeight:"600",fontFamily:"'Inter',sans-serif",width:"100%",boxShadow:`0 4px 20px ${D.accent}44`},
-  btnSecondary:{background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"14px",color:D.text,fontSize:"15px",padding:"13px",cursor:"pointer",fontWeight:"500",fontFamily:"'Inter',sans-serif",width:"100%"},
-  btnGhost:{background:"transparent",border:"none",color:D.muted,fontSize:"14px",padding:"10px",cursor:"pointer",fontFamily:"'Inter',sans-serif",width:"100%"},
-  card:{background:D.card,border:`1px solid ${D.border}`,borderRadius:"18px",padding:"18px",boxShadow:"0 2px 20px rgba(0,0,0,0.3)"},
-  pill:{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"5px 12px",fontSize:"12px",color:D.muted,fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"},
+  input:{background:DARK_THEME.surface,border:`1.5px solid ${DARK_THEME.border}`,borderRadius:"12px",color:DARK_THEME.text,fontSize:"15px",padding:"13px 16px",outline:"none",fontFamily:"'Inter',sans-serif",width:"100%",boxSizing:"border-box"},
+  btnPrimary:{background:`linear-gradient(135deg,#22c55e,#16a34a)`,border:"none",borderRadius:"14px",color:"#fff",fontSize:"16px",padding:"15px",cursor:"pointer",fontWeight:"600",fontFamily:"'Inter',sans-serif",width:"100%",boxShadow:`0 4px 20px ${DARK_THEME.accent}44`},
+  btnSecondary:{background:DARK_THEME.surface,border:`1.5px solid ${DARK_THEME.border}`,borderRadius:"14px",color:DARK_THEME.text,fontSize:"15px",padding:"13px",cursor:"pointer",fontWeight:"500",fontFamily:"'Inter',sans-serif",width:"100%"},
+  btnGhost:{background:"transparent",border:"none",color:DARK_THEME.muted,fontSize:"14px",padding:"10px",cursor:"pointer",fontFamily:"'Inter',sans-serif",width:"100%"},
+  card:{background:DARK_THEME.card,border:`1px solid ${DARK_THEME.border}`,borderRadius:"18px",padding:"18px",boxShadow:"0 2px 20px rgba(0,0,0,0.3)"},
+  pill:{background:DARK_THEME.surface,border:`1px solid ${DARK_THEME.border}`,borderRadius:"99px",padding:"5px 12px",fontSize:"12px",color:DARK_THEME.muted,fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"},
 };
 
 // ── Light theme tokens ───────────────────────────────────────────
