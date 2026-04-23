@@ -1,1 +1,1 @@
-export { default } from './AppContent.js'
+export { default } from './AppContent.jsx'
