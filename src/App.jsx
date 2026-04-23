@@ -255,96 +255,252 @@ function ShotShapeDiagram({ result, club, dexterity, T }) {
     setProgress(0);
     const delay = setTimeout(() => {
       let p = 0;
-      const iv = setInterval(() => { p += 2; setProgress(Math.min(p,100)); if(p>=100)clearInterval(iv); }, 18);
+      const iv = setInterval(() => {
+        p += 1.5;
+        setProgress(Math.min(p, 100));
+        if (p >= 100) clearInterval(iv);
+      }, 16);
       return () => clearInterval(iv);
-    }, 400);
+    }, 300);
     return () => clearTimeout(delay);
   }, [result]);
 
   if (!result || result.error) return null;
 
-  const shape = result.shot_shape || "straight";
-  const launch = result.launch_angle || "mid";
-  const carry = result.estimated_carry || 150;
+  const shape   = result.shot_shape      || "straight";
+  const launch  = result.launch_angle    || "mid";
+  const carry   = result.estimated_carry || 150;
   const contact = result.contact_quality || "flush";
-  const isLeft = dexterity === "left";
+  const tip     = result.tip             || "";
+  const path    = result.swing_path      || "neutral";
+  const isLeft  = dexterity === "left";
 
   const shapeConfig = {
-    "straight":    { curve:0,                      color:"#94a3b8", label:"Straight"    },
-    "slight draw": { curve:isLeft?-0.15:0.15,       color:"#34d399", label:"Slight Draw" },
-    "draw":        { curve:isLeft?-0.28:0.28,       color:"#10b981", label:"Draw"        },
-    "strong draw": { curve:isLeft?-0.42:0.42,       color:"#059669", label:"Strong Draw" },
-    "hook":        { curve:isLeft?-0.58:0.58,       color:"#f59e0b", label:"Hook"        },
-    "slight fade": { curve:isLeft?0.15:-0.15,       color:"#818cf8", label:"Slight Fade" },
-    "fade":        { curve:isLeft?0.28:-0.28,       color:"#6366f1", label:"Fade"        },
-    "strong fade": { curve:isLeft?0.42:-0.42,       color:"#ef4444", label:"Strong Fade" },
-    "slice":       { curve:isLeft?0.65:-0.65,       color:"#f87171", label:"Slice"       },
+    "straight":    { curve: 0,                    color: "#94a3b8", label: "Straight",    dir: "→" },
+    "slight draw": { curve: isLeft?-0.12:0.12,    color: "#34d399", label: "Slight Draw", dir: isLeft?"↙":"↘" },
+    "draw":        { curve: isLeft?-0.25:0.25,    color: "#10b981", label: "Draw",        dir: isLeft?"↙":"↘" },
+    "strong draw": { curve: isLeft?-0.40:0.40,    color: "#059669", label: "Strong Draw", dir: isLeft?"↙":"↘" },
+    "hook":        { curve: isLeft?-0.55:0.55,    color: "#f59e0b", label: "Hook",        dir: isLeft?"↙":"↘" },
+    "slight fade": { curve: isLeft?0.12:-0.12,    color: "#818cf8", label: "Slight Fade", dir: isLeft?"↘":"↙" },
+    "fade":        { curve: isLeft?0.25:-0.25,    color: "#6366f1", label: "Fade",        dir: isLeft?"↘":"↙" },
+    "strong fade": { curve: isLeft?0.40:-0.40,    color: "#ef4444", label: "Strong Fade", dir: isLeft?"↘":"↙" },
+    "slice":       { curve: isLeft?0.60:-0.60,    color: "#f87171", label: "Slice",       dir: isLeft?"↘":"↙" },
   };
-  const cfg = shapeConfig[shape] || shapeConfig["straight"];
-  const peakH = {"low":0.22,"mid-low":0.30,"mid":0.38,"mid-high":0.46,"high":0.54}[launch] || 0.38;
+  const cfg    = shapeConfig[shape] || shapeConfig["straight"];
+  const peakPct = { "low":0.18,"mid-low":0.28,"mid":0.38,"mid-high":0.48,"high":0.58 }[launch] || 0.38;
+  const contactColor = contact==="flush" ? "#34d399"
+    : (contact.includes("thin")||contact.includes("fat")) ? "#f87171" : "#f59e0b";
 
-  const W=300, H=160;
-  const sx=W*0.12, sy=H*0.88, ex=W*0.88, ey=H*0.88;
-  const mx=(sx+ex)/2+(ex-sx)*cfg.curve*0.5, my=H*(1-peakH);
+  // ── Overhead view (top-down) ──────────────────────────
+  const OW=320, OH=200;
+  const oSx=OW*0.5, oSy=OH*0.88;   // tee at bottom-center
+  const oEx=OW*0.5 + OW*cfg.curve*0.55, oEy=OH*0.08;  // carry point at top
+  const oMx=(oSx+oEx)/2 + (oEx-oSx)*0.3, oMy=OH*0.48;
 
-  function partialPath(pct) {
-    const t2=pct/100, steps=Math.max(2,Math.floor(t2*40)), pts=[];
-    for(let i=0;i<=steps;i++){const s=(t2*i)/steps;pts.push((i===0?"M ":"L ")+((1-s)*(1-s)*sx+2*(1-s)*s*mx+s*s*ex).toFixed(1)+" "+((1-s)*(1-s)*sy+2*(1-s)*s*my+s*s*ey).toFixed(1));}
+  function overheadPath(pct) {
+    const t2=pct/100, steps=Math.max(2,Math.floor(t2*50)), pts=[];
+    for(let i=0;i<=steps;i++){
+      const s=(t2*i)/steps;
+      const x=(1-s)*(1-s)*oSx+2*(1-s)*s*oMx+s*s*oEx;
+      const y=(1-s)*(1-s)*oSy+2*(1-s)*s*oMy+s*s*oEy;
+      pts.push((i===0?"M ":"L ")+x.toFixed(1)+" "+y.toFixed(1));
+    }
     return pts.join(" ");
   }
 
-  const t=progress/100;
-  const bx=(1-t)*(1-t)*sx+2*(1-t)*t*mx+t*t*ex;
-  const by=(1-t)*(1-t)*sy+2*(1-t)*t*my+t*t*ey;
-  const contactColor=contact==="flush"?"#34d399":contact&&(contact.includes("thin")||contact.includes("fat"))?"#f87171":"#f59e0b";
+  const ot=progress/100;
+  const oBx=(1-ot)*(1-ot)*oSx+2*(1-ot)*ot*oMx+ot*ot*oEx;
+  const oBy=(1-ot)*(1-ot)*oSy+2*(1-ot)*ot*oMy+ot*ot*oEy;
+
+  // ── Side view (height profile) ────────────────────────
+  const SW=320, SH=120;
+  const sSx=30, sSy=SH*0.88;
+  const sEx=SW-20, sEy=SH*0.88;
+  const sMx=(sSx+sEx)/2, sMy=SH*(1-peakPct)*0.9;
+
+  function sidePath(pct) {
+    const t2=pct/100, steps=Math.max(2,Math.floor(t2*50)), pts=[];
+    for(let i=0;i<=steps;i++){
+      const s=(t2*i)/steps;
+      const x=(1-s)*(1-s)*sSx+2*(1-s)*s*sMx+s*s*sEx;
+      const y=(1-s)*(1-s)*sSy+2*(1-s)*s*sMy+s*s*sEy;
+      pts.push((i===0?"M ":"L ")+x.toFixed(1)+" "+y.toFixed(1));
+    }
+    return pts.join(" ");
+  }
+
+  const st=progress/100;
+  const sBx=(1-st)*(1-st)*sSx+2*(1-st)*st*sMx+st*st*sEx;
+  const sBy=(1-st)*(1-st)*sSy+2*(1-st)*st*sMy+st*st*sEy;
+
+  // Peak ball position
+  const peakT=0.5;
+  const peakX=(1-peakT)*(1-peakT)*sSx+2*(1-peakT)*peakT*sMx+peakT*peakT*sEx;
+  const peakY=sMy;
 
   return (
-    <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:"16px",padding:"16px",marginBottom:"14px"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-        <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"15px",fontWeight:"600",color:T.white}}>Ball Flight</div>
-        <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
-          <div style={{width:"10px",height:"10px",borderRadius:"50%",background:cfg.color}}/>
-          <span style={{fontSize:"13px",fontWeight:"600",color:cfg.color,fontFamily:"'Space Grotesk',sans-serif"}}>{cfg.label}</span>
+    <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:"18px",overflow:"hidden",marginBottom:"16px"}}>
+
+      {/* Header */}
+      <div style={{padding:"14px 16px 10px",borderBottom:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"15px",fontWeight:"700",color:T.white}}>Shot Tracer</div>
+        <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:cfg.color,boxShadow:`0 0 6px ${cfg.color}`}}/>
+          <span style={{fontSize:"13px",fontWeight:"700",color:cfg.color,fontFamily:"'Space Grotesk',sans-serif"}}>{cfg.label}</span>
         </div>
       </div>
-      <div style={{fontSize:"9px",color:T.muted,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:"6px"}}>OVERHEAD VIEW</div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{display:"block",overflow:"visible"}}>
-        <line x1={sx} y1={sy} x2={ex} y2={ey} stroke={T.border} strokeWidth="1.5" strokeDasharray="4,5" opacity="0.4"/>
-        {progress>5&&<path d={partialPath(progress)} stroke={cfg.color} strokeWidth="8" strokeLinecap="round" fill="none" opacity="0.1"/>}
-        {progress>0&&<path d={partialPath(progress)} stroke={cfg.color} strokeWidth="2.5" strokeLinecap="round" fill="none" opacity="0.95"/>}
-        {[20,40,60,80].map(pct=>{
-          if(progress<pct)return null;
-          const tp=pct/100;
-          return <circle key={pct} cx={(1-tp)*(1-tp)*sx+2*(1-tp)*tp*mx+tp*tp*ex} cy={(1-tp)*(1-tp)*sy+2*(1-tp)*tp*my+tp*tp*ey} r="3" fill={cfg.color} opacity="0.45"/>;
-        })}
-        <circle cx={sx} cy={sy} r="5" fill={T.surface} stroke={T.muted} strokeWidth="1.5"/>
-        <circle cx={sx} cy={sy} r="2" fill={T.muted}/>
-        {progress>0&&progress<100&&<circle cx={bx} cy={by} r="6" fill="#f59e0b" opacity="0.95"/>}
-        {progress>=100&&<g><circle cx={ex} cy={ey} r="9" fill={cfg.color} opacity="0.15"/><circle cx={ex} cy={ey} r="5" fill={cfg.color}/><circle cx={ex} cy={ey} r="2" fill="#fff"/></g>}
-        {progress>=80&&<text x={(sx+ex)/2} y={H*0.12} textAnchor="middle" fontSize="13" fontFamily="Space Grotesk,sans-serif" fontWeight="700" fill={cfg.color} opacity={Math.min(1,(progress-80)/20)}>{carry}y</text>}
-        <text x={sx} y={H*0.99} textAnchor="middle" fontSize="9" fill={T.muted} fontFamily="Inter,sans-serif">TEE</text>
-        <text x={ex} y={H*0.99} textAnchor="middle" fontSize="9" fill={T.muted} fontFamily="Inter,sans-serif">CARRY</text>
-      </svg>
-      <div style={{fontSize:"9px",color:T.muted,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:"6px",marginTop:"10px"}}>SIDE VIEW</div>
-      <svg width="100%" viewBox="0 0 320 70" style={{display:"block"}}>
-        <line x1="30" y1="60" x2="290" y2="60" stroke={T.border} strokeWidth="1.5"/>
-        {progress>10&&<path d={`M 40 60 Q ${(40+Math.min(40+250*Math.min(progress,100)/100,260))/2} ${60-peakH*60*0.9} ${Math.min(40+250*Math.min(progress,100)/100,290)} 60`} stroke={cfg.color} strokeWidth="2.5" fill="none" strokeLinecap="round" opacity="0.9"/>}
-        {progress>10&&<path d={`M 40 60 Q ${(40+Math.min(40+250*Math.min(progress,100)/100,260))/2} ${60-peakH*60*0.9} ${Math.min(40+250*Math.min(progress,100)/100,290)} 60`} fill={cfg.color} opacity="0.07"/>}
-        {progress>0&&progress<100&&<circle cx={40+(250*progress/100)*0.85} cy={60-Math.sin(Math.PI*progress/100)*peakH*60*0.9} r="5" fill="#f59e0b" opacity="0.95"/>}
-        {progress>=50&&<text x="165" y={60-peakH*60*0.9-5} textAnchor="middle" fontSize="9" fill={T.muted} fontFamily="Inter,sans-serif">{launch} launch</text>}
-      </svg>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:"8px",marginTop:"12px"}}>
-        {[["Carry",`${carry}y`,cfg.color],["Shape",cfg.label,cfg.color],["Launch",launch,T.muted],["Strike",contact,contactColor]].map(([label,value,color])=>(
-          <div key={label} style={{background:T.card,borderRadius:"10px",padding:"8px 6px",textAlign:"center"}}>
+
+      {/* ── TOP DOWN VIEW ── */}
+      <div style={{padding:"10px 16px 0",borderBottom:`1px solid ${T.border}40`}}>
+        <div style={{fontSize:"9px",color:T.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"4px"}}>TOP-DOWN SHAPE</div>
+        <svg width="100%" viewBox={`0 0 ${OW} ${OH}`} style={{display:"block"}}>
+          <defs>
+            <linearGradient id="trailGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+              <stop offset="0%" stopColor={cfg.color} stopOpacity="0.1"/>
+              <stop offset="100%" stopColor={cfg.color} stopOpacity="0.8"/>
+            </linearGradient>
+          </defs>
+
+          {/* Fairway guide */}
+          <rect x={OW*0.35} y={OH*0.04} width={OW*0.3} height={OH*0.8} rx="4" fill={T.surface} opacity="0.3"/>
+
+          {/* Target line */}
+          <line x1={oSx} y1={oSy} x2={oSx} y2={OH*0.05} stroke={T.border} strokeWidth="1" strokeDasharray="5,6" opacity="0.5"/>
+
+          {/* Glow under path */}
+          {progress>5&&<path d={overheadPath(progress)} stroke={cfg.color} strokeWidth="12" strokeLinecap="round" fill="none" opacity="0.08"/>}
+
+          {/* Main tracer line */}
+          {progress>0&&<path d={overheadPath(progress)} stroke="url(#trailGrad)" strokeWidth="3" strokeLinecap="round" fill="none"/>}
+
+          {/* Trail dots */}
+          {[15,30,45,60,75,90].map(pct=>{
+            if(progress<pct)return null;
+            const tp=pct/100;
+            const dx=(1-tp)*(1-tp)*oSx+2*(1-tp)*tp*oMx+tp*tp*oEx;
+            const dy=(1-tp)*(1-tp)*oSy+2*(1-tp)*tp*oMy+tp*tp*oEy;
+            const sz=pct>60?4:3;
+            return <circle key={pct} cx={dx} cy={dy} r={sz} fill={cfg.color} opacity={pct/120}/>;
+          })}
+
+          {/* Ball */}
+          {progress>0&&progress<100&&(
+            <g>
+              <circle cx={oBx} cy={oBy} r="9" fill={cfg.color} opacity="0.15"/>
+              <circle cx={oBx} cy={oBy} r="5.5" fill="#f59e0b"/>
+              <circle cx={oBx-1.5} cy={oBy-1.5} r="1.5" fill="#fff" opacity="0.7"/>
+            </g>
+          )}
+
+          {/* Landing marker */}
+          {progress>=98&&(
+            <g>
+              <circle cx={oEx} cy={oEy} r="14" fill={cfg.color} opacity="0.1"/>
+              <circle cx={oEx} cy={oEy} r="8"  fill={cfg.color} opacity="0.25"/>
+              <circle cx={oEx} cy={oEy} r="5"  fill={cfg.color}/>
+              <circle cx={oEx} cy={oEy} r="2"  fill="#fff"/>
+            </g>
+          )}
+
+          {/* Carry label */}
+          {progress>=85&&(
+            <g opacity={Math.min(1,(progress-85)/15)}>
+              <rect x={oEx-22} y={oEy-24} width="44" height="18" rx="6" fill={T.surface}/>
+              <text x={oEx} y={oEy-12} textAnchor="middle" fontSize="11" fontFamily="Space Grotesk,sans-serif" fontWeight="700" fill={cfg.color}>{carry}y</text>
+            </g>
+          )}
+
+          {/* Tee */}
+          <circle cx={oSx} cy={oSy} r="6" fill={T.surface} stroke={T.muted} strokeWidth="1.5"/>
+          <circle cx={oSx} cy={oSy} r="3" fill={T.muted}/>
+          <text x={oSx} y={oSy+14} textAnchor="middle" fontSize="8" fill={T.muted} fontFamily="Inter,sans-serif" letterSpacing="1">TEE</text>
+        </svg>
+      </div>
+
+      {/* ── SIDE PROFILE VIEW ── */}
+      <div style={{padding:"10px 16px 6px",borderBottom:`1px solid ${T.border}40`}}>
+        <div style={{fontSize:"9px",color:T.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"4px"}}>SIDE PROFILE — HEIGHT</div>
+        <svg width="100%" viewBox={`0 0 ${SW} ${SH}`} style={{display:"block"}}>
+          <defs>
+            <linearGradient id="heightGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={cfg.color} stopOpacity="0.6"/>
+              <stop offset="50%" stopColor={cfg.color} stopOpacity="1"/>
+              <stop offset="100%" stopColor={cfg.color} stopOpacity="0.4"/>
+            </linearGradient>
+          </defs>
+
+          {/* Ground */}
+          <line x1={sSx-5} y1={sSy} x2={sEx+5} y2={sEy} stroke={T.border} strokeWidth="1.5"/>
+          {/* Distance markers */}
+          {[25,50,75].map(pct=>{
+            const gx=sSx+(sEx-sSx)*pct/100;
+            return <line key={pct} x1={gx} y1={sSy} x2={gx} y2={sSy+4} stroke={T.border} strokeWidth="1" opacity="0.5"/>;
+          })}
+
+          {/* Fill under curve */}
+          {progress>10&&(
+            <path d={sidePath(progress)+" L "+Math.min(sSx+(sEx-sSx)*progress/100,sEx).toFixed(1)+" "+sSy+" L "+sSx+" "+sSy+" Z"} fill={cfg.color} opacity="0.07"/>
+          )}
+
+          {/* Glow */}
+          {progress>5&&<path d={sidePath(progress)} stroke={cfg.color} strokeWidth="8" strokeLinecap="round" fill="none" opacity="0.1"/>}
+
+          {/* Main curve */}
+          {progress>0&&<path d={sidePath(progress)} stroke="url(#heightGrad)" strokeWidth="2.5" strokeLinecap="round" fill="none"/>}
+
+          {/* Apex marker */}
+          {progress>=50&&(
+            <g opacity={Math.min(1,(progress-50)/25)}>
+              <line x1={peakX} y1={peakY} x2={peakX} y2={sSy} stroke={cfg.color} strokeWidth="1" strokeDasharray="3,4" opacity="0.4"/>
+              <circle cx={peakX} cy={peakY} r="4" fill={cfg.color} opacity="0.9"/>
+            </g>
+          )}
+
+          {/* Ball */}
+          {progress>0&&progress<100&&(
+            <g>
+              <circle cx={sBx} cy={sBy} r="7" fill={cfg.color} opacity="0.1"/>
+              <circle cx={sBx} cy={sBy} r="4.5" fill="#f59e0b"/>
+              <circle cx={sBx-1} cy={sBy-1} r="1.2" fill="#fff" opacity="0.7"/>
+            </g>
+          )}
+
+          {/* Labels */}
+          {progress>=60&&(
+            <text x={peakX} y={peakY-8} textAnchor="middle" fontSize="9" fill={T.muted} fontFamily="Inter,sans-serif">{launch}</text>
+          )}
+          <text x={sSx} y={sSy+12} textAnchor="middle" fontSize="8" fill={T.muted} fontFamily="Inter,sans-serif">TEE</text>
+          <text x={sEx} y={sEy+12} textAnchor="middle" fontSize="8" fill={T.muted} fontFamily="Inter,sans-serif">{carry}y</text>
+        </svg>
+      </div>
+
+      {/* ── Stats grid ── */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1px",background:T.border}}>
+        {[
+          ["Carry",   `${carry}y`,      cfg.color],
+          ["Shape",   cfg.label,        cfg.color],
+          ["Launch",  launch,           T.text],
+          ["Strike",  contact,          contactColor],
+          ["Path",    path,             T.muted],
+          ["Flight",  result.ball_flight||"mid", T.muted],
+        ].map(([label,value,color])=>(
+          <div key={label} style={{background:T.card,padding:"10px 8px",textAlign:"center"}}>
             <div style={{fontSize:"9px",color:T.muted,letterSpacing:"1px",textTransform:"uppercase",marginBottom:"3px"}}>{label}</div>
-            <div style={{fontSize:"11px",fontWeight:"600",color,fontFamily:"'Space Grotesk',sans-serif",textTransform:"capitalize",lineHeight:"1.2"}}>{value}</div>
+            <div style={{fontSize:"11px",fontWeight:"600",color,fontFamily:"'Space Grotesk',sans-serif",textTransform:"capitalize",lineHeight:"1.3"}}>{value}</div>
           </div>
         ))}
       </div>
+
+      {/* ── Tip ── */}
+      {tip&&(
+        <div style={{padding:"12px 16px",display:"flex",gap:"10px",alignItems:"flex-start"}}>
+          <div style={{fontSize:"16px",flexShrink:0}}>💡</div>
+          <div style={{fontSize:"13px",color:T.text,lineHeight:"1.5"}}>{tip}</div>
+        </div>
+      )}
     </div>
   );
 }
-
 
 // ── Error Boundary ───────────────────────────────────────────────
 class ErrorBoundary extends React.Component {
