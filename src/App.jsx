@@ -1273,7 +1273,7 @@ function ObiGolfApp(){
 
               {/* FEED */}
               {socialView==="feed"&&(
-                <>
+                <React.Fragment>
                   {feed.length===0?(
                     <div style={{textAlign:"center",padding:"48px 20px"}}>
                       <div style={{fontSize:"40px",marginBottom:"12px"}}>👥</div>
@@ -1282,7 +1282,7 @@ function ObiGolfApp(){
                       <button onClick={()=>setSocialView("friends")} style={{...S.btnPrimary,width:"auto",padding:"10px 24px"}}>Find Friends</button>
                     </div>
                   ):(
-                    <>
+                    <React.Fragment>
                       {(showAllFeed?feed:feed.slice(0,5)).map((r,i)=>{
                         const diff=r.total_score-r.total_par;
                         const isMe=r.user_id===user?.id;
@@ -1316,14 +1316,14 @@ function ObiGolfApp(){
                       {showAllFeed&&feed.length>5&&(
                         <button onClick={()=>setShowAllFeed(false)} style={{width:"100%",background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"8px"}}>Show less ^</button>
                       )}
-                    </>
+                    </React.Fragment>
                   )}
-                </>
+                </React.Fragment>
               )}
 
               {/* MY ROUNDS */}
               {socialView==="rounds"&&(
-                <>
+                <React.Fragment>
                   <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.white,marginBottom:"14px"}}>My Rounds</div>
                   {myRounds.length===0?(
                     <div style={{textAlign:"center",padding:"32px 20px",color:D.muted,fontSize:"14px"}}>No rounds saved yet.</div>
@@ -1345,12 +1345,12 @@ function ObiGolfApp(){
                       </div>
                     );
                   })}
-                </>
+                </React.Fragment>
               )}
 
               {/* FRIENDS */}
               {socialView==="friends"&&(
-                <>
+                <React.Fragment>
                   {friendReqs.length>0&&(
                     <div style={{marginBottom:"20px"}}>
                       <div style={{fontSize:"12px",color:D.accent,fontWeight:"600",letterSpacing:"1px",textTransform:"uppercase",marginBottom:"10px"}}>Requests</div>
@@ -1380,7 +1380,7 @@ function ObiGolfApp(){
                     </div>
                   ))}
                   {friends.length>0&&!friendSearch&&(
-                    <>
+                    <React.Fragment>
                       <div style={{fontSize:"12px",color:D.muted,fontWeight:"600",letterSpacing:"1px",textTransform:"uppercase",marginBottom:"10px",marginTop:"4px"}}>Your Friends</div>
                       {friends.map((f,i)=>(
                         <div key={i} style={{...S.card,marginBottom:"8px",display:"flex",alignItems:"center",gap:"10px"}}>
@@ -1391,9 +1391,9 @@ function ObiGolfApp(){
                           </div>
                         </div>
                       ))}
-                    </>
+                    </React.Fragment>
                   )}
-                </>
+                </React.Fragment>
               )}
             </div>
           </div>
