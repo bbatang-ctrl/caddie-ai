@@ -1,3 +1,5 @@
+/** @jsxRuntime classic */
+/** @jsx React.createElement */
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "./supabase.js";
 
@@ -1150,7 +1152,7 @@ function ObiGolfApp(){
     let parsed;
     try {
       const clean = rawText.replace(/\u0060\u0060\u0060json|\u0060\u0060\u0060/g, "").trim();
-      const match = clean.match(/\{[\s\S]*\}/);
+      const jsonStart = clean.indexOf('{'); const jsonEnd = clean.lastIndexOf('}'); const match = jsonStart >= 0 && jsonEnd > jsonStart ? [clean.slice(jsonStart, jsonEnd + 1)] : null;
       parsed = JSON.parse(match ? match[0] : clean);
     } catch {
       // Fallback defaults if JSON parse fails
