@@ -430,6 +430,12 @@ export default function ObiGolf(){
   const [authName,setAuthName]=useState("");
   const [authError,setAuthError]=useState("");
   const [tab,setTab]=useState("caddie");
+  // Stop speech when navigating away
+  const changeTab = (newTab) => {
+    if(window.speechSynthesis) window.speechSynthesis.cancel();
+    setSpeaking(false);
+    setTab(newTab);
+  };
   const [subView,setSubView]=useState("chat");
   const [avatarUrl,setAvatarUrl]=useState(null);
   const [uploadingAvatar,setUploadingAvatar]=useState(false);
@@ -537,13 +543,13 @@ export default function ObiGolf(){
       // Compress image before upload
       const compressed = await compressImage(file, 400);
 
-      // Upload to Supabase Storage
-      const ext = file.name.split(".").pop() || "jpg";
-      const path = `avatars/${user.id}.${ext}`;
+      // Upload to Supabase Storage — file named by user ID
+      const ext = "jpg"; // always save as jpg after compression
+      const path = `${user.id}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(path, compressed, { upsert: true, contentType: compressed.type });
+        .upload(path, compressed, { upsert: true, contentType: "image/jpeg" });
 
       if(uploadError) throw uploadError;
 
@@ -1046,7 +1052,7 @@ Respond in this EXACT JSON format with no other text:
           {id:"social", label:"Social", badge:friendReqs.length, svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>},
           {id:"profile", label:"Profile", svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>},
         ].map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,padding:"8px 4px 6px",background:"transparent",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"2px",position:"relative"}}>
+          <button key={t.id} onClick={()=>changeTab(t.id)} style={{flex:1,padding:"8px 4px 6px",background:"transparent",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"2px",position:"relative"}}>
             <div style={{width:"40px",height:"30px",borderRadius:"10px",background:tab===t.id?D.accentDim:"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s",color:tab===t.id?D.accent:D.muted}}>
               {t.svg}
             </div>
