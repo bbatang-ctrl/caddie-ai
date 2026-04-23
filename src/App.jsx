@@ -226,6 +226,41 @@ Be specific about what you see in the VIDEO MOTION - mention timing, sequencing,
 }
 
 
+// ── Error Boundary — prevents blank screen crashes ──────────────
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, info) {
+    console.error("App error caught:", error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return React.createElement("div", {
+        style: {
+          minHeight: "100vh", background: "#0c0c0f", display: "flex",
+          flexDirection: "column", alignItems: "center", justifyContent: "center",
+          fontFamily: "'Inter',sans-serif", padding: "24px", textAlign: "center"
+        }
+      },
+        React.createElement("div", { style: { fontSize: "48px", marginBottom: "16px" } }, "⛳"),
+        React.createElement("div", { style: { fontFamily: "'Space Grotesk',sans-serif", fontSize: "20px", fontWeight: "700", color: "#f1f5f9", marginBottom: "8px" } }, "Something went wrong"),
+        React.createElement("div", { style: { fontSize: "14px", color: "#64748b", marginBottom: "8px" } }, this.state.error?.message || "Unknown error"),
+        React.createElement("div", { style: { fontSize: "13px", color: "#64748b", marginBottom: "24px" } }, "Your data is safe. Tap below to reload."),
+        React.createElement("button", {
+          onClick: () => window.location.reload(),
+          style: { background: "#34d399", border: "none", borderRadius: "12px", color: "#fff", fontSize: "15px", padding: "12px 28px", cursor: "pointer", fontWeight: "600", fontFamily: "'Inter',sans-serif" }
+        }, "Reload App")
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ── Shot Shape Diagram Component ─────────────────────────────────
 function ShotShapeDiagram({ result, club, dexterity, T }) {
   const [progress, setProgress] = React.useState(0);
@@ -541,7 +576,7 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
   );
 }
 
-export default function ObiGolf(){
+function ObiGolfInner(){
   const [darkMode,setDarkMode]=useState(()=>{ const saved=localStorage.getItem("obi_dark"); return saved===null?true:saved!=="false"; });
   const D = darkMode ? DARK_THEME : LIGHT_THEME;
 
@@ -884,115 +919,93 @@ export default function ObiGolf(){
   }
 
   async function analyzeRangeShot(videoFile, club){
-    // Get API key from our server (small request — no size issue)
-    const keyRes = await fetch("/api/gemini-key");
-    if (!keyRes.ok) throw new Error("Could not get API key");
-    const { key: apiKey } = await keyRes.json();
-    if (!apiKey) throw new Error("API key not configured");
-
     const handed = profile.dexterity==="left" ? "left-handed" : "right-handed";
     const knownCarry = profile.bag.find(b=>b.club===club)?.carry || 150;
 
-    const promptText = `You are an expert golf swing and ball flight analyst. Player is ${handed} hitting a ${club} (typical carry ~${knownCarry} yards). Camera is 5-10 feet behind the player.
+    const promptText = `You are a golf expert analyzing a swing. Player: ${handed}, Club: ${club} (~${knownCarry}y carry).
+Respond ONLY with JSON, nothing else:
+{"shot_shape":"straight","launch_angle":"mid","estimated_carry":${knownCarry},"contact_quality":"flush","swing_path":"neutral","ball_flight":"mid-trajectory","tip":"Stay balanced through impact."}
+Options - shot_shape: straight/slight draw/draw/strong draw/hook/slight fade/fade/strong fade/slice
+launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thin/thin/slightly fat/fat/toe/heel`;
 
-Respond ONLY with this exact JSON, no other text:
-{"shot_shape":"straight","launch_angle":"mid","estimated_carry":${knownCarry},"contact_quality":"flush","swing_path":"neutral","ball_flight":"mid-trajectory","tip":"Keep your head still through impact."}
+    // Extract a frame from video — avoids ALL size/upload issues
+    const frameBlob = await new Promise((resolve, reject) => {
+      const video = document.createElement("video");
+      const canvas = document.createElement("canvas");
+      const url = URL.createObjectURL(videoFile);
+      video.src = url;
+      video.muted = true;
+      video.playsInline = true;
+      video.crossOrigin = "anonymous";
 
-shot_shape: straight|slight draw|draw|strong draw|hook|slight fade|fade|strong fade|slice
-launch_angle: low|mid-low|mid|mid-high|high
-contact_quality: flush|slightly thin|thin|slightly fat|fat|toe|heel
-swing_path: in-to-out|slightly in-to-out|neutral|slightly out-to-in|out-to-in
-ball_flight: penetrating|boring|mid-trajectory|high|ballooning`;
+      const cleanup = () => URL.revokeObjectURL(url);
 
-    // Step 1 — Upload video DIRECTLY from browser to Google File API
-    // This bypasses Vercel entirely so no 4.5MB limit
-    const startRes = await fetch(
-      `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: {
-          "X-Goog-Upload-Protocol": "resumable",
-          "X-Goog-Upload-Command": "start",
-          "X-Goog-Upload-Header-Content-Length": videoFile.size,
-          "X-Goog-Upload-Header-Content-Type": videoFile.type || "video/mp4",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ file: { display_name: "range_shot" } }),
-      }
-    );
+      video.onerror = () => { cleanup(); reject(new Error("Could not read video")); };
 
-    if (!startRes.ok) throw new Error("Could not start upload — check your internet connection");
-    const uploadUrl = startRes.headers.get("x-goog-upload-url");
-    if (!uploadUrl) throw new Error("Upload URL not received — try a shorter video");
+      video.onloadedmetadata = () => {
+        // Seek to impact zone (40% through)
+        video.currentTime = Math.min(video.duration * 0.4, video.duration - 0.1);
+      };
 
-    // Step 2 — Upload video bytes directly to Google (no Vercel in the loop)
-    const uploadRes = await fetch(uploadUrl, {
-      method: "POST",
-      headers: {
-        "X-Goog-Upload-Command": "upload, finalize",
-        "X-Goog-Upload-Offset": "0",
-        "Content-Type": videoFile.type || "video/mp4",
-      },
-      body: videoFile,
+      video.onseeked = () => {
+        try {
+          canvas.width  = Math.min(video.videoWidth,  640);
+          canvas.height = Math.min(video.videoHeight, 480);
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          cleanup();
+          canvas.toBlob(blob => {
+            if (blob) resolve(blob);
+            else reject(new Error("Could not extract frame"));
+          }, "image/jpeg", 0.8);
+        } catch(e) { cleanup(); reject(e); }
+      };
+
+      // Fallback timeout
+      setTimeout(() => { cleanup(); reject(new Error("Video read timeout — try a shorter clip")); }, 10000);
+      video.load();
     });
 
-    if (!uploadRes.ok) throw new Error("Video upload failed — try a shorter clip under 30 seconds");
-    const fileData = await uploadRes.json();
-    const fileUri = fileData?.file?.uri;
-    const fileName = fileData?.file?.name;
-    if (!fileUri) throw new Error("Upload incomplete — try again");
+    // Convert frame to base64
+    const b64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload  = e => resolve(e.target.result.split(",")[1]);
+      reader.onerror = () => reject(new Error("Could not encode frame"));
+      reader.readAsDataURL(frameBlob);
+    });
 
-    // Step 3 — Wait for Google to process video
-    let ready = false, attempts = 0;
-    while (!ready && attempts < 15) {
-      await new Promise(r => setTimeout(r, 2000));
-      try {
-        const check = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`
-        ).then(r => r.json());
-        if (check?.state === "ACTIVE" || check?.file?.state === "ACTIVE") ready = true;
-      } catch { /* keep trying */ }
-      attempts++;
-    }
-    if (!ready) throw new Error("Processing timed out — try a clip under 15 seconds");
-
-    // Step 4 — Analyze with Gemini (small request, goes through Vercel fine)
-    const analyzeRes = await fetch("/api/chat", {
+    // Send frame image through proxy — always small, never hits size limit
+    const res = await fetch("/api/swing", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{
           role: "user",
           parts: [
-            { file_data: { mime_type: videoFile.type || "video/mp4", file_uri: fileUri } },
+            { inline_data: { mime_type: "image/jpeg", data: b64 } },
             { text: promptText }
           ]
         }]
       }),
     });
 
-    if (!analyzeRes.ok) throw new Error("Analysis request failed");
-    const data = await analyzeRes.json();
-    if (data.error) throw new Error(typeof data.error === "string" ? data.error : data.error.message || "Analysis failed");
+    if (!res.ok) throw new Error("Server error " + res.status);
+    const data = await res.json();
+    if (data.error) {
+      const msg = typeof data.error === "string" ? data.error : data.error.message;
+      throw new Error(msg || "Analysis failed");
+    }
 
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // Safely extract JSON from response
     let parsed;
     try {
-      const clean = rawText.replace(/\`\`\`json|\`\`\`/g, "").trim();
+      const clean = rawText.replace(/```json|```/g, "").trim();
       const match = clean.match(/\{[\s\S]*\}/);
       parsed = JSON.parse(match ? match[0] : clean);
     } catch {
-      parsed = {
-        shot_shape: rawText.toLowerCase().includes("draw") ? "draw" : rawText.toLowerCase().includes("fade") ? "fade" : rawText.toLowerCase().includes("slice") ? "slice" : "straight",
-        launch_angle: rawText.toLowerCase().includes("high") ? "high" : rawText.toLowerCase().includes("low") ? "low" : "mid",
-        estimated_carry: knownCarry,
-        contact_quality: rawText.toLowerCase().includes("flush") ? "flush" : "flush",
-        swing_path: "neutral",
-        ball_flight: "mid-trajectory",
-        tip: rawText.slice(0, 180) || "Focus on a smooth tempo through the ball.",
-      };
+      // Fallback defaults if JSON parse fails
+      parsed = {};
     }
 
     return {
@@ -1002,7 +1015,7 @@ ball_flight: penetrating|boring|mid-trajectory|high|ballooning`;
       contact_quality: parsed.contact_quality || "flush",
       swing_path:      parsed.swing_path      || "neutral",
       ball_flight:     parsed.ball_flight     || "mid-trajectory",
-      tip:             parsed.tip             || "",
+      tip:             parsed.tip             || "Keep a smooth tempo through the ball.",
     };
   }
 
@@ -2092,6 +2105,10 @@ ball_flight: penetrating|boring|mid-trajectory|high|ballooning`;
       <style>{CSS}</style>
     </div>
   );
+}
+
+export default function ObiGolf() {
+  return React.createElement(ErrorBoundary, null, React.createElement(ObiGolfInner, null));
 }
 
 const CSS=`
