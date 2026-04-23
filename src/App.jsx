@@ -144,10 +144,7 @@ async function analyzeSwingVideo(videoFile, notes, bag, hcp) {
   const apiKey = await fetch("/api/gemini-key").then(r=>r.json()).then(d=>d.key).catch(()=>null);
   if (!apiKey) throw new Error("Could not get API key");
 
-  const promptText = `You are an expert PGA teaching professional analyzing a full golf swing video. Player HCP: ${hcp}. Notes: ${notes||"none"}.
-Watch the FULL swing motion in this video and analyze: Setup & Address, Backswing, Downswing & Transition, Impact position, Follow Through & Finish.
-Then give: PRIMARY FAULT (the single most important thing to fix), DRILL (specific step-by-step drill to fix it), POSITIVES (1-2 things they do well).
-Be specific about what you see in the VIDEO MOTION - mention timing, sequencing, speed. Write like a great teaching pro talking to their student.`;
+  const promptText = "You are an expert PGA teaching professional analyzing a full golf swing video. Player HCP: "+hcp+". Notes: "+(notes||"none")+".\nWatch the FULL swing motion and analyze: Setup, Backswing, Downswing, Impact, Follow Through.\nGive: PRIMARY FAULT (most important thing to fix), DRILL (specific drill to fix it), POSITIVES (1-2 things they do well).\nBe specific about timing, sequencing, speed. Write like a great teaching pro.";
 
   // Step 1 - Upload video to Google File API directly from browser
   const uploadRes = await fetch(
@@ -1063,11 +1060,7 @@ function ObiGolfApp(){
     const handed = profile.dexterity==="left" ? "left-handed" : "right-handed";
     const knownCarry = profile.bag.find(b=>b.club===club)?.carry || 150;
 
-    const promptText = `You are a golf expert analyzing a swing. Player: ${handed}, Club: ${club} (~${knownCarry}y carry).
-Respond ONLY with JSON, nothing else:
-{"shot_shape":"straight","launch_angle":"mid","estimated_carry":${knownCarry},"contact_quality":"flush","swing_path":"neutral","ball_flight":"mid-trajectory","tip":"Stay balanced through impact."}
-Options - shot_shape: straight/slight draw/draw/strong draw/hook/slight fade/fade/strong fade/slice
-launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thin/thin/slightly fat/fat/toe/heel`;
+    const promptText = "You are a golf expert analyzing a swing. Player: "+handed+", Club: "+club+" (~"+knownCarry+"y carry).\nRespond ONLY with JSON, nothing else:\n{\"shot_shape\":\"straight\",\"launch_angle\":\"mid\",\"estimated_carry\":"+knownCarry+",\"contact_quality\":\"flush\",\"swing_path\":\"neutral\",\"ball_flight\":\"mid-trajectory\",\"tip\":\"Stay balanced through impact.\"}\nshot_shape: straight,slight draw,draw,strong draw,hook,slight fade,fade,strong fade,slice\nlaunch_angle: low,mid-low,mid,mid-high,high  contact_quality: flush,slightly thin,thin,fat,toe,heel";
 
     // Extract a frame from video — avoids ALL size/upload issues
     const frameBlob = await new Promise((resolve, reject) => {
