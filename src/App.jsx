@@ -812,6 +812,14 @@ function ObiGolfApp(){
 
   // Persist dark mode
   useEffect(()=>{
+    // Inject CSS into document head once
+    const styleEl = document.getElementById("obi-styles") || document.createElement("style");
+    styleEl.id = "obi-styles";
+    styleEl.textContent = CSS;
+    if (!document.getElementById("obi-styles")) document.head.appendChild(styleEl);
+  }, []);
+
+  useEffect(()=>{
     localStorage.setItem("obi_dark", darkMode);
     document.body.style.background = darkMode ? "#0c0c0f" : "#fafafa";
     document.body.style.transition = "background 0.2s";
@@ -1245,7 +1253,6 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
       <div style={{animation:"popIn 0.6s cubic-bezier(.34,1.56,.64,1) both"}}><Ball size={76}/></div>
       <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"32px",fontWeight:"700",color:D.white,letterSpacing:"-0.5px",animation:"fadeUp 0.6s 0.2s both"}}>Obi Golf</div>
       <div style={{display:"flex",gap:"7px",animation:"fadeUp 0.6s 0.4s both"}}>{[0,1,2].map(i=><div key={i} style={{width:"6px",height:"6px",borderRadius:"50%",background:D.accent,animation:`pulse 1.2s infinite ${i*0.2}s`}}/>)}</div>
-      <style dangerouslySetInnerHTML={{__html:CSS}}/>
     </div>
   );
 
@@ -1295,7 +1302,6 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
           </div>
         )}
       </div>
-      <style dangerouslySetInnerHTML={{__html:CSS}}/>
     </div>
   );
 
@@ -2086,7 +2092,7 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
         {tab==="profile"&&(
           <div style={{padding:"16px"}}>
 
-            {/* ── Avatar + name hero ── */}
+            {/* Avatar hero */}
             <div style={{...S.card,marginBottom:"12px",display:"flex",alignItems:"center",gap:"14px"}}>
               <div style={{position:"relative",flexShrink:0}}>
                 <Avatar name={userProfile?.full_name||user?.email} size={60} photoUrl={avatarUrl} T={D}/>
@@ -2100,105 +2106,100 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
                 <div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{user?.email}</div>
                 <div style={{display:"flex",gap:"6px",marginTop:"6px",flexWrap:"wrap"}}>
                   {profile.homeCourse&&<span style={{fontSize:"11px",color:D.muted,background:D.surface,borderRadius:"99px",padding:"2px 8px"}}>📍 {profile.homeCourse}</span>}
-                  <span style={{fontSize:"11px",color:D.accent,background:D.accentDim,borderRadius:"99px",padding:"2px 8px"}}>{profile.handicap=="scratch"?"Scratch":profile.handicap=="plus"?"+Handicap":profile.handicap=="low"?"Low handicap":profile.handicap=="mid"?"Mid handicap":"High handicap"}</span>
+                  <span style={{fontSize:"11px",color:D.accent,background:D.accentDim,borderRadius:"99px",padding:"2px 8px"}}>{profile.handicap==="scratch"?"Scratch":profile.handicap==="plus"?"+Handicap":profile.handicap==="low"?"Low (1-9)":profile.handicap==="mid"?"Mid (10-18)":"High (19+)"}</span>
                 </div>
               </div>
               {uploadingAvatar&&<div style={{fontSize:"12px",color:D.accent,flexShrink:0}}>Uploading…</div>}
             </div>
 
-            {/* ── Collapsible sections ── */}
-            {[
-              {
-                id:"game",
-                label:"⛳ My Game",
-                content:(
-                  <div style={{display:"flex",flexDirection:"column",gap:"14px"}}>
-                    <div>
-                      <div style={{fontSize:"12px",color:D.muted,marginBottom:"6px",fontWeight:"500"}}>Handicap</div>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
-                        {[{v:"plus",l:"+HCP"},{v:"scratch",l:"Scratch"},{v:"low",l:"Low (1-9)"},{v:"mid",l:"Mid (10-18)"},{v:"high",l:"High (19+)"}].map(({v,l})=>(
-                          <button key={v} onClick={()=>setProfile(p=>({...p,handicap:v}))} style={{background:profile.handicap===v?D.accentDim:D.surface,border:`1px solid ${profile.handicap===v?D.accent:D.border}`,borderRadius:"8px",color:profile.handicap===v?D.accent:D.muted,padding:"6px 12px",fontSize:"13px",cursor:"pointer"}}>{l}</button>
-                        ))}
-                      </div>
+            {/* My Game section */}
+            <div style={{...S.card,marginBottom:"10px",overflow:"hidden",padding:0}}>
+              <button onClick={()=>setProfileSection(s=>s==="game"?null:"game")} style={{width:"100%",background:"transparent",border:"none",padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",color:D.white,fontFamily:"'Space Grotesk',sans-serif",fontSize:"15px",fontWeight:"600"}}>
+                ⛳ My Game
+                <span style={{color:D.muted,fontSize:"12px"}}>{profileSection==="game"?"▲":"▼"}</span>
+              </button>
+              {profileSection==="game"&&(
+                <div style={{padding:"14px 16px 16px",borderTop:`1px solid ${D.border}`}}>
+                  <div style={{marginBottom:"14px"}}>
+                    <div style={{fontSize:"12px",color:D.muted,marginBottom:"6px",fontWeight:"500"}}>Handicap</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                      {[{v:"plus",l:"+HCP"},{v:"scratch",l:"Scratch"},{v:"low",l:"Low (1-9)"},{v:"mid",l:"Mid (10-18)"},{v:"high",l:"High (19+)"}].map(function(item){return(
+                        <button key={item.v} onClick={()=>setProfile(p=>({...p,handicap:item.v}))} style={{background:profile.handicap===item.v?D.accentDim:D.surface,border:`1px solid ${profile.handicap===item.v?D.accent:D.border}`,borderRadius:"8px",color:profile.handicap===item.v?D.accent:D.muted,padding:"6px 12px",fontSize:"13px",cursor:"pointer"}}>{item.l}</button>
+                      );})}
                     </div>
-                    <div>
-                      <div style={{fontSize:"12px",color:D.muted,marginBottom:"6px",fontWeight:"500"}}>Typical miss</div>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
-                        {["straight","slight fade","fade","slice","slight draw","draw","hook"].map(v=>(
-                          <button key={v} onClick={()=>setProfile(p=>({...p,missTend:v}))} style={{background:profile.missTend===v?D.accentDim:D.surface,border:`1px solid ${profile.missTend===v?D.accent:D.border}`,borderRadius:"8px",color:profile.missTend===v?D.accent:D.muted,padding:"6px 12px",fontSize:"12px",cursor:"pointer",textTransform:"capitalize"}}>{v}</button>
-                        ))}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{fontSize:"12px",color:D.muted,marginBottom:"6px",fontWeight:"500"}}>Home course</div>
-                      <input placeholder="e.g. Pebble Beach" value={profile.homeCourse||""} onChange={e=>setProfile(p=>({...p,homeCourse:e.target.value}))} style={{...S.input}}/>
-                    </div>
-                    <div>
-                      <div style={{fontSize:"12px",color:D.muted,marginBottom:"6px",fontWeight:"500"}}>Caddie persona</div>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
-                        {[{v:"hype",l:"🔥 Hype Man"},{v:"pro",l:"🎯 Tour Pro"},{v:"coach",l:"📚 Coach"},{v:"savage",l:"😂 Savage"}].map(({v,l})=>(
-                          <button key={v} onClick={()=>setProfile(p=>({...p,persona:v}))} style={{background:profile.persona===v?D.accentDim:D.surface,border:`1px solid ${profile.persona===v?D.accent:D.border}`,borderRadius:"8px",color:profile.persona===v?D.accent:D.muted,padding:"6px 12px",fontSize:"13px",cursor:"pointer"}}>{l}</button>
-                        ))}
-                      </div>
-                    </div>
-                    <button onClick={saveProfile} style={{...S.btnPrimary,marginTop:"4px"}}>Save Changes</button>
                   </div>
-                )
-              },
-              {
-                id:"bag",
-                label:"🏌️ My Bag",
-                content:(
-                  <div>
-                    <div style={{fontSize:"13px",color:D.muted,marginBottom:"12px"}}>Set your carry distances so Obi can recommend the right club.</div>
-                    {profile.bag.map((b,i)=>(
-                      <div key={b.club} style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"8px"}}>
-                        <div style={{width:"64px",fontSize:"13px",color:D.text,fontWeight:"500",flexShrink:0}}>{b.club}</div>
-                        <input type="number" value={b.carry||""} onChange={e=>{const n=[...profile.bag];n[i]={...b,carry:parseInt(e.target.value)||0};setProfile(p=>({...p,bag:n}));}}
-                          placeholder="yds" style={{...S.input,width:"80px",padding:"7px 10px",fontSize:"14px",textAlign:"center"}}/>
-                        <div style={{fontSize:"12px",color:D.muted}}>yards</div>
-                      </div>
-                    ))}
-                    <button onClick={saveProfile} style={{...S.btnPrimary,marginTop:"8px"}}>Save Bag</button>
-                  </div>
-                )
-              },
-              {
-                id:"app",
-                label:"⚙️ App Settings",
-                content:(
-                  <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"4px 0"}}>
-                      <span style={{fontSize:"14px",color:D.text}}>Dark Mode</span>
-                      <button onClick={()=>setDarkMode(d=>!d)} style={{background:darkMode?D.accent:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"4px",cursor:"pointer",width:"44px",height:"26px",position:"relative",transition:"background 0.2s"}}>
-                        <div style={{position:"absolute",top:"3px",left:darkMode?"20px":"3px",width:"20px",height:"20px",borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
-                      </button>
+                  <div style={{marginBottom:"14px"}}>
+                    <div style={{fontSize:"12px",color:D.muted,marginBottom:"6px",fontWeight:"500"}}>Typical miss</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                      {["straight","slight fade","fade","slice","slight draw","draw","hook"].map(function(v){return(
+                        <button key={v} onClick={()=>setProfile(p=>({...p,missTend:v}))} style={{background:profile.missTend===v?D.accentDim:D.surface,border:`1px solid ${profile.missTend===v?D.accent:D.border}`,borderRadius:"8px",color:profile.missTend===v?D.accent:D.muted,padding:"6px 12px",fontSize:"12px",cursor:"pointer",textTransform:"capitalize"}}>{v}</button>
+                      );})}
                     </div>
-                    <div style={{height:"1px",background:D.border}}/>
-                    <button onClick={()=>setWeatherRefreshing&&fetchWeather()} style={{...S.btnSecondary,fontSize:"14px"}}>Refresh Weather</button>
-                    <button onClick={handleLogout} style={{background:"transparent",border:`1.5px solid ${D.red}44`,borderRadius:"12px",color:D.red,fontSize:"14px",padding:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",width:"100%"}}>Sign Out</button>
                   </div>
-                )
-              }
-            ].map(section=>(
-              <div key={section.id} style={{...S.card,marginBottom:"10px",overflow:"hidden",padding:0}}>
-                <button onClick={()=>setProfileSection(s=>s===section.id?null:section.id)}
-                  style={{width:"100%",background:"transparent",border:"none",padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",color:D.white,fontFamily:"'Space Grotesk',sans-serif",fontSize:"15px",fontWeight:"600"}}>
-                  {section.label}
-                  <span style={{color:D.muted,fontSize:"12px",transition:"transform 0.2s",transform:profileSection===section.id?"rotate(180deg)":"none"}}>▼</span>
-                </button>
-                {profileSection===section.id&&(
-                  <div style={{padding:"0 16px 16px",borderTop:`1px solid ${D.border}`,paddingTop:"14px"}}>
-                    {section.content}
+                  <div style={{marginBottom:"14px"}}>
+                    <div style={{fontSize:"12px",color:D.muted,marginBottom:"6px",fontWeight:"500"}}>Home course</div>
+                    <input placeholder="e.g. Pebble Beach" value={profile.homeCourse||""} onChange={e=>setProfile(p=>({...p,homeCourse:e.target.value}))} style={{...S.input}}/>
                   </div>
-                )}
-              </div>
-            ))}
+                  <div style={{marginBottom:"14px"}}>
+                    <div style={{fontSize:"12px",color:D.muted,marginBottom:"6px",fontWeight:"500"}}>Caddie persona</div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                      {[{v:"hype",l:"🔥 Hype Man"},{v:"pro",l:"🎯 Tour Pro"},{v:"coach",l:"📚 Coach"},{v:"savage",l:"😂 Savage"}].map(function(item){return(
+                        <button key={item.v} onClick={()=>setProfile(p=>({...p,persona:item.v}))} style={{background:profile.persona===item.v?D.accentDim:D.surface,border:`1px solid ${profile.persona===item.v?D.accent:D.border}`,borderRadius:"8px",color:profile.persona===item.v?D.accent:D.muted,padding:"6px 12px",fontSize:"13px",cursor:"pointer"}}>{item.l}</button>
+                      );})}
+                    </div>
+                  </div>
+                  <button onClick={saveProfile} style={{...S.btnPrimary}}>Save Changes</button>
+                </div>
+              )}
+            </div>
+
+            {/* My Bag section */}
+            <div style={{...S.card,marginBottom:"10px",overflow:"hidden",padding:0}}>
+              <button onClick={()=>setProfileSection(s=>s==="bag"?null:"bag")} style={{width:"100%",background:"transparent",border:"none",padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",color:D.white,fontFamily:"'Space Grotesk',sans-serif",fontSize:"15px",fontWeight:"600"}}>
+                🏌️ My Bag
+                <span style={{color:D.muted,fontSize:"12px"}}>{profileSection==="bag"?"▲":"▼"}</span>
+              </button>
+              {profileSection==="bag"&&(
+                <div style={{padding:"14px 16px 16px",borderTop:`1px solid ${D.border}`}}>
+                  <div style={{fontSize:"13px",color:D.muted,marginBottom:"12px"}}>Set carry distances so Obi can recommend the right club.</div>
+                  {profile.bag.map(function(b,i){return(
+                    <div key={b.club} style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"8px"}}>
+                      <div style={{width:"64px",fontSize:"13px",color:D.text,fontWeight:"500",flexShrink:0}}>{b.club}</div>
+                      <input type="number" value={b.carry||""} onChange={e=>{const n=[...profile.bag];n[i]={...b,carry:parseInt(e.target.value)||0};setProfile(p=>({...p,bag:n}));}} placeholder="yds" style={{...S.input,width:"80px",padding:"7px 10px",fontSize:"14px",textAlign:"center"}}/>
+                      <div style={{fontSize:"12px",color:D.muted}}>yards</div>
+                    </div>
+                  );})}
+                  <button onClick={saveProfile} style={{...S.btnPrimary,marginTop:"8px"}}>Save Bag</button>
+                </div>
+              )}
+            </div>
+
+            {/* App Settings section */}
+            <div style={{...S.card,marginBottom:"10px",overflow:"hidden",padding:0}}>
+              <button onClick={()=>setProfileSection(s=>s==="app"?null:"app")} style={{width:"100%",background:"transparent",border:"none",padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",color:D.white,fontFamily:"'Space Grotesk',sans-serif",fontSize:"15px",fontWeight:"600"}}>
+                ⚙️ App Settings
+                <span style={{color:D.muted,fontSize:"12px"}}>{profileSection==="app"?"▲":"▼"}</span>
+              </button>
+              {profileSection==="app"&&(
+                <div style={{padding:"14px 16px 16px",borderTop:`1px solid ${D.border}`}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"4px 0",marginBottom:"12px"}}>
+                    <span style={{fontSize:"14px",color:D.text}}>Dark Mode</span>
+                    <button onClick={()=>setDarkMode(d=>!d)} style={{background:darkMode?D.accent:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"4px",cursor:"pointer",width:"44px",height:"26px",position:"relative",transition:"background 0.2s"}}>
+                      <div style={{position:"absolute",top:"3px",left:darkMode?"20px":"3px",width:"20px",height:"20px",borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}/>
+                    </button>
+                  </div>
+                  <div style={{height:"1px",background:D.border,marginBottom:"12px"}}/>
+                  <button onClick={fetchWeather} style={{...S.btnSecondary,fontSize:"14px",marginBottom:"10px"}}>Refresh Weather</button>
+                  <button onClick={handleLogout} style={{background:"transparent",border:`1.5px solid ${D.red}44`,borderRadius:"12px",color:D.red,fontSize:"14px",padding:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",width:"100%"}}>Sign Out</button>
+                </div>
+              )}
+            </div>
+
           </div>
         )}
 
+
       </div>
-      <style dangerouslySetInnerHTML={{__html:CSS}}/>
     </div>
   );
 }
