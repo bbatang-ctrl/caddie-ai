@@ -51,8 +51,8 @@ function timeAgo(d) {
 }
 
 // ── ADMIN CREDENTIALS (change these!) ────────────────────────────
-const ADMIN_EMAIL = "bbatang@yahoo.com";
-const ADMIN_PASSWORD = "obigolfp855!";
+const ADMIN_EMAIL = "admin@obigolf.app";
+const ADMIN_PASSWORD = "ObiAdmin2025!";
 
 // ═════════════════════════════════════════════════════════════════
 export default function AdminPanel() {
@@ -143,6 +143,42 @@ export default function AdminPanel() {
       ...(userSwings || []).map(s => ({ type: "swing", date: s.analyzed_at, desc: `Swing analysis${s.notes ? `: ${s.notes.slice(0, 50)}` : ""}` })),
     ].sort((a, b) => new Date(b.date) - new Date(a.date));
     setActivityLog(log);
+  }
+
+  async function callAdminAction(userId, action) {
+    setActionLoading(true);
+    setActionMsg("");
+    try {
+      const res = await fetch("/api/admin-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, action, adminPassword: ADMIN_PASSWORD }),
+      });
+
+      let data;
+      try { data = await res.json(); }
+      catch { data = { error: "Server error (status " + res.status + ")" }; }
+
+      if (!res.ok || data.error) {
+        const msg = data?.error || "Request failed";
+        if (msg.includes("SUPABASE_SERVICE_KEY") || msg.includes("not configured")) {
+          setActionMsg("❌ Add SUPABASE_SERVICE_KEY to Vercel Environment Variables first.");
+        } else {
+          setActionMsg("❌ " + msg);
+        }
+      } else {
+        setActionMsg("✅ " + (data.message || "Done"));
+        setTimeout(() => {
+          setConfirmAction(null);
+          setSelectedUser(null);
+          setActionMsg("");
+          loadAll();
+        }, 1200);
+      }
+    } catch (err) {
+      setActionMsg("❌ Network error: " + err.message);
+    }
+    setActionLoading(false);
   }
 
   async function deleteUserData(userId) {
