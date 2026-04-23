@@ -1133,7 +1133,7 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
 
     let parsed;
     try {
-      const clean = rawText.replace(/```json|```/g, "").trim();
+      const clean = rawText.replace(/\u0060\u0060\u0060json|\u0060\u0060\u0060/g, "").trim();
       const match = clean.match(/\{[\s\S]*\}/);
       parsed = JSON.parse(match ? match[0] : clean);
     } catch {
@@ -1245,7 +1245,7 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
       <div style={{animation:"popIn 0.6s cubic-bezier(.34,1.56,.64,1) both"}}><Ball size={76}/></div>
       <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"32px",fontWeight:"700",color:D.white,letterSpacing:"-0.5px",animation:"fadeUp 0.6s 0.2s both"}}>Obi Golf</div>
       <div style={{display:"flex",gap:"7px",animation:"fadeUp 0.6s 0.4s both"}}>{[0,1,2].map(i=><div key={i} style={{width:"6px",height:"6px",borderRadius:"50%",background:D.accent,animation:`pulse 1.2s infinite ${i*0.2}s`}}/>)}</div>
-      <style>{CSS}</style>
+      <style dangerouslySetInnerHTML={{__html:CSS}}/>
     </div>
   );
 
@@ -1295,7 +1295,7 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
           </div>
         )}
       </div>
-      <style>{CSS}</style>
+      <style dangerouslySetInnerHTML={{__html:CSS}}/>
     </div>
   );
 
@@ -2198,7 +2198,7 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
         )}
 
       </div>
-      <style>{CSS}</style>
+      <style dangerouslySetInnerHTML={{__html:CSS}}/>
     </div>
   );
 }
