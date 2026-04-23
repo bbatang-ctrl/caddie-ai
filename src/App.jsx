@@ -77,10 +77,12 @@ function Avatar({ name, size=40, highlight=false, photoUrl=null, onClick=null, T
     "linear-gradient(135deg,#f59e0b,#10b981)",
   ];
   const grad = gradients[(name||"?").charCodeAt(0)%gradients.length];
+  const borderColor = highlight ? "#34d399" : (T ? T.border : "#2a2a38");
+  const shadowColor = highlight ? "#064e3b" : "none";
   return (
-    <div onClick={onClick} style={{ width:size,height:size,borderRadius:"50%",overflow:"hidden",border:`2px solid ${highlight?T.accent:T.border}`,flexShrink:0,cursor:onClick?"pointer":"default",background:grad,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:highlight?`0 0 0 3px ${T.accentDim}`:"none" }}>
-      {photoUrl
-        ? <img src={photoUrl} alt={name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+    <div onClick={onClick} style={{ width:size,height:size,borderRadius:"50%",overflow:"hidden",border:`2px solid ${borderColor}`,flexShrink:0,cursor:onClick?"pointer":"default",background:grad,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:highlight?`0 0 0 3px ${shadowColor}`:"none" }}>
+      {photoUrl && photoUrl.length > 0
+        ? <img src={photoUrl} alt={name||"avatar"} style={{width:"100%",height:"100%",objectFit:"cover"}} onError={(e)=>{ e.target.style.display="none"; }}/>
         : <span style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:size*0.36,color:"#fff",fontWeight:"700",letterSpacing:"-0.5px"}}>{ini}</span>
       }
     </div>
@@ -221,6 +223,138 @@ Be specific about what you see in the VIDEO MOTION - mention timing, sequencing,
   const result = await analyzeRes.json();
   if (result.error) throw new Error(result.error.message || "Analysis failed");
   return result.candidates?.[0]?.content?.parts?.[0]?.text || "Could not analyze swing.";
+}
+
+
+// ── Shot Shape Diagram Component ─────────────────────────────────
+function ShotShapeDiagram({ result, club, dexterity, T }) {
+  const [progress, setProgress] = React.useState(0);
+  T = T || DARK_THEME;
+  dexterity = dexterity || "right";
+
+  React.useEffect(() => {
+    setProgress(0);
+    const delay = setTimeout(() => {
+      let p = 0;
+      const interval = setInterval(() => {
+        p += 2;
+        setProgress(Math.min(p, 100));
+        if (p >= 100) clearInterval(interval);
+      }, 18);
+      return () => clearInterval(interval);
+    }, 400);
+    return () => clearTimeout(delay);
+  }, [result]);
+
+  if (!result || result.error) return null;
+
+  const shape = result.shot_shape || "straight";
+  const launch = result.launch_angle || "mid";
+  const carry = result.estimated_carry || 150;
+  const contact = result.contact_quality || "flush";
+  const isLeft = dexterity === "left";
+
+  const shapeConfig = {
+    "straight":    { curve: 0,                        color: "#94a3b8", label: "Straight"     },
+    "slight draw": { curve: isLeft ? -0.15 : 0.15,    color: "#34d399", label: "Slight Draw"  },
+    "draw":        { curve: isLeft ? -0.28 : 0.28,    color: "#10b981", label: "Draw"         },
+    "strong draw": { curve: isLeft ? -0.42 : 0.42,    color: "#059669", label: "Strong Draw"  },
+    "hook":        { curve: isLeft ? -0.58 : 0.58,    color: "#f59e0b", label: "Hook"         },
+    "slight fade": { curve: isLeft ? 0.15 : -0.15,    color: "#818cf8", label: "Slight Fade"  },
+    "fade":        { curve: isLeft ? 0.28 : -0.28,    color: "#6366f1", label: "Fade"         },
+    "strong fade": { curve: isLeft ? 0.42 : -0.42,    color: "#ef4444", label: "Strong Fade"  },
+    "slice":       { curve: isLeft ? 0.65 : -0.65,    color: "#f87171", label: "Slice"        },
+  };
+  const cfg = shapeConfig[shape] || shapeConfig["straight"];
+
+  const launchHeights = { "low": 0.22, "mid-low": 0.30, "mid": 0.38, "mid-high": 0.46, "high": 0.54 };
+  const peakH = launchHeights[launch] || 0.38;
+
+  const W = 300, H = 160;
+  const startX = W * 0.12, startY = H * 0.88;
+  const endX = W * 0.88,   endY   = H * 0.88;
+  const midX = (startX + endX) / 2 + (endX - startX) * cfg.curve * 0.5;
+  const midY = H * (1 - peakH);
+
+  function getPartialPath(pct) {
+    const t2 = pct / 100;
+    const steps = Math.max(2, Math.floor(t2 * 40));
+    const pts = [];
+    for (let i = 0; i <= steps; i++) {
+      const s = (t2 * i) / steps;
+      const x = (1-s)*(1-s)*startX + 2*(1-s)*s*midX + s*s*endX;
+      const y = (1-s)*(1-s)*startY + 2*(1-s)*s*midY + s*s*endY;
+      pts.push((i===0?"M ":"L ") + x.toFixed(1) + " " + y.toFixed(1));
+    }
+    return pts.join(" ");
+  }
+
+  const t = progress / 100;
+  const ballX = (1-t)*(1-t)*startX + 2*(1-t)*t*midX + t*t*endX;
+  const ballY = (1-t)*(1-t)*startY + 2*(1-t)*t*midY + t*t*endY;
+  const contactColor = contact === "flush" ? "#34d399" : contact && (contact.includes("thin")||contact.includes("fat")) ? "#f87171" : "#f59e0b";
+
+  return (
+    React.createElement("div", { style: { background: T.surface, border: "1px solid "+T.border, borderRadius: "16px", padding: "16px", marginBottom: "14px" } },
+      React.createElement("div", { style: { display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"10px" } },
+        React.createElement("div", { style: { fontFamily:"'Space Grotesk',sans-serif", fontSize:"15px", fontWeight:"600", color:T.white } }, "Ball Flight"),
+        React.createElement("div", { style: { display:"flex", alignItems:"center", gap:"6px" } },
+          React.createElement("div", { style: { width:"10px", height:"10px", borderRadius:"50%", background:cfg.color } }),
+          React.createElement("span", { style: { fontSize:"13px", fontWeight:"600", color:cfg.color, fontFamily:"'Space Grotesk',sans-serif" } }, cfg.label)
+        )
+      ),
+      React.createElement("div", { style: { fontSize:"9px", color:T.muted, letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:"6px" } }, "OVERHEAD VIEW"),
+      React.createElement("svg", { width:"100%", viewBox:"0 0 "+W+" "+H, style:{ display:"block", overflow:"visible" } },
+        React.createElement("line", { x1:startX, y1:startY, x2:endX, y2:endY, stroke:T.border, strokeWidth:"1.5", strokeDasharray:"4,5", opacity:"0.4" }),
+        progress > 5 && React.createElement("path", { d:getPartialPath(progress), stroke:cfg.color, strokeWidth:"8", strokeLinecap:"round", fill:"none", opacity:"0.1" }),
+        progress > 0 && React.createElement("path", { d:getPartialPath(progress), stroke:cfg.color, strokeWidth:"2.5", strokeLinecap:"round", fill:"none", opacity:"0.95" }),
+        [20,40,60,80].map(pct => {
+          if (progress < pct) return null;
+          const tp = pct/100;
+          const dx = (1-tp)*(1-tp)*startX + 2*(1-tp)*tp*midX + tp*tp*endX;
+          const dy = (1-tp)*(1-tp)*startY + 2*(1-tp)*tp*midY + tp*tp*endY;
+          return React.createElement("circle", { key:pct, cx:dx, cy:dy, r:"3", fill:cfg.color, opacity:"0.45" });
+        }),
+        React.createElement("circle", { cx:startX, cy:startY, r:"5", fill:T.surface, stroke:T.muted, strokeWidth:"1.5" }),
+        React.createElement("circle", { cx:startX, cy:startY, r:"2", fill:T.muted }),
+        progress > 0 && progress < 100 && React.createElement("circle", { cx:ballX, cy:ballY, r:"6", fill:"#f59e0b", opacity:"0.95" }),
+        progress >= 100 && React.createElement("g", null,
+          React.createElement("circle", { cx:endX, cy:endY, r:"9", fill:cfg.color, opacity:"0.15" }),
+          React.createElement("circle", { cx:endX, cy:endY, r:"5", fill:cfg.color }),
+          React.createElement("circle", { cx:endX, cy:endY, r:"2", fill:"#fff" })
+        ),
+        progress >= 80 && React.createElement("text", { x:(startX+endX)/2, y:H*0.12, textAnchor:"middle", fontSize:"13", fontFamily:"Space Grotesk,sans-serif", fontWeight:"700", fill:cfg.color, opacity:Math.min(1,(progress-80)/20) }, carry+"y"),
+        React.createElement("text", { x:startX, y:H*0.99, textAnchor:"middle", fontSize:"9", fill:T.muted, fontFamily:"Inter,sans-serif" }, "TEE"),
+        React.createElement("text", { x:endX, y:H*0.99, textAnchor:"middle", fontSize:"9", fill:T.muted, fontFamily:"Inter,sans-serif" }, "CARRY")
+      ),
+      React.createElement("div", { style:{ fontSize:"9px", color:T.muted, letterSpacing:"1.5px", textTransform:"uppercase", marginBottom:"6px", marginTop:"10px" } }, "SIDE VIEW"),
+      React.createElement("svg", { width:"100%", viewBox:"0 0 320 70", style:{ display:"block" } },
+        React.createElement("line", { x1:"30", y1:"60", x2:"290", y2:"60", stroke:T.border, strokeWidth:"1.5" }),
+        progress > 10 && React.createElement("path", {
+          d: (()=>{ const sx=40,sy=60,peakXp=Math.min(40+250*Math.min(progress,100)/100,260),peakYp=60-(peakH*60*0.9),endXp=Math.min(40+250*Math.min(progress,100)/100,290); return "M "+sx+" "+sy+" Q "+((sx+peakXp)/2)+" "+peakYp+" "+endXp+" "+sy; })(),
+          stroke:cfg.color, strokeWidth:"2.5", fill:"none", strokeLinecap:"round", opacity:"0.9"
+        }),
+        progress > 10 && React.createElement("path", {
+          d: (()=>{ const sx=40,sy=60,peakXp=Math.min(40+250*Math.min(progress,100)/100,260),peakYp=60-(peakH*60*0.9),endXp=Math.min(40+250*Math.min(progress,100)/100,290); return "M "+sx+" "+sy+" Q "+((sx+peakXp)/2)+" "+peakYp+" "+endXp+" "+sy; })(),
+          fill:cfg.color, opacity:"0.07"
+        }),
+        progress > 0 && progress < 100 && React.createElement("circle", {
+          cx: 40+(250*progress/100)*0.85,
+          cy: 60 - Math.sin(Math.PI*progress/100)*peakH*60*0.9,
+          r:"5", fill:"#f59e0b", opacity:"0.95"
+        }),
+        progress >= 50 && React.createElement("text", { x:"165", y: 60-peakH*60*0.9-5, textAnchor:"middle", fontSize:"9", fill:T.muted, fontFamily:"Inter,sans-serif" }, launch+" launch")
+      ),
+      React.createElement("div", { style:{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:"8px", marginTop:"12px" } },
+        [["Carry",carry+"y",cfg.color],["Shape",cfg.label,cfg.color],["Launch",launch,T.muted],["Strike",contact,contactColor]].map(([label,value,color]) =>
+          React.createElement("div", { key:label, style:{ background:T.card, borderRadius:"10px", padding:"8px 6px", textAlign:"center" } },
+            React.createElement("div", { style:{ fontSize:"9px", color:T.muted, letterSpacing:"1px", textTransform:"uppercase", marginBottom:"3px" } }, label),
+            React.createElement("div", { style:{ fontSize:"11px", fontWeight:"600", color, fontFamily:"'Space Grotesk',sans-serif", textTransform:"capitalize", lineHeight:"1.2" } }, value)
+          )
+        )
+      )
+    )
+  );
 }
 
 // ── Multi-Step Onboarding Component ──────────────────────────────
@@ -1316,7 +1450,14 @@ Respond in this EXACT JSON format with no other text:
                             <div style={{color:D.text,fontSize:"13px",fontWeight:"500"}}>{fmtDate(s.analyzed_at)}</div>
                             {s.notes&&<div style={{fontSize:"12px",color:D.accent,marginTop:"2px",fontStyle:"italic"}}>{s.notes.slice(0,50)}</div>}
                           </div>
-                          <button onClick={async()=>{if(!window.confirm("Delete this analysis?"))return;await supabase.from("swing_analyses").delete().eq("id",s.id);loadSwings(user.id);}} style={{background:"transparent",border:"none",color:D.muted,cursor:"pointer",padding:"4px",display:"flex",alignItems:"center"}}>
+                          <button onClick={async(e)=>{
+                            e.stopPropagation();
+                            const confirmed=window.confirm("Delete this swing analysis?");
+                            if(!confirmed)return;
+                            const{error}=await supabase.from("swing_analyses").delete().eq("id",s.id).eq("user_id",user.id);
+                            if(error){ alert("Delete failed: "+error.message); return; }
+                            loadSwings(user.id);
+                          }} style={{background:"transparent",border:"none",color:D.muted,cursor:"pointer",padding:"4px",display:"flex",alignItems:"center"}}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                           </button>
                         </div>
@@ -1490,7 +1631,11 @@ Respond in this EXACT JSON format with no other text:
                       <div style={{color:D.red,fontSize:"14px"}}>Analysis failed: {rangeShotResult.error}</div>
                     </div>
                   ):(
-                    <div style={{...S.card,marginBottom:"16px",background:`linear-gradient(135deg,${D.card},${D.dark})`}}>
+                    <div>
+                      {/* Animated shot shape diagram */}
+                      <ShotShapeDiagram result={rangeShotResult} club={rangeClub} dexterity={profile.dexterity} T={D}/>
+
+                    <div style={{...S.card,marginBottom:"16px",background:D.card}}>
                       <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"16px"}}>
                         <Ball size={32}/>
                         <div>
@@ -1540,6 +1685,7 @@ Respond in this EXACT JSON format with no other text:
                         <button onClick={()=>speak(`${rangeClub}. Estimated carry ${rangeShotResult.estimated_carry} yards. Shot shape: ${rangeShotResult.shot_shape}. Contact: ${rangeShotResult.contact_quality}. ${rangeShotResult.tip||""}`)} style={{...S.pill}}>🔊 Read</button>
                         <button onClick={()=>{setRangeShotResult(null);setRangeFile(null);}} style={{...S.pill}}>🔄 Next shot</button>
                       </div>
+                    </div>
                     </div>
                   )
                 )}
