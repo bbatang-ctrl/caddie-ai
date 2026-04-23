@@ -11,50 +11,42 @@ if(!document.querySelector('link[href*="Space+Grotesk"]')) document.head.appendC
 // Accent: clean golf-flag green used sparingly as an action color only
 // Base: near-black / near-white with warm neutral cards
 const DARK_THEME = {
-  bg:        "#0c0c0f",
-  dark:      "#111116",
-  surface:   "#18181f",
-  card:      "#1e1e27",
-  cardHov:   "#232330",
-  border:    "#2a2a38",
-  accent:    "#34d399",
-  accentDim: "#064e3b",
-  accentBtn: "linear-gradient(135deg,#22c55e,#16a34a)",
-  gold:      "#f59e0b",
-  goldDim:   "#451a03",
-  fg1:       "#f1f5f9",
-  fg2:       "#e2e8f0",
-  fg3:       "#64748b",
-  fg4:       "#334155",
-  red:       "#f87171",
-  blue:      "#818cf8",
-  green:     "#10b981",
-  shadow:    "0 1px 3px rgba(0,0,0,0.45)",
-  shadowBtn: "0 4px 20px rgba(52,211,153,0.27)",
-  isDark:    true,
+  bg:       "#0c0c0f",      // near black with cool tint
+  dark:     "#111116",      // top bar / nav
+  surface:  "#18181f",      // inputs, secondary surfaces
+  card:     "#1e1e27",      // cards
+  cardHov:  "#232330",      // card hover
+  border:   "#2a2a38",      // subtle borders
+  accent:   "#34d399",      // emerald — used SPARINGLY for CTAs only
+  accentDim:"#064e3b",      // accent background tint
+  gold:     "#f59e0b",      // scores, highlights
+  goldDim:  "#451a03",      // gold tint bg
+  white:    "#f1f5f9",      // primary text
+  text:     "#e2e8f0",      // body text
+  muted:    "#64748b",      // secondary text
+  subtle:   "#334155",      // tertiary / placeholders
+  red:      "#f87171",      // errors, negative scores
+  blue:     "#818cf8",      // neutral info
+  isDark:   true,
 };
 const LIGHT_THEME = {
-  bg:        "#f8fafc",
-  dark:      "#ffffff",
-  surface:   "#f1f5f9",
-  card:      "#ffffff",
-  cardHov:   "#f8fafc",
-  border:    "#e2e8f0",
-  accent:    "#059669",
-  accentDim: "#d1fae5",
-  accentBtn: "linear-gradient(135deg,#22c55e,#059669)",
-  gold:      "#d97706",
-  goldDim:   "#fef3c7",
-  fg1:       "#0f172a",
-  fg2:       "#1e293b",
-  fg3:       "#64748b",
-  fg4:       "#94a3b8",
-  red:       "#dc2626",
-  blue:      "#4f46e5",
-  green:     "#059669",
-  shadow:    "0 1px 3px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.04)",
-  shadowBtn: "0 4px 20px rgba(5,150,105,0.2)",
-  isDark:    false,
+  bg:       "#fafafa",
+  dark:     "#ffffff",
+  surface:  "#f4f4f8",
+  card:     "#ffffff",
+  cardHov:  "#f8f8fc",
+  border:   "#e2e4ea",
+  accent:   "#059669",      // darker emerald for light bg readability
+  accentDim:"#d1fae5",
+  gold:     "#d97706",
+  goldDim:  "#fef3c7",
+  white:    "#0f172a",
+  text:     "#1e293b",
+  muted:    "#64748b",
+  subtle:   "#94a3b8",
+  red:      "#dc2626",
+  blue:     "#4f46e5",
+  isDark:   false,
 };
 
 function Ball({ size=32 }) {
@@ -146,6 +138,7 @@ async function analyzeSwing(b64,mime,notes,bag,hcp){
 }
 
 async function analyzeSwingVideo(videoFile, notes, bag, hcp) {
+  const D = DARK_THEME; // fallback theme for this standalone function
   const apiKey = await fetch("/api/gemini-key").then(r=>r.json()).then(d=>d.key).catch(()=>null);
   if (!apiKey) throw new Error("Could not get API key");
 
@@ -230,32 +223,6 @@ Be specific about what you see in the VIDEO MOTION - mention timing, sequencing,
   return result.candidates?.[0]?.content?.parts?.[0]?.text || "Could not analyze swing.";
 }
 
-// Module-level S uses DARK_THEME constants (safe at module scope).
-// Inside ObiGolf the live S object re-derives from D for theme reactivity.
-const S={
-  input:{background:DARK_THEME.surface,border:`1.5px solid ${DARK_THEME.border}`,borderRadius:"12px",color:DARK_THEME.fg2,fontSize:"15px",padding:"13px 16px",outline:"none",fontFamily:"'Inter',sans-serif",width:"100%",boxSizing:"border-box",transition:"border-color 0.2s, background 0.3s"},
-  btnPrimary:{background:DARK_THEME.accentBtn,border:"none",borderRadius:"14px",color:"#fff",fontSize:"16px",padding:"15px",cursor:"pointer",fontWeight:"600",fontFamily:"'Inter',sans-serif",width:"100%",boxShadow:DARK_THEME.shadowBtn},
-  btnSecondary:{background:DARK_THEME.surface,border:`1.5px solid ${DARK_THEME.border}`,borderRadius:"14px",color:DARK_THEME.fg2,fontSize:"15px",padding:"13px",cursor:"pointer",fontWeight:"500",fontFamily:"'Inter',sans-serif",width:"100%"},
-  btnGhost:{background:"transparent",border:"none",color:DARK_THEME.fg3,fontSize:"14px",padding:"10px",cursor:"pointer",fontFamily:"'Inter',sans-serif",width:"100%"},
-  card:{background:DARK_THEME.card,border:`1px solid ${DARK_THEME.border}`,borderRadius:"18px",padding:"18px",boxShadow:DARK_THEME.shadow,transition:"background 0.3s, border-color 0.3s"},
-  pill:{background:DARK_THEME.surface,border:`1px solid ${DARK_THEME.border}`,borderRadius:"99px",padding:"5px 12px",fontSize:"12px",color:DARK_THEME.fg3,fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"},
-};
-
-// ── Light theme tokens ───────────────────────────────────────────
-const LIGHT = {
-  black:"#f0f7f0", dark:"#e8f4e8", surface:"#ffffff", card:"#f4fbf4",
-  border:"#c8e0c0", green:"#16a34a", greenLt:"#22c55e", greenDim:"#dcfce7",
-  gold:"#d97706", goldLt:"#fef3c7", white:"#111827", text:"#1a3020",
-  muted:"#4a7a55", subtle:"#6b9e7a", red:"#dc2626", blue:"#2563eb",
-};
-const DARK = {
-  black:"#080a08", dark:"#0e150e", surface:"#141f14", card:"#1a2a1a",
-  border:"#243524", green:"#22c55e", greenLt:"#4ade80", greenDim:"#14532d",
-  gold:"#f5c518", goldLt:"#fde68a", white:"#f8fafc", text:"#e8f5e9",
-  muted:"#4a7a55", subtle:"#2d4a35", red:"#f87171", blue:"#60a5fa",
-};
-
-
 // ── Multi-Step Onboarding Component ──────────────────────────────
 function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onComplete }) {
   const [step, setStep] = useState(0);
@@ -305,17 +272,17 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
     <div style={{ animation: "fadeUp 0.4s both" }}>
       {/* Progress bar */}
       <div style={{ height: "3px", background: D.border, borderRadius: "2px", marginBottom: "28px", overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${progress}%`, background: `linear-gradient(90deg, ${D.green}, ${D.accent})`, borderRadius: "2px", transition: "width 0.4s ease" }}/>
+        <div style={{ height: "100%", width: `${progress}%`, background: `linear-gradient(90deg, ${D.accent}, ${D.accent})`, borderRadius: "2px", transition: "width 0.4s ease" }}/>
       </div>
 
       {/* Step indicator */}
-      <div style={{ fontSize: "11px", color: D.fg3, letterSpacing: "2px", textTransform: "uppercase", marginBottom: "8px", textAlign: "center" }}>
+      <div style={{ fontSize: "11px", color: D.muted, letterSpacing: "2px", textTransform: "uppercase", marginBottom: "8px", textAlign: "center" }}>
         Step {step + 1} of {steps.length}
       </div>
 
       <div style={{ ...S.card, marginBottom: "16px" }}>
-        <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: "22px", fontWeight: "700", color: D.fg1, marginBottom: "6px" }}>{current.title}</div>
-        <div style={{ color: D.fg3, fontSize: "14px", marginBottom: "20px" }}>{current.sub}</div>
+        <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: "22px", fontWeight: "700", color: D.white, marginBottom: "6px" }}>{current.title}</div>
+        <div style={{ color: D.muted, fontSize: "14px", marginBottom: "20px" }}>{current.sub}</div>
 
         {/* STEP 0 — Name */}
         {current.id === "name" && (
@@ -339,11 +306,11 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
               { v: "left",  label: "Left Handed",  icon: "🏌️‍♂️", desc: "Mirror swing" },
             ].map(dx => (
               <button key={dx.v} onClick={() => { setProfile(p => ({ ...p, dexterity: dx.v })); }}
-                style={{ background: profile.dexterity === dx.v ? D.accentDim : D.surface, border: `2px solid ${profile.dexterity === dx.v ? D.green : D.border}`, borderRadius: "14px", padding: "20px 12px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", transition: "all 0.2s" }}>
+                style={{ background: profile.dexterity === dx.v ? D.accentDim : D.surface, border: `2px solid ${profile.dexterity === dx.v ? D.accent : D.border}`, borderRadius: "14px", padding: "20px 12px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", transition: "all 0.2s" }}>
                 <span style={{ fontSize: "36px" }}>{dx.icon}</span>
-                <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "14px", color: profile.dexterity === dx.v ? D.accent : D.fg2 }}>{dx.label}</span>
-                <span style={{ fontSize: "11px", color: D.fg3 }}>{dx.desc}</span>
-                {profile.dexterity === dx.v && <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: D.green, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "12px" }}>✓</div>}
+                <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "14px", color: profile.dexterity === dx.v ? D.accent : D.text }}>{dx.label}</span>
+                <span style={{ fontSize: "11px", color: D.muted }}>{dx.desc}</span>
+                {profile.dexterity === dx.v && <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: D.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "12px" }}>✓</div>}
               </button>
             ))}
           </div>
@@ -359,12 +326,12 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
               { label: "Low",      sub: "0–8",   value: "low",      hcp: 4,  icon: "🏆", desc: "Scratch territory" },
             ].map(h => (
               <button key={h.value} onClick={() => setProfile(p => ({ ...p, handicap: h.value, hcp: h.hcp }))}
-                style={{ background: profile.handicap === h.value ? D.accentDim : D.surface, border: `2px solid ${profile.handicap === h.value ? D.green : D.border}`, borderRadius: "14px", padding: "16px 10px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", transition: "all 0.2s" }}>
+                style={{ background: profile.handicap === h.value ? D.accentDim : D.surface, border: `2px solid ${profile.handicap === h.value ? D.accent : D.border}`, borderRadius: "14px", padding: "16px 10px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", transition: "all 0.2s" }}>
                 <span style={{ fontSize: "28px" }}>{h.icon}</span>
-                <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "15px", color: profile.handicap === h.value ? D.accent : D.fg2 }}>{h.label}</span>
-                <span style={{ fontSize: "11px", color: D.fg3 }}>HCP {h.sub}</span>
-                <span style={{ fontSize: "11px", color: D.fg4 }}>{h.desc}</span>
-                {profile.handicap === h.value && <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: D.green, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px", marginTop: "4px" }}>✓</div>}
+                <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "15px", color: profile.handicap === h.value ? D.accent : D.text }}>{h.label}</span>
+                <span style={{ fontSize: "11px", color: D.muted }}>HCP {h.sub}</span>
+                <span style={{ fontSize: "11px", color: D.subtle }}>{h.desc}</span>
+                {profile.handicap === h.value && <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: D.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px", marginTop: "4px" }}>✓</div>}
               </button>
             ))}
           </div>
@@ -380,10 +347,10 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
               { v: "55plus",  label: "55+",       icon: "🏆" },
             ].map(a => (
               <button key={a.v} onClick={() => setAgeRange(a.v)}
-                style={{ background: ageRange === a.v ? D.accentDim : D.surface, border: `2px solid ${ageRange === a.v ? D.green : D.border}`, borderRadius: "14px", padding: "16px 10px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", transition: "all 0.2s" }}>
+                style={{ background: ageRange === a.v ? D.accentDim : D.surface, border: `2px solid ${ageRange === a.v ? D.accent : D.border}`, borderRadius: "14px", padding: "16px 10px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", transition: "all 0.2s" }}>
                 <span style={{ fontSize: "28px" }}>{a.icon}</span>
-                <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "14px", color: ageRange === a.v ? D.accent : D.fg2 }}>{a.label}</span>
-                {ageRange === a.v && <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: D.green, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px" }}>✓</div>}
+                <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "14px", color: ageRange === a.v ? D.accent : D.text }}>{a.label}</span>
+                {ageRange === a.v && <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: D.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px" }}>✓</div>}
               </button>
             ))}
           </div>
@@ -398,7 +365,7 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
               onChange={e => setHomeCourse(e.target.value)}
               style={{ ...S.input, marginBottom: "8px" }}
             />
-            <div style={{ fontSize: "12px", color: D.fg3, lineHeight: 1.5 }}>
+            <div style={{ fontSize: "12px", color: D.muted, lineHeight: 1.5 }}>
               Obi will know your home course layout, typical conditions, and key holes to watch out for.
             </div>
           </div>
@@ -413,13 +380,13 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
               { id: "oldschool", icon: "🚬", label: "Old School", desc: "Gritty, direct, zero fluff. Old-school caddie energy." },
             ].map(p => (
               <button key={p.id} onClick={() => setProfile(prev => ({ ...prev, persona: p.id }))}
-                style={{ display: "flex", alignItems: "center", gap: "14px", width: "100%", background: profile.persona === p.id ? D.accentDim : D.surface, border: `2px solid ${profile.persona === p.id ? D.green : D.border}`, borderRadius: "14px", padding: "16px", cursor: "pointer", textAlign: "left", transition: "all 0.2s" }}>
+                style={{ display: "flex", alignItems: "center", gap: "14px", width: "100%", background: profile.persona === p.id ? D.accentDim : D.surface, border: `2px solid ${profile.persona === p.id ? D.accent : D.border}`, borderRadius: "14px", padding: "16px", cursor: "pointer", textAlign: "left", transition: "all 0.2s" }}>
                 <span style={{ fontSize: "28px" }}>{p.icon}</span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: "700", color: D.fg1, fontSize: "16px" }}>{p.label}</div>
-                  <div style={{ fontSize: "12px", color: D.fg3, marginTop: "3px", lineHeight: 1.4 }}>{p.desc}</div>
+                  <div style={{ fontWeight: "700", color: D.white, fontSize: "16px" }}>{p.label}</div>
+                  <div style={{ fontSize: "12px", color: D.muted, marginTop: "3px", lineHeight: 1.4 }}>{p.desc}</div>
                 </div>
-                {profile.persona === p.id && <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: D.green, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "13px", flexShrink: 0 }}>✓</div>}
+                {profile.persona === p.id && <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: D.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "13px", flexShrink: 0 }}>✓</div>}
               </button>
             ))}
           </div>
@@ -441,26 +408,17 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
 }
 
 export default function ObiGolf(){
-  const [isDark,setIsDark]=useState(()=>localStorage.getItem("obi_dark")!=="false");
-  const D = isDark ? DARK_THEME : LIGHT_THEME;
-
-  // Persist + apply body transition on theme change
-  useEffect(()=>{
-    localStorage.setItem("obi_dark", isDark);
-    document.body.style.background = isDark ? "#0c0c0f" : "#f8fafc";
-    document.body.style.transition = "background 0.3s";
-  },[isDark]);
-
-  const toggleTheme = () => setIsDark(d => !d);
+  const [darkMode,setDarkMode]=useState(()=>localStorage.getItem("obi_dark")!=="false");
+  const D = darkMode ? DARK_THEME : LIGHT_THEME;
 
   // Shared styles — theme-reactive
   const S={
-    input:{background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"12px",color:D.fg2,fontSize:"15px",padding:"13px 16px",outline:"none",fontFamily:"'Inter',sans-serif",width:"100%",boxSizing:"border-box",transition:"border-color 0.2s, background 0.3s"},
-    btnPrimary:{background:D.accentBtn,border:"none",borderRadius:"14px",color:"#fff",fontSize:"16px",padding:"15px",cursor:"pointer",fontWeight:"600",fontFamily:"'Inter',sans-serif",width:"100%",boxShadow:D.shadowBtn,letterSpacing:"-0.2px"},
-    btnSecondary:{background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"14px",color:D.fg2,fontSize:"15px",padding:"13px",cursor:"pointer",fontWeight:"500",fontFamily:"'Inter',sans-serif",width:"100%",transition:"background 0.3s"},
-    btnGhost:{background:"transparent",border:"none",color:D.fg3,fontSize:"14px",padding:"10px",cursor:"pointer",fontFamily:"'Inter',sans-serif",width:"100%"},
-    card:{background:D.card,border:`1px solid ${D.border}`,borderRadius:"18px",padding:"18px",boxShadow:D.shadow,transition:"background 0.3s, border-color 0.3s"},
-    pill:{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"5px 12px",fontSize:"12px",color:D.fg3,fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"},
+    input:{background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"12px",color:D.text,fontSize:"15px",padding:"13px 16px",outline:"none",fontFamily:"'Inter',sans-serif",width:"100%",boxSizing:"border-box",transition:"border-color 0.2s"},
+    btnPrimary:{background:D.accent,border:"none",borderRadius:"12px",color:"#fff",fontSize:"15px",padding:"14px",cursor:"pointer",fontWeight:"600",fontFamily:"'Inter',sans-serif",width:"100%",letterSpacing:"-0.2px"},
+    btnSecondary:{background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"12px",color:D.text,fontSize:"15px",padding:"13px",cursor:"pointer",fontWeight:"500",fontFamily:"'Inter',sans-serif",width:"100%"},
+    btnGhost:{background:"transparent",border:"none",color:D.muted,fontSize:"14px",padding:"10px",cursor:"pointer",fontFamily:"'Inter',sans-serif",width:"100%"},
+    card:{background:D.card,border:`1px solid ${D.border}`,borderRadius:"16px",padding:"16px",boxShadow:darkMode?"0 1px 3px rgba(0,0,0,0.4)":"0 1px 3px rgba(0,0,0,0.07),0 4px 16px rgba(0,0,0,0.04)"},
+    pill:{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"5px 12px",fontSize:"12px",color:D.muted,fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"},
   };
 
   const [user,setUser]=useState(null);
@@ -525,6 +483,7 @@ export default function ObiGolf(){
   const [leaderboard,setLeaderboard]=useState([]);
   const [roundHistory,setRoundHistory]=useState([]);
   const [socialTab,setSocialTab]=useState("feed");
+  const [showAllFeed,setShowAllFeed]=useState(false);
   const [searchQ,setSearchQ]=useState("");
   const [searchRes,setSearchRes]=useState([]);
   const [jabPost,setJabPost]=useState(null);
@@ -544,7 +503,7 @@ export default function ObiGolf(){
   useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[messages,loading]);
 
   // Persist dark mode
-  // (theme persistence is handled in the isDark useEffect above)
+  useEffect(()=>{ localStorage.setItem("obi_dark", darkMode); },[darkMode]);
 
   // Helper to get first name
   const firstName = (name) => (name||"").split(" ")[0] || "there";
@@ -891,7 +850,7 @@ Respond in this EXACT JSON format with no other text:
   if(authLoading)return(
     <div style={{minHeight:"100vh",background:D.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"20px"}}>
       <div style={{animation:"popIn 0.6s cubic-bezier(.34,1.56,.64,1) both"}}><Ball size={76}/></div>
-      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"32px",fontWeight:"700",color:D.fg1,letterSpacing:"-0.5px",animation:"fadeUp 0.6s 0.2s both"}}>Obi Golf</div>
+      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"32px",fontWeight:"700",color:D.white,letterSpacing:"-0.5px",animation:"fadeUp 0.6s 0.2s both"}}>Obi Golf</div>
       <div style={{display:"flex",gap:"7px",animation:"fadeUp 0.6s 0.4s both"}}>{[0,1,2].map(i=><div key={i} style={{width:"6px",height:"6px",borderRadius:"50%",background:D.accent,animation:`pulse 1.2s infinite ${i*0.2}s`}}/>)}</div>
       <style>{CSS}</style>
     </div>
@@ -903,8 +862,8 @@ Respond in this EXACT JSON format with no other text:
       <div style={{maxWidth:"420px",margin:"0 auto",padding:"40px 24px",display:"flex",flexDirection:"column",minHeight:"100vh",justifyContent:"center"}}>
         <div style={{textAlign:"center",marginBottom:"36px",animation:"fadeUp 0.5s both"}}>
           <Ball size={56}/>
-          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"36px",fontWeight:"800",color:D.fg1,letterSpacing:"2px",marginTop:"12px"}}>OBI GOLF</div>
-          <div style={{color:D.fg3,fontSize:"14px",marginTop:"4px",letterSpacing:"1px"}}>AI CADDIE · COACH · COMMUNITY</div>
+          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"36px",fontWeight:"800",color:D.white,letterSpacing:"2px",marginTop:"12px"}}>OBI GOLF</div>
+          <div style={{color:D.muted,fontSize:"14px",marginTop:"4px",letterSpacing:"1px"}}>AI CADDIE · COACH · COMMUNITY</div>
         </div>
 
         {authScreen==="onboard"&&(
@@ -918,7 +877,7 @@ Respond in this EXACT JSON format with no other text:
         {authScreen==="login"&&!user&&(
           <div style={{animation:"fadeUp 0.4s both"}}>
             <div style={{...S.card,marginBottom:"16px"}}>
-              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:D.fg1,marginBottom:"20px",letterSpacing:"-0.3px"}}>Sign in</div>
+              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:D.white,marginBottom:"20px",letterSpacing:"-0.3px"}}>Sign in</div>
               <input placeholder="Email address" type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} style={{...S.input,marginBottom:"12px"}}/>
               <input placeholder="Password" type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} style={{...S.input,marginBottom:authError?"8px":"0"}}/>
               {authError&&<div style={{color:D.red,fontSize:"13px",marginTop:"8px"}}>{authError}</div>}
@@ -932,7 +891,7 @@ Respond in this EXACT JSON format with no other text:
         {authScreen==="signup"&&!user&&(
           <div style={{animation:"fadeUp 0.4s both"}}>
             <div style={{...S.card,marginBottom:"16px"}}>
-              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:D.fg1,marginBottom:"20px",letterSpacing:"-0.3px"}}>Create account</div>
+              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:D.white,marginBottom:"20px",letterSpacing:"-0.3px"}}>Create account</div>
               <input placeholder="Email address" type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} style={{...S.input,marginBottom:"12px"}}/>
               <input placeholder="Password (min 6 characters)" type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)} style={{...S.input,marginBottom:authError?"8px":"0"}}/>
               {authError&&<div style={{color:D.red,fontSize:"13px",marginTop:"8px"}}>{authError}</div>}
@@ -958,25 +917,25 @@ Respond in this EXACT JSON format with no other text:
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px"}}>
             <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
               <Ball size={36}/>
-              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:D.fg1,letterSpacing:"-0.3px"}}>Obi Golf</div>
+              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:D.white,letterSpacing:"-0.3px"}}>Obi Golf</div>
             </div>
             <div style={{background:D.accentDim,borderRadius:"99px",padding:"4px 10px",fontSize:"11px",color:D.accent,fontWeight:"600",letterSpacing:"0.5px"}}>ROUND RECAP</div>
           </div>
           <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.accentLt,marginBottom:"2px"}}>{round.course_name||"Unknown Course"}</div>
-          <div style={{fontSize:"13px",color:D.fg3,marginBottom:"24px"}}>{fmtDate(round.played_at)}</div>
+          <div style={{fontSize:"13px",color:D.muted,marginBottom:"24px"}}>{fmtDate(round.played_at)}</div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px",marginBottom:"24px"}}>
-            {[["SCORE",round.total_score,D.fg1],["vs PAR",diffStr,diffColor],["HOLES",`${round.holes_played}/18`,D.fg2]].map(([l,v,c])=>(
+            {[["SCORE",round.total_score,D.white],["vs PAR",diffStr,diffColor],["HOLES",`${round.holes_played}/18`,D.text]].map(([l,v,c])=>(
               <div key={l} style={{background:D.surface,borderRadius:"14px",padding:"14px 8px",textAlign:"center",border:`1px solid ${D.border}`}}>
-                <div style={{fontSize:"9px",color:D.fg3,letterSpacing:"1.5px",marginBottom:"6px"}}>{l}</div>
+                <div style={{fontSize:"9px",color:D.muted,letterSpacing:"1.5px",marginBottom:"6px"}}>{l}</div>
                 <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:c,lineHeight:1}}>{v}</div>
               </div>
             ))}
           </div>
           <div style={{background:D.surface,borderRadius:"14px",padding:"14px 16px",marginBottom:"20px",borderLeft:`3px solid ${D.green}`}}>
             <div style={{fontSize:"11px",color:D.accent,letterSpacing:"1.5px",marginBottom:"6px"}}>OBI SAYS</div>
-            <div style={{fontSize:"14px",color:D.fg2,lineHeight:1.6,fontStyle:"italic"}}>"{diff<0?"Outstanding round. That's the kind of golf that gets talked about in the clubhouse.":diff===0?"Solid par golf. Consistent — let's find those birdies next time.":"Every round is data. Obi will have you better prepared next time."}"</div>
+            <div style={{fontSize:"14px",color:D.text,lineHeight:1.6,fontStyle:"italic"}}>"{diff<0?"Outstanding round. That's the kind of golf that gets talked about in the clubhouse.":diff===0?"Solid par golf. Consistent — let's find those birdies next time.":"Every round is data. Obi will have you better prepared next time."}"</div>
           </div>
-          <div style={{fontSize:"12px",color:D.fg3,textAlign:"center",marginBottom:"20px"}}>🏌️ {userProfile?.full_name||"Golfer"} · HCP {userProfile?.handicap_index||"—"} · obigolf.app</div>
+          <div style={{fontSize:"12px",color:D.muted,textAlign:"center",marginBottom:"20px"}}>🏌️ {userProfile?.full_name||"Golfer"} · HCP {userProfile?.handicap_index||"—"} · obigolf.app</div>
           <div style={{display:"flex",gap:"10px"}}>
             <button onClick={()=>shareRound(round)} style={{...S.btnPrimary,flex:1}}>📤 Share</button>
             <button onClick={()=>setShowCard(null)} style={{...S.btnSecondary,flex:1}}>Done</button>
@@ -996,7 +955,7 @@ Respond in this EXACT JSON format with no other text:
         <div onClick={()=>setShowAvatarZoom(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
           <div onClick={e=>e.stopPropagation()} style={{maxWidth:"360px",width:"100%",textAlign:"center"}}>
             <img src={showAvatarZoom} alt="Profile" style={{width:"280px",height:"280px",borderRadius:"50%",objectFit:"cover",border:"3px solid "+D.green,boxShadow:"0 0 40px "+D.accent+"44"}}/>
-            <div style={{marginTop:"16px",color:D.fg3,fontSize:"13px"}}>Tap anywhere to close</div>
+            <div style={{marginTop:"16px",color:D.muted,fontSize:"13px"}}>Tap anywhere to close</div>
           </div>
         </div>
       )}
@@ -1005,8 +964,8 @@ Respond in this EXACT JSON format with no other text:
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={()=>setJabPost(null)}>
           <div onClick={e=>e.stopPropagation()} style={{...S.card,maxWidth:"320px",width:"100%",textAlign:"center",animation:"popIn 0.3s both"}}>
             <div style={{fontSize:"40px",marginBottom:"12px"}}>😂</div>
-            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"18px",color:D.fg1,marginBottom:"8px"}}>Jab Sent!</div>
-            <div style={{fontSize:"14px",color:D.fg3,marginBottom:"20px",fontStyle:"italic"}}>"{jabPost}"</div>
+            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"18px",color:D.white,marginBottom:"8px"}}>Jab Sent!</div>
+            <div style={{fontSize:"14px",color:D.muted,marginBottom:"20px",fontStyle:"italic"}}>"{jabPost}"</div>
             <button onClick={()=>setJabPost(null)} style={S.btnPrimary}>👍 Nice</button>
           </div>
         </div>
@@ -1016,49 +975,45 @@ Respond in this EXACT JSON format with no other text:
       <div style={{padding:"12px 18px",background:D.dark,borderBottom:`1px solid ${D.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,backdropFilter:"blur(12px)"}}>
         <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
           <Ball size={28}/>
-          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.fg1,letterSpacing:"-0.3px"}}>Obi Golf
+          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.white,letterSpacing:"-0.3px"}}>Obi Golf
             {speaking&&<span style={{display:"inline-block",width:"6px",height:"6px",borderRadius:"50%",background:D.accent,animation:"pulse 1s infinite",marginLeft:"8px",verticalAlign:"middle"}}/>}
           </div>
         </div>
         <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
           {weather&&(
-            <div style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"5px 12px",display:"flex",alignItems:"center",gap:"6px",fontSize:"12px",color:D.fg3}}>
+            <div style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"5px 12px",display:"flex",alignItems:"center",gap:"6px",fontSize:"12px",color:D.muted}}>
               <span>{wxIcon(weather.code)}</span>
-              <span style={{color:D.fg2}}>{weather.temp}°</span>
+              <span style={{color:D.text}}>{weather.temp}°</span>
               <span style={{color:D.border}}>·</span>
               <span>{weather.wind}mph {windDir(weather.windDeg)}</span>
             </div>
           )}
-          <button onClick={toggleTheme} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",width:"34px",height:"34px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s",flexShrink:0}} title={isDark?"Switch to light mode":"Switch to dark mode"}>
-            {isDark?(
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={D.fg3} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="4"/>
-                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
-              </svg>
-            ):(
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={D.fg3} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
-              </svg>
-            )}
+          <button onClick={()=>setDarkMode(d=>!d)} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"6px 10px",cursor:"pointer",fontSize:"14px",color:D.muted,fontFamily:"'Inter',sans-serif",lineHeight:1}}>
+            {darkMode?"☀️":"🌙"}
           </button>
         </div>
       </div>
 
       {/* BOTTOM NAV */}
       <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"480px",background:D.dark,borderTop:`1px solid ${D.border}`,display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom)",backdropFilter:"blur(12px)"}}>
-        {[{id:"caddie",icon:"⛳",label:"Caddie"},{id:"practice",icon:"🎬",label:"Practice"},{id:"social",icon:"👥",label:"Social",badge:friendReqs.length},{id:"profile",icon:"👤",label:"Profile"}].map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,padding:"10px 4px 8px",background:"transparent",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"2px",position:"relative"}}>
-            <div style={{width:"40px",height:"32px",borderRadius:"10px",background:tab===t.id?D.accentDim:"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s"}}>
-              <span style={{fontSize:"18px",opacity:tab===t.id?1:0.45,transition:"all 0.2s"}}>{t.icon}</span>
+        {[
+          {id:"caddie", label:"Caddie", svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>},
+          {id:"practice", label:"Practice", svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2.5c0 1.5-1.5 6-1.5 6h-2S9 4 9 2.5a2.5 2.5 0 0 1 5 0z"/><path d="M11 8.5V21"/><path d="M8 21h6"/><path d="M15 13c2.5-1 4-3 4-5"/></svg>},
+          {id:"social", label:"Social", badge:friendReqs.length, svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>},
+          {id:"profile", label:"Profile", svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>},
+        ].map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,padding:"8px 4px 6px",background:"transparent",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"2px",position:"relative"}}>
+            <div style={{width:"40px",height:"30px",borderRadius:"10px",background:tab===t.id?D.accentDim:"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s",color:tab===t.id?D.accent:D.muted}}>
+              {t.svg}
             </div>
-            <span style={{fontSize:"10px",color:tab===t.id?D.accent:D.fg3,fontFamily:"'Inter',sans-serif",fontWeight:tab===t.id?"600":"400",transition:"color 0.2s"}}>{t.label}</span>
-            {t.badge>0&&<div style={{position:"absolute",top:"6px",right:"calc(50% - 24px)",width:"7px",height:"7px",borderRadius:"50%",background:D.red,border:`1.5px solid ${D.dark}`}}/>}
+            <span style={{fontSize:"10px",color:tab===t.id?D.accent:D.muted,fontFamily:"'Inter',sans-serif",fontWeight:tab===t.id?"600":"400",transition:"color 0.2s"}}>{t.label}</span>
+            {t.badge>0&&<div style={{position:"absolute",top:"4px",right:"calc(50% - 22px)",width:"7px",height:"7px",borderRadius:"50%",background:D.red,border:`1.5px solid ${D.dark}`}}/>}
           </button>
         ))}
       </div>
 
       {/* CONTENT */}
-      <div style={{flex:1,paddingBottom:"80px",overflowY:"auto"}}>
+      <div style={{flex:1,paddingBottom:"72px",overflowY:"auto"}}>
 
         {/* CADDIE TAB */}
         {tab==="caddie"&&(
@@ -1071,16 +1026,16 @@ Respond in this EXACT JSON format with no other text:
                 style={{...S.input,marginBottom:"10px",fontSize:"14px"}}/>
               <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
                 <div style={{display:"flex",alignItems:"center",gap:"4px"}}>
-                  <button onClick={()=>setHole(h=>Math.max(1,h-1))} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"8px",color:D.fg3,padding:"4px 10px",cursor:"pointer",fontSize:"16px"}}>‹</button>
+                  <button onClick={()=>setHole(h=>Math.max(1,h-1))} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"8px",color:D.muted,padding:"4px 10px",cursor:"pointer",fontSize:"16px"}}>‹</button>
                   <div style={{textAlign:"center",minWidth:"48px"}}>
-                    <div style={{fontSize:"9px",color:D.fg3,letterSpacing:"1.5px",textTransform:"uppercase"}}>HOLE</div>
-                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.fg1,lineHeight:1}}>{hole}</div>
+                    <div style={{fontSize:"9px",color:D.muted,letterSpacing:"1.5px",textTransform:"uppercase"}}>HOLE</div>
+                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,lineHeight:1}}>{hole}</div>
                   </div>
-                  <button onClick={()=>setHole(h=>Math.min(18,h+1))} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"8px",color:D.fg3,padding:"4px 10px",cursor:"pointer",fontSize:"16px"}}>›</button>
+                  <button onClick={()=>setHole(h=>Math.min(18,h+1))} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"8px",color:D.muted,padding:"4px 10px",cursor:"pointer",fontSize:"16px"}}>›</button>
                 </div>
                 <div style={{display:"flex",gap:"3px"}}>
                   {[3,4,5].map(p=>(
-                    <button key={p} onClick={()=>{const n=[...holePars];n[hole-1]=p;setHolePars(n);}} style={{background:par===p?D.accentDim:D.surface,border:`1px solid ${par===p?D.green:D.border}`,borderRadius:"8px",color:par===p?D.accent:D.fg3,padding:"4px 10px",fontSize:"12px",cursor:"pointer",fontWeight:"600"}}>P{p}</button>
+                    <button key={p} onClick={()=>{const n=[...holePars];n[hole-1]=p;setHolePars(n);}} style={{background:par===p?D.accentDim:D.surface,border:`1px solid ${par===p?D.green:D.border}`,borderRadius:"8px",color:par===p?D.accent:D.muted,padding:"4px 10px",fontSize:"12px",cursor:"pointer",fontWeight:"600"}}>P{p}</button>
                   ))}
                 </div>
                 <input type="number" placeholder="Yds" value={yardage} onChange={e=>setYardage(e.target.value)} style={{...S.input,width:"70px",padding:"6px 10px",fontSize:"15px",fontWeight:"600",textAlign:"center"}}/>
@@ -1095,7 +1050,7 @@ Respond in this EXACT JSON format with no other text:
             {/* Sub tabs */}
             <div style={{display:"flex",background:D.dark,borderBottom:`1px solid ${D.border}`}}>
               {[{id:"chat",label:"Chat"},{id:"situations",label:"Situations"},{id:"scorecard",label:"Scorecard"}].map(t=>(
-                <button key={t.id} onClick={()=>setSubView(t.id)} style={{flex:1,padding:"10px",background:"transparent",border:"none",borderBottom:`2px solid ${subView===t.id?D.green:"transparent"}`,color:subView===t.id?D.green:D.fg3,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:subView===t.id?"600":"400",transition:"all 0.15s"}}>{t.label}</button>
+                <button key={t.id} onClick={()=>setSubView(t.id)} style={{flex:1,padding:"10px",background:"transparent",border:"none",borderBottom:`2px solid ${subView===t.id?D.green:"transparent"}`,color:subView===t.id?D.green:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:subView===t.id?"600":"400",transition:"all 0.15s"}}>{t.label}</button>
               ))}
             </div>
 
@@ -1105,16 +1060,16 @@ Respond in this EXACT JSON format with no other text:
                 {py&&yardage&&(
                   <div style={{margin:"10px 16px 0",background:D.surface,border:`1px solid ${D.border}`,borderRadius:"14px",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                     <div style={{textAlign:"center"}}>
-                      <div style={{fontSize:"10px",color:D.fg3,marginBottom:"3px"}}>Actual</div>
-                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"26px",fontWeight:"700",color:D.fg1,lineHeight:1}}>{yardage}<span style={{fontSize:"13px",fontWeight:"400",color:D.fg3}}>y</span></div>
+                      <div style={{fontSize:"10px",color:D.muted,marginBottom:"3px"}}>Actual</div>
+                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"26px",fontWeight:"700",color:D.white,lineHeight:1}}>{yardage}<span style={{fontSize:"13px",fontWeight:"400",color:D.muted}}>y</span></div>
                     </div>
-                    <div style={{color:D.fg4,fontSize:"16px"}}>→</div>
+                    <div style={{color:D.subtle,fontSize:"16px"}}>→</div>
                     <div style={{textAlign:"center"}}>
                       <div style={{fontSize:"10px",color:D.accent,marginBottom:"3px"}}>Playing</div>
                       <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"26px",fontWeight:"700",color:D.accent,lineHeight:1}}>{py}<span style={{fontSize:"13px",fontWeight:"400"}}>y</span></div>
                     </div>
                     {recClub&&(<>
-                      <div style={{color:D.fg4,fontSize:"16px"}}>→</div>
+                      <div style={{color:D.subtle,fontSize:"16px"}}>→</div>
                       <div style={{textAlign:"center"}}>
                         <div style={{fontSize:"10px",color:D.gold,marginBottom:"3px"}}>Club</div>
                         <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:D.gold,lineHeight:1}}>{recClub.club}</div>
@@ -1126,16 +1081,16 @@ Respond in this EXACT JSON format with no other text:
                   {messages.length===0&&(
                     <div style={{textAlign:"center",padding:"40px 20px",animation:"fadeUp 0.5s both"}}>
                       <Ball size={56}/>
-                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:D.fg1,marginTop:"14px"}}>Obi is ready.</div>
-                      <div style={{color:D.fg3,fontSize:"14px",marginTop:"6px",lineHeight:1.6}}>Enter the course name above<br/>or ask anything about your shot</div>
+                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:D.white,marginTop:"14px"}}>Obi is ready.</div>
+                      <div style={{color:D.muted,fontSize:"14px",marginTop:"6px",lineHeight:1.6}}>Enter the course name above<br/>or ask anything about your shot</div>
                     </div>
                   )}
                   {messages.map((m,i)=>(
                     <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",animation:"fadeUp 0.3s both"}}>
                       {m.role==="assistant"&&<div style={{marginRight:"10px",marginTop:"4px",flexShrink:0}}><Ball size={28}/></div>}
                       <div style={{maxWidth:"78%",background:m.role==="user"?D.accent:D.surface,border:`1px solid ${m.role==="user"?"transparent":D.border}`,borderRadius:m.role==="user"?"20px 20px 4px 20px":"20px 20px 20px 4px",padding:"11px 15px"}}>
-                        <div style={{fontSize:"14px",lineHeight:1.65,color:m.role==="user"?"#fff":D.fg2}}>{m.content}</div>
-                        {m.role==="assistant"&&<button onClick={()=>speak(m.content)} style={{background:"none",border:"none",color:D.fg3,fontSize:"11px",cursor:"pointer",padding:"4px 0 0",fontFamily:"'Inter',sans-serif"}}>🔊 Replay</button>}
+                        <div style={{fontSize:"14px",lineHeight:1.65,color:m.role==="user"?"#fff":D.text}}>{m.content}</div>
+                        {m.role==="assistant"&&<button onClick={()=>speak(m.content)} style={{background:"none",border:"none",color:D.muted,fontSize:"11px",cursor:"pointer",padding:"4px 0 0",fontFamily:"'Inter',sans-serif"}}>🔊 Replay</button>}
                       </div>
                     </div>
                   ))}
@@ -1162,16 +1117,16 @@ Respond in this EXACT JSON format with no other text:
             {/* SITUATIONS */}
             {subView==="situations"&&(
               <div style={{padding:"16px"}}>
-                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",letterSpacing:"-0.3px",color:D.fg1,marginBottom:"4px"}}>Shot Situations</div>
-                <div style={{color:D.fg3,fontSize:"14px",marginBottom:"16px"}}>Tap any situation for instant advice from Obi</div>
+                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"4px"}}>Shot Situations</div>
+                <div style={{color:D.muted,fontSize:"14px",marginBottom:"16px"}}>Tap any situation for instant advice from Obi</div>
                 {[{icon:"🌿",title:"In the Rough",prompt:`I'm in ${lie} with ${yardage||"unknown"} yards to pin. Ball sitting down. What club and technique?`},{icon:"🏖",title:"Greenside Bunker",prompt:"I'm in a greenside bunker. Walk me through club, setup, and technique."},{icon:"⛰",title:"Uneven Lie",prompt:"I have an uneven lie. How does this affect my shot and what adjustments do I make?"},{icon:"🍃",title:"Punch Out",prompt:"I need to punch out from under trees. What club and where do I aim?"},{icon:"💦",title:"Carry the Water",prompt:`Need to carry water. ${yardage?`${yardage} yards.`:""}Risk/reward and recommended play?`},{icon:"🎯",title:"Tight Pin",prompt:"Pin is tucked tight. Attack it or play center? Smart play for my handicap?"},{icon:"🌬",title:"Into the Wind",prompt:`Wind is ${weather?.wind||"strong"}mph from ${weather?windDir(weather.windDeg):"the front"}. Club and shape?`},{icon:"🔄",title:"Reset After Mishit",prompt:"I just mishit badly. Help me identify what went wrong and reset mentally."}].map(s=>(
                   <button key={s.title} onClick={()=>{setSubView("chat");sendMessage(s.prompt);}} style={{display:"flex",alignItems:"center",gap:"14px",width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:"16px",padding:"16px",marginBottom:"10px",cursor:"pointer",textAlign:"left"}}>
                     <div style={{width:"48px",height:"48px",borderRadius:"14px",background:D.surface,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"24px",flexShrink:0}}>{s.icon}</div>
-                    <div style={{flex:1}}><div style={{fontWeight:"600",color:D.fg1,fontSize:"15px"}}>{s.title}</div><div style={{color:D.fg3,fontSize:"12px",marginTop:"3px",lineHeight:1.4}}>{s.prompt.slice(0,58)}…</div></div>
-                    <div style={{color:D.fg3,fontSize:"18px"}}>›</div>
+                    <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{s.title}</div><div style={{color:D.muted,fontSize:"12px",marginTop:"3px",lineHeight:1.4}}>{s.prompt.slice(0,58)}…</div></div>
+                    <div style={{color:D.muted,fontSize:"18px"}}>›</div>
                   </button>
                 ))}
-                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"16px",fontWeight:"700",color:D.fg2,margin:"20px 0 10px"}}>Log Shot Outcome</div>
+                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"16px",fontWeight:"700",color:D.text,margin:"20px 0 10px"}}>Log Shot Outcome</div>
                 <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
                   {["Flushed it 👌","Pulled left","Pushed right","Chunked it","Thinned it","Perfect draw","Good fade","Found bunker","In the rough"].map(o=>(
                     <button key={o} onClick={()=>{setShotHistory(prev=>[...prev,{hole,outcome:o}]);setSubView("chat");sendMessage(`Shot result: ${o}. What's my next play?`);}} style={{...S.pill}}>{o}</button>
@@ -1184,12 +1139,12 @@ Respond in this EXACT JSON format with no other text:
             {subView==="scorecard"&&(
               <div style={{padding:"16px"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px"}}>
-                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",letterSpacing:"-0.3px",color:D.fg1}}>Scorecard</div>
+                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white}}>Scorecard</div>
                   {played>0&&<ScorePill score={totalScore} par={holePars.slice(0,played).reduce((a,b)=>a+b,0)} large/>}
                 </div>
                 {[{label:"FRONT 9",r:[0,9]},{label:"BACK 9",r:[9,18]}].map(({label,r})=>(
                   <div key={label} style={{marginBottom:"16px"}}>
-                    <div style={{fontSize:"10px",color:D.fg3,letterSpacing:"2.5px",marginBottom:"8px"}}>{label}</div>
+                    <div style={{fontSize:"10px",color:D.muted,letterSpacing:"2.5px",marginBottom:"8px"}}>{label}</div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(9,1fr)",gap:"4px"}}>
                       {Array.from({length:9},(_,i)=>i+r[0]).map(idx=>{
                         const h=idx+1;
@@ -1198,10 +1153,10 @@ Respond in this EXACT JSON format with no other text:
                         const sc_color=d===null?D.border:d<=-2?D.gold:d===-1?D.green:d===0?D.blue:D.red;
                         return(
                           <div key={h} style={{display:"flex",flexDirection:"column",gap:"3px"}}>
-                            <div style={{textAlign:"center",fontSize:"9px",color:hole===h?D.green:D.fg3,fontWeight:hole===h?"700":"400"}}>{h}</div>
-                            <div style={{textAlign:"center",fontSize:"9px",color:D.fg4}}>P{holePars[idx]}</div>
+                            <div style={{textAlign:"center",fontSize:"9px",color:hole===h?D.green:D.muted,fontWeight:hole===h?"700":"400"}}>{h}</div>
+                            <div style={{textAlign:"center",fontSize:"9px",color:D.subtle}}>P{holePars[idx]}</div>
                             <input type="number" min="1" max="15" value={scores[idx]||""} onChange={e=>{const ns=[...scores];ns[idx]=parseInt(e.target.value)||null;setScores(ns);}}
-                              style={{background:hole===h?D.accentDim:D.surface,border:`1.5px solid ${sc_color}`,borderRadius:"8px",color:d!==null?sc_color:D.fg2,textAlign:"center",fontSize:"15px",fontWeight:"700",padding:"6px 2px",outline:"none",fontFamily:"'Space Grotesk',sans-serif",width:"100%",boxSizing:"border-box"}}/>
+                              style={{background:hole===h?D.accentDim:D.surface,border:`1.5px solid ${sc_color}`,borderRadius:"8px",color:d!==null?sc_color:D.text,textAlign:"center",fontSize:"15px",fontWeight:"700",padding:"6px 2px",outline:"none",fontFamily:"'Space Grotesk',sans-serif",width:"100%",boxSizing:"border-box"}}/>
                           </div>
                         );
                       })}
@@ -1209,9 +1164,9 @@ Respond in this EXACT JSON format with no other text:
                   </div>
                 ))}
                 <div style={{...S.card,marginBottom:"12px"}}>
-                  {[["Total strokes",totalScore||"—",D.fg1],["Holes played",`${played}/18`,D.fg3],played>0&&["vs Par",scoreDiff>0?`+${scoreDiff}`:scoreDiff===0?"Even":`${scoreDiff}`,scoreDiff>0?D.red:scoreDiff<0?D.green:D.blue]].filter(Boolean).map(([l,v,c])=>(
+                  {[["Total strokes",totalScore||"—",D.white],["Holes played",`${played}/18`,D.muted],played>0&&["vs Par",scoreDiff>0?`+${scoreDiff}`:scoreDiff===0?"Even":`${scoreDiff}`,scoreDiff>0?D.red:scoreDiff<0?D.green:D.blue]].filter(Boolean).map(([l,v,c])=>(
                     <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}>
-                      <span style={{color:D.fg3,fontSize:"14px"}}>{l}</span>
+                      <span style={{color:D.muted,fontSize:"14px"}}>{l}</span>
                       <span style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:c}}>{v}</span>
                     </div>
                   ))}
@@ -1231,20 +1186,25 @@ Respond in this EXACT JSON format with no other text:
           <div style={{display:"flex",flexDirection:"column"}}>
 
             {/* Practice sub tabs */}
-            <div style={{display:"flex",background:D.dark,borderBottom:`1px solid ${D.border}`,position:"sticky",top:"64px",zIndex:10}}>
-              {[{id:"swinglab",label:"🎬 Swing Lab"},{id:"range",label:"🏌️ Range Mode"}].map(t=>(
-                <button key={t.id} onClick={()=>setPracticeSubTab(t.id)} style={{flex:1,padding:"12px 4px",background:"transparent",border:"none",borderBottom:`2.5px solid ${practiceSubTab===t.id?D.green:"transparent"}`,color:practiceSubTab===t.id?D.green:D.fg3,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:practiceSubTab===t.id?"600":"400",transition:"all 0.15s"}}>{t.label}</button>
+            <div style={{display:"flex",background:D.dark,borderBottom:`1px solid ${D.border}`,position:"sticky",top:"52px",zIndex:10}}>
+              {[
+                {id:"swinglab",label:"Swing Lab"},
+                {id:"range",label:"Range Mode"},
+              ].map(t=>(
+                <button key={t.id} onClick={()=>setPracticeSubTab(t.id)} style={{flex:1,padding:"10px 4px",background:"transparent",border:"none",borderBottom:`2px solid ${practiceSubTab===t.id?D.accent:"transparent"}`,color:practiceSubTab===t.id?D.accent:D.muted,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:practiceSubTab===t.id?"600":"400",transition:"all 0.15s"}}>
+                  {t.label}
+                </button>
               ))}
             </div>
 
             {/* ── SWING LAB ── */}
             {practiceSubTab==="swinglab"&&(
               <div style={{padding:"20px 16px"}}>
-                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.fg1,marginBottom:"4px"}}>Swing Lab</div>
-                <div style={{color:D.fg3,fontSize:"14px",marginBottom:"20px",lineHeight:1.6}}>Upload a swing video and Obi analyzes it like a PGA teaching pro.</div>
+                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"4px"}}>Swing Lab</div>
+                <div style={{color:D.muted,fontSize:"14px",marginBottom:"20px",lineHeight:1.6}}>Upload a swing video and Obi analyzes it like a PGA teaching pro.</div>
 
                 <div style={{marginBottom:"16px"}}>
-                  <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>What are we working on today?</div>
+                  <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>What are we working on today?</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"10px"}}>
                     {[
                       {v:"full_swing",label:"Full Swing",icon:"🏌️",desc:"Overall mechanics"},
@@ -1259,36 +1219,36 @@ Respond in this EXACT JSON format with no other text:
                       <button key={g.v} onClick={()=>setProfile(p=>({...p,practiceGoal:g.v}))} style={{background:profile.practiceGoal===g.v?D.accentDim:D.surface,border:`1.5px solid ${profile.practiceGoal===g.v?D.green:D.border}`,borderRadius:"12px",padding:"12px 10px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",gap:"4px",textAlign:"left",transition:"all 0.15s"}}>
                         <div style={{display:"flex",alignItems:"center",gap:"6px",width:"100%"}}>
                           <span style={{fontSize:"18px"}}>{g.icon}</span>
-                          <span style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"13px",color:profile.practiceGoal===g.v?D.accent:D.fg2,flex:1}}>{g.label}</span>
+                          <span style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"13px",color:profile.practiceGoal===g.v?D.accent:D.text,flex:1}}>{g.label}</span>
                           {profile.practiceGoal===g.v&&<div style={{width:"16px",height:"16px",borderRadius:"50%",background:D.accent,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:"10px",flexShrink:0}}>✓</div>}
                         </div>
-                        <span style={{fontSize:"11px",color:D.fg3,paddingLeft:"24px"}}>{g.desc}</span>
+                        <span style={{fontSize:"11px",color:D.muted,paddingLeft:"24px"}}>{g.desc}</span>
                       </button>
                     ))}
                   </div>
                 </div>
 
                 <div style={{marginBottom:"16px"}}>
-                  <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"8px"}}>{profile.practiceGoal==="custom"?"Describe what you want to work on *":"Any specific details? (optional)"}</div>
+                  <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"8px"}}>{profile.practiceGoal==="custom"?"Describe what you want to work on *":"Any specific details? (optional)"}</div>
                   <textarea placeholder={profile.practiceGoal==="driver"?"e.g. I keep slicing it left...":profile.practiceGoal==="irons"?"e.g. I chunk my 7-iron...":profile.practiceGoal==="putting"?"e.g. I push putts right...":"e.g. I've been struggling with my takeaway..."} value={swingNotes} onChange={e=>setSwingNotes(e.target.value)} rows={3} style={{...S.input,resize:"none",lineHeight:1.6,fontSize:"14px"}}/>
                 </div>
 
-                <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"8px"}}>Upload Your Swing</div>
+                <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"8px"}}>Upload Your Swing</div>
                 <div onClick={()=>fileRef.current?.click()} style={{background:swingFile?D.accentDim:D.surface,border:`2px dashed ${swingFile?D.green:D.border}`,borderRadius:"18px",padding:"24px",textAlign:"center",cursor:"pointer",marginBottom:"14px",transition:"all 0.2s"}}>
                   <input ref={fileRef} type="file" accept="video/*,image/*" onChange={e=>setSwingFile(e.target.files[0])} style={{display:"none"}}/>
-                  {swingFile?<div><div style={{fontSize:"36px",marginBottom:"8px"}}>🎬</div><div style={{color:D.accent,fontWeight:"600",fontSize:"15px"}}>{swingFile.name}</div><div style={{color:D.fg3,fontSize:"12px",marginTop:"4px"}}>Tap to change</div></div>:<div><div style={{fontSize:"44px",marginBottom:"10px"}}>📹</div><div style={{color:D.fg1,fontWeight:"600",fontSize:"16px"}}>Upload Swing Video</div><div style={{color:D.fg3,fontSize:"13px",marginTop:"6px",lineHeight:1.5}}>Face-on or down-the-line · Video or photo</div></div>}
+                  {swingFile?<div><div style={{fontSize:"36px",marginBottom:"8px"}}>🎬</div><div style={{color:D.accent,fontWeight:"600",fontSize:"15px"}}>{swingFile.name}</div><div style={{color:D.muted,fontSize:"12px",marginTop:"4px"}}>Tap to change</div></div>:<div><div style={{fontSize:"44px",marginBottom:"10px"}}>📹</div><div style={{color:D.white,fontWeight:"600",fontSize:"16px"}}>Upload Swing Video</div><div style={{color:D.muted,fontSize:"13px",marginTop:"6px",lineHeight:1.5}}>Face-on or down-the-line · Video or photo</div></div>}
                 </div>
 
                 <button onClick={runSwingAnalysis} disabled={!swingFile||swingLoading||(profile.practiceGoal==="custom"&&!swingNotes.trim())} style={{...S.btnPrimary,opacity:(swingFile&&!swingLoading)?1:0.4,marginBottom:"20px"}}>
                   {swingLoading?"🔍 Obi is analyzing...":"🎯 Analyze My Swing"}
                 </button>
 
-                {swingLoading&&<div style={{...S.card,textAlign:"center",padding:"28px",marginBottom:"16px"}}><div style={{display:"flex",gap:"6px",justifyContent:"center",marginBottom:"14px"}}>{[0,1,2].map(i=><div key={i} style={{width:"10px",height:"10px",borderRadius:"50%",background:D.accent,animation:`bounce 1s infinite ${i*0.15}s`}}/>)}</div><div style={{color:D.fg2,fontWeight:"600",fontSize:"15px",marginBottom:"4px"}}>Obi is watching your swing</div><div style={{color:D.fg3,fontSize:"13px"}}>This takes 15-20 seconds...</div></div>}
+                {swingLoading&&<div style={{...S.card,textAlign:"center",padding:"28px",marginBottom:"16px"}}><div style={{display:"flex",gap:"6px",justifyContent:"center",marginBottom:"14px"}}>{[0,1,2].map(i=><div key={i} style={{width:"10px",height:"10px",borderRadius:"50%",background:D.accent,animation:`bounce 1s infinite ${i*0.15}s`}}/>)}</div><div style={{color:D.text,fontWeight:"600",fontSize:"15px",marginBottom:"4px"}}>Obi is watching your swing</div><div style={{color:D.muted,fontSize:"13px"}}>This takes 15-20 seconds...</div></div>}
 
                 {swingAnalysis&&!swingLoading&&(
                   <div style={{...S.card,marginBottom:"20px"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"14px"}}><Ball size={32}/><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.fg1}}>Obi's Analysis</div></div>
-                    <div style={{fontSize:"14px",color:D.fg2,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{swingAnalysis}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"14px"}}><Ball size={32}/><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.white}}>Obi's Analysis</div></div>
+                    <div style={{fontSize:"14px",color:D.text,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{swingAnalysis}</div>
                     <div style={{display:"flex",gap:"8px",marginTop:"14px"}}>
                       <button onClick={()=>speak(swingAnalysis)} style={{...S.pill}}>🔊 Read aloud</button>
                       <button onClick={()=>{setSwingAnalysis("");setSwingFile(null);setSwingNotes("");}} style={{...S.pill}}>🔄 New analysis</button>
@@ -1298,14 +1258,25 @@ Respond in this EXACT JSON format with no other text:
 
                 {swingHistory.length>0&&(
                   <div>
-                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.fg1,margin:"0 0 12px"}}>Previous Analyses</div>
+                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.white,margin:"0 0 12px"}}>Previous Analyses</div>
                     {swingHistory.map((s,i)=>(
-                      <div key={i} style={{...S.card,marginBottom:"10px",cursor:"pointer"}} onClick={()=>setSelectedSwing(selectedSwing?.id===s.id?null:s)}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"4px"}}>
-                          <div style={{color:D.fg3,fontSize:"13px"}}>{fmtDate(s.analyzed_at)}</div>
-                          {s.notes&&<div style={{fontSize:"12px",color:D.accent,fontStyle:"italic",maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.notes}</div>}
+                      <div key={i} style={{...S.card,marginBottom:"10px"}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"6px"}}>
+                          <div>
+                            <div style={{color:D.text,fontSize:"13px",fontWeight:"500"}}>{fmtDate(s.analyzed_at)}</div>
+                            {s.notes&&<div style={{fontSize:"12px",color:D.accent,marginTop:"2px",fontStyle:"italic"}}>{s.notes.slice(0,50)}</div>}
+                          </div>
+                          <button onClick={async()=>{if(!window.confirm("Delete this analysis?"))return;await supabase.from("swing_analyses").delete().eq("id",s.id);loadSwings(user.id);}} style={{background:"transparent",border:"none",color:D.muted,cursor:"pointer",padding:"4px",display:"flex",alignItems:"center"}}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                          </button>
                         </div>
-                        {selectedSwing?.id===s.id?<div style={{fontSize:"13px",color:D.fg2,lineHeight:1.6,marginTop:"10px",whiteSpace:"pre-wrap"}}>{s.analysis}</div>:<div style={{fontSize:"13px",color:D.fg3,marginTop:"4px"}}>{s.analysis?.slice(0,120)}… <span style={{color:D.accent}}>Read more</span></div>}
+                        <div style={{fontSize:"13px",color:D.muted,lineHeight:1.5,cursor:"pointer"}} onClick={()=>setSelectedSwing(selectedSwing?.id===s.id?null:s)}>
+                          {selectedSwing?.id===s.id
+                            ?<div style={{color:D.text,whiteSpace:"pre-wrap",marginTop:"8px"}}>{s.analysis}</div>
+                            :<div>{s.analysis?.slice(0,120)}… <span style={{color:D.accent}}>Read more</span></div>
+                          }
+                        </div>
+                        {selectedSwing?.id===s.id&&<button onClick={()=>speak(s.analysis)} style={{marginTop:"8px",background:"none",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",padding:0,fontFamily:"'Inter',sans-serif"}}>🔊 Read aloud</button>}
                       </div>
                     ))}
                   </div>
@@ -1316,33 +1287,33 @@ Respond in this EXACT JSON format with no other text:
             {/* ── RANGE MODE ── */}
             {practiceSubTab==="range"&&(
               <div style={{padding:"20px 16px"}}>
-                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.fg1,marginBottom:"4px"}}>Range Mode</div>
-                <div style={{color:D.fg3,fontSize:"14px",marginBottom:"20px",lineHeight:1.6}}>
+                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"4px"}}>Range Mode</div>
+                <div style={{color:D.muted,fontSize:"14px",marginBottom:"20px",lineHeight:1.6}}>
                   Record your shot, get instant ball flight stats. Builds your real carry distances and shot shape profile over time.
                 </div>
 
                 {/* Setup tip */}
                 <div style={{background:D.accentDim,border:`1px solid ${D.accent}33`,borderRadius:"12px",padding:"12px 16px",marginBottom:"20px",display:"flex",gap:"10px",alignItems:"flex-start"}}>
                   <span style={{fontSize:"20px",flexShrink:0}}>📱</span>
-                  <div style={{fontSize:"13px",color:D.fg2,lineHeight:1.6}}>
+                  <div style={{fontSize:"13px",color:D.text,lineHeight:1.6}}>
                     <strong style={{color:D.accentLt}}>Setup:</strong> Place your phone 5-10 feet behind you, angled to see your full swing and ball launch. Use iPhone Slo-Mo for best results.
                   </div>
                 </div>
 
                 {/* Club selector */}
                 <div style={{marginBottom:"16px"}}>
-                  <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Select Club</div>
+                  <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Select Club</div>
                   <div style={{display:"flex",gap:"6px",overflowX:"auto",scrollbarWidth:"none",paddingBottom:"4px"}}>
                     {profile.bag.map(b=>{
                       const cs=clubStats[b.club];
                       const isSelected=rangeClub===b.club;
                       return(
                         <button key={b.club} onClick={()=>setRangeClub(b.club)} style={{flexShrink:0,background:isSelected?D.accentDim:D.surface,border:`1.5px solid ${isSelected?D.green:D.border}`,borderRadius:"12px",padding:"10px 12px",cursor:"pointer",textAlign:"center",minWidth:"70px",transition:"all 0.15s"}}>
-                          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"13px",color:isSelected?D.accent:D.fg2}}>{b.club}</div>
-                          <div style={{fontSize:"11px",color:isSelected?D.green:D.fg3,marginTop:"2px"}}>
+                          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"13px",color:isSelected?D.accent:D.text}}>{b.club}</div>
+                          <div style={{fontSize:"11px",color:isSelected?D.green:D.muted,marginTop:"2px"}}>
                             {cs?.avgCarry?`${cs.avgCarry}y avg`:`${b.carry}y`}
                           </div>
-                          {cs?.count>0&&<div style={{fontSize:"10px",color:D.fg4,marginTop:"1px"}}>{cs.count} shots</div>}
+                          {cs?.count>0&&<div style={{fontSize:"10px",color:D.subtle,marginTop:"1px"}}>{cs.count} shots</div>}
                         </button>
                       );
                     })}
@@ -1353,17 +1324,17 @@ Respond in this EXACT JSON format with no other text:
                 {clubStats[rangeClub]?.count>=3&&(
                   <div style={{...S.card,marginBottom:"16px",background:`linear-gradient(135deg,${D.accentDim},${D.surface})`}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
-                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"16px",fontWeight:"700",color:D.fg1}}>{rangeClub} — Your Numbers</div>
+                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"16px",fontWeight:"700",color:D.white}}>{rangeClub} — Your Numbers</div>
                       <button onClick={()=>setShowClubProfile(rangeClub)} style={{...S.pill,color:D.accent,borderColor:D.accent+"44"}}>Full Profile</button>
                     </div>
                     <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px",marginBottom:"12px"}}>
                       {[
                         ["AVG CARRY",`${clubStats[rangeClub].avgCarry}y`,D.green],
-                        ["RANGE",`${clubStats[rangeClub].minCarry}-${clubStats[rangeClub].maxCarry}y`,D.fg2],
+                        ["RANGE",`${clubStats[rangeClub].minCarry}-${clubStats[rangeClub].maxCarry}y`,D.text],
                         ["SHOTS",clubStats[rangeClub].count,D.blue],
                       ].map(([l,v,c])=>(
                         <div key={l} style={{background:"rgba(0,0,0,0.2)",borderRadius:"10px",padding:"10px 8px",textAlign:"center"}}>
-                          <div style={{fontSize:"9px",color:D.fg3,letterSpacing:"1.5px",marginBottom:"4px"}}>{l}</div>
+                          <div style={{fontSize:"9px",color:D.muted,letterSpacing:"1.5px",marginBottom:"4px"}}>{l}</div>
                           <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"800",color:c,lineHeight:1}}>{v}</div>
                         </div>
                       ))}
@@ -1382,34 +1353,83 @@ Respond in this EXACT JSON format with no other text:
                   </div>
                 )}
 
-                {/* Upload area */}
-                <div onClick={()=>rangeFileRef.current?.click()} style={{background:rangeFile?D.accentDim:D.surface,border:`2px dashed ${rangeFile?D.green:D.border}`,borderRadius:"18px",padding:"24px",textAlign:"center",cursor:"pointer",marginBottom:"14px",transition:"all 0.2s"}}>
-                  <input ref={rangeFileRef} type="file" accept="video/*" onChange={e=>setRangeFile(e.target.files[0])} style={{display:"none"}}/>
-                  {rangeFile?(
-                    <div>
-                      <div style={{fontSize:"36px",marginBottom:"8px"}}>🎬</div>
-                      <div style={{color:D.accent,fontWeight:"600",fontSize:"15px"}}>{rangeFile.name}</div>
-                      <div style={{color:D.fg3,fontSize:"12px",marginTop:"4px"}}>Tap to change · {rangeClub} selected</div>
-                    </div>
-                  ):(
-                    <div>
-                      <div style={{fontSize:"44px",marginBottom:"10px"}}>🏌️</div>
-                      <div style={{color:D.fg1,fontWeight:"600",fontSize:"16px"}}>Upload Shot Video</div>
-                      <div style={{color:D.fg3,fontSize:"13px",marginTop:"6px",lineHeight:1.5}}>Record your shot then upload here<br/>5-10 seconds is plenty</div>
-                    </div>
-                  )}
-                </div>
+                {/* Camera Recording / Upload */}
+                {!rangeFile&&!isRecording&&(
+                  <div style={{marginBottom:"14px"}}>
+                    <button
+                      onClick={async()=>{
+                        try{
+                          const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false});
+                          const mimeType=MediaRecorder.isTypeSupported("video/mp4")?"video/mp4":"video/webm";
+                          const mr=new MediaRecorder(stream,{mimeType});
+                          const chunks=[];
+                          mr.ondataavailable=e=>chunks.push(e.data);
+                          mr.onstop=()=>{
+                            stream.getTracks().forEach(t=>t.stop());
+                            const blob=new Blob(chunks,{type:mimeType});
+                            setRangeFile(new File([blob],"shot."+(mimeType.includes("mp4")?"mp4":"webm"),{type:blob.type}));
+                            setIsRecording(false);
+                          };
+                          setMediaRecorder(mr);
+                          setIsRecording(true);
+                          mr.start();
+                          setTimeout(()=>{ if(mr.state==="recording") mr.stop(); },15000);
+                        }catch(err){
+                          alert("Camera access needed. Please allow camera in browser settings, then try uploading instead.");
+                        }
+                      }}
+                      style={{...S.btnPrimary,marginBottom:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:"10px"}}
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
+                      Record My Shot
+                    </button>
+                    <button onClick={()=>rangeFileRef.current?.click()} style={{...S.btnSecondary,display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",fontSize:"14px"}}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      Upload from camera roll
+                    </button>
+                    <input ref={rangeFileRef} type="file" accept="video/*" onChange={e=>setRangeFile(e.target.files[0])} style={{display:"none"}}/>
+                  </div>
+                )}
 
-                <button onClick={runRangeAnalysis} disabled={!rangeFile||rangeLoading} style={{...S.btnPrimary,opacity:rangeFile&&!rangeLoading?1:0.4,marginBottom:"20px"}}>
+                {/* Recording in progress */}
+                {isRecording&&(
+                  <div style={{background:D.red+"18",border:`2px solid ${D.red}55`,borderRadius:"16px",padding:"20px",textAlign:"center",marginBottom:"14px"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",marginBottom:"12px"}}>
+                      <div style={{width:"10px",height:"10px",borderRadius:"50%",background:D.red,animation:"pulse 1s infinite"}}/>
+                      <span style={{color:D.red,fontWeight:"600",fontSize:"15px",fontFamily:"'Space Grotesk',sans-serif"}}>Recording your shot...</span>
+                    </div>
+                    <div style={{color:D.muted,fontSize:"13px",marginBottom:"14px"}}>Swing when ready · auto-stops at 15s</div>
+                    <button onClick={()=>{ if(mediaRecorder&&mediaRecorder.state==="recording") mediaRecorder.stop(); }} style={{background:D.red,border:"none",borderRadius:"10px",color:"#fff",fontWeight:"600",fontSize:"14px",padding:"10px 24px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
+                      Done — Stop Recording
+                    </button>
+                  </div>
+                )}
+
+                {/* Video ready to analyze */}
+                {rangeFile&&!isRecording&&(
+                  <div style={{background:D.accentDim,border:`1.5px solid ${D.accent}55`,borderRadius:"14px",padding:"12px 14px",marginBottom:"14px",display:"flex",alignItems:"center",gap:"12px"}}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={D.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                    <div style={{flex:1}}>
+                      <div style={{color:D.accent,fontWeight:"600",fontSize:"14px"}}>Shot recorded ✓</div>
+                      <div style={{color:D.muted,fontSize:"12px",marginTop:"1px"}}>{rangeClub} · tap analyze when ready</div>
+                    </div>
+                    <button onClick={()=>setRangeFile(null)} style={{background:"transparent",border:"none",color:D.muted,cursor:"pointer",padding:"4px"}}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                )}
+
+                <button onClick={runRangeAnalysis} disabled={!rangeFile||rangeLoading||isRecording} style={{...S.btnPrimary,opacity:rangeFile&&!rangeLoading&&!isRecording?1:0.4,marginBottom:"20px"}}>
                   {rangeLoading?"📡 Analyzing shot...":"📊 Analyze Shot"}
                 </button>
+
 
                 {/* Loading */}
                 {rangeLoading&&(
                   <div style={{...S.card,textAlign:"center",padding:"28px",marginBottom:"16px"}}>
                     <div style={{display:"flex",gap:"6px",justifyContent:"center",marginBottom:"14px"}}>{[0,1,2].map(i=><div key={i} style={{width:"10px",height:"10px",borderRadius:"50%",background:D.accent,animation:`bounce 1s infinite ${i*0.15}s`}}/>)}</div>
-                    <div style={{color:D.fg2,fontWeight:"600",fontSize:"15px",marginBottom:"4px"}}>Reading your ball flight...</div>
-                    <div style={{color:D.fg3,fontSize:"13px"}}>Analyzing shape, carry, and contact · 15-20 seconds</div>
+                    <div style={{color:D.text,fontWeight:"600",fontSize:"15px",marginBottom:"4px"}}>Reading your ball flight...</div>
+                    <div style={{color:D.muted,fontSize:"13px"}}>Analyzing shape, carry, and contact · 15-20 seconds</div>
                   </div>
                 )}
 
@@ -1424,18 +1444,18 @@ Respond in this EXACT JSON format with no other text:
                       <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"16px"}}>
                         <Ball size={32}/>
                         <div>
-                          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.fg1}}>Shot Analysis</div>
+                          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.white}}>Shot Analysis</div>
                           <div style={{fontSize:"12px",color:D.accent}}>{rangeClub}</div>
                         </div>
                       </div>
 
                       {/* Big carry number */}
                       <div style={{textAlign:"center",padding:"16px",background:"rgba(0,0,0,0.2)",borderRadius:"14px",marginBottom:"14px"}}>
-                        <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"4px"}}>Estimated Carry</div>
+                        <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"4px"}}>Estimated Carry</div>
                         <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"56px",fontWeight:"800",color:D.accent,lineHeight:1}}>{rangeShotResult.estimated_carry}</div>
-                        <div style={{fontSize:"14px",color:D.fg3}}>yards</div>
+                        <div style={{fontSize:"14px",color:D.muted}}>yards</div>
                         {clubStats[rangeClub]?.avgCarry&&(
-                          <div style={{fontSize:"12px",color:D.fg3,marginTop:"6px"}}>
+                          <div style={{fontSize:"12px",color:D.muted,marginTop:"6px"}}>
                             Your avg: {clubStats[rangeClub].avgCarry}y · {rangeShotResult.estimated_carry>clubStats[rangeClub].avgCarry?`+${rangeShotResult.estimated_carry-clubStats[rangeClub].avgCarry} above avg`:`${rangeShotResult.estimated_carry-clubStats[rangeClub].avgCarry} below avg`}
                           </div>
                         )}
@@ -1447,12 +1467,12 @@ Respond in this EXACT JSON format with no other text:
                           ["Shot Shape",rangeShotResult.shot_shape,D.blue],
                           ["Launch",rangeShotResult.launch_angle,D.gold],
                           ["Contact",rangeShotResult.contact_quality,rangeShotResult.contact_quality==="flush"?D.green:rangeShotResult.contact_quality?.includes("thin")||rangeShotResult.contact_quality?.includes("fat")?D.red:D.gold],
-                          ["Ball Flight",rangeShotResult.ball_flight,D.fg2],
+                          ["Ball Flight",rangeShotResult.ball_flight,D.text],
                           ["Swing Path",rangeShotResult.swing_path,D.blue],
-                          ["Club",rangeClub,D.fg3],
+                          ["Club",rangeClub,D.muted],
                         ].map(([l,v,c])=>(
                           <div key={l} style={{background:"rgba(0,0,0,0.2)",borderRadius:"10px",padding:"10px 8px",textAlign:"center"}}>
-                            <div style={{fontSize:"9px",color:D.fg3,letterSpacing:"1px",marginBottom:"4px",textTransform:"uppercase"}}>{l}</div>
+                            <div style={{fontSize:"9px",color:D.muted,letterSpacing:"1px",marginBottom:"4px",textTransform:"uppercase"}}>{l}</div>
                             <div style={{fontSize:"12px",color:c,fontWeight:"600",textTransform:"capitalize"}}>{v||"—"}</div>
                           </div>
                         ))}
@@ -1462,7 +1482,7 @@ Respond in this EXACT JSON format with no other text:
                       {rangeShotResult.tip&&(
                         <div style={{background:D.accentDim,borderRadius:"12px",padding:"12px 14px",borderLeft:`3px solid ${D.green}`}}>
                           <div style={{fontSize:"10px",color:D.accent,letterSpacing:"1.5px",marginBottom:"6px"}}>OBI SAYS</div>
-                          <div style={{fontSize:"14px",color:D.fg2,lineHeight:1.6}}>{rangeShotResult.tip}</div>
+                          <div style={{fontSize:"14px",color:D.text,lineHeight:1.6}}>{rangeShotResult.tip}</div>
                         </div>
                       )}
 
@@ -1477,14 +1497,14 @@ Respond in this EXACT JSON format with no other text:
                 {/* Shot history by club */}
                 {rangeHistory.length>0&&(
                   <div>
-                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.fg1,margin:"0 0 12px"}}>Recent Shots</div>
+                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.white,margin:"0 0 12px"}}>Recent Shots</div>
                     {rangeHistory.slice(0,20).map((s,i)=>{
                       const diff=clubStats[s.club]?.avgCarry?s.estimated_carry-clubStats[s.club].avgCarry:null;
                       return(
                         <div key={i} style={{display:"flex",alignItems:"center",gap:"12px",padding:"10px 14px",background:D.surface,borderRadius:"10px",border:`1px solid ${D.border}`,marginBottom:"6px"}}>
                           <div style={{minWidth:"72px"}}>
-                            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"13px",color:D.fg2}}>{s.club}</div>
-                            <div style={{fontSize:"11px",color:D.fg3}}>{fmtDateShort(s.recorded_at)}</div>
+                            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"13px",color:D.text}}>{s.club}</div>
+                            <div style={{fontSize:"11px",color:D.muted}}>{fmtDateShort(s.recorded_at)}</div>
                           </div>
                           <div style={{flex:1}}>
                             <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
@@ -1494,7 +1514,7 @@ Respond in this EXACT JSON format with no other text:
                           </div>
                           <div style={{textAlign:"right"}}>
                             <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"800",color:D.accent,lineHeight:1}}>{s.estimated_carry}</div>
-                            <div style={{fontSize:"10px",color:diff>0?D.green:diff<0?D.red:D.fg3}}>{diff!=null?(diff>0?`+${diff}`:`${diff}`):""}y</div>
+                            <div style={{fontSize:"10px",color:diff>0?D.green:diff<0?D.red:D.muted}}>{diff!=null?(diff>0?`+${diff}`:`${diff}`):""}y</div>
                           </div>
                         </div>
                       );
@@ -1505,23 +1525,23 @@ Respond in this EXACT JSON format with no other text:
                 {/* All club profiles summary */}
                 {Object.keys(clubStats).length>0&&(
                   <div style={{marginTop:"20px"}}>
-                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.fg1,margin:"0 0 12px"}}>My Club Profiles</div>
-                    <div style={{color:D.fg3,fontSize:"13px",marginBottom:"14px"}}>Based on your actual range data — used by Obi for on-course advice</div>
+                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.white,margin:"0 0 12px"}}>My Club Profiles</div>
+                    <div style={{color:D.muted,fontSize:"13px",marginBottom:"14px"}}>Based on your actual range data — used by Obi for on-course advice</div>
                     {Object.entries(clubStats).sort((a,b)=>(b[1].avgCarry||0)-(a[1].avgCarry||0)).map(([club,cs])=>(
                       <div key={club} style={{...S.card,marginBottom:"10px",cursor:"pointer"}} onClick={()=>setShowClubProfile(showClubProfile===club?null:club)}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                           <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
                             <div style={{textAlign:"center",minWidth:"60px"}}>
                               <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",letterSpacing:"-0.3px",color:D.accent,lineHeight:1}}>{cs.avgCarry||"—"}</div>
-                              <div style={{fontSize:"10px",color:D.fg3}}>avg yards</div>
+                              <div style={{fontSize:"10px",color:D.muted}}>avg yards</div>
                             </div>
                             <div>
-                              <div style={{fontWeight:"600",color:D.fg1,fontSize:"15px"}}>{club}</div>
-                              <div style={{fontSize:"12px",color:D.fg3,marginTop:"2px"}}>{cs.count} shots · {cs.typicalShape}</div>
+                              <div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{club}</div>
+                              <div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{cs.count} shots · {cs.typicalShape}</div>
                             </div>
                           </div>
                           <div style={{textAlign:"right"}}>
-                            <div style={{fontSize:"12px",color:D.fg3}}>{cs.minCarry}–{cs.maxCarry}y</div>
+                            <div style={{fontSize:"12px",color:D.muted}}>{cs.minCarry}–{cs.maxCarry}y</div>
                             <div style={{fontSize:"11px",color:cs.consistencyStars>=4?D.green:cs.consistencyStars>=3?D.gold:D.red,marginTop:"2px"}}>{cs.consistency}</div>
                           </div>
                         </div>
@@ -1529,25 +1549,25 @@ Respond in this EXACT JSON format with no other text:
                           <div style={{marginTop:"14px",paddingTop:"14px",borderTop:`1px solid ${D.border}`}}>
                             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
                               <div>
-                                <div style={{fontSize:"11px",color:D.fg3,marginBottom:"6px",textTransform:"uppercase",letterSpacing:"1px"}}>Shot Shapes</div>
+                                <div style={{fontSize:"11px",color:D.muted,marginBottom:"6px",textTransform:"uppercase",letterSpacing:"1px"}}>Shot Shapes</div>
                                 {Object.entries(cs.shapes).sort((a,b)=>b[1]-a[1]).map(([shape,count])=>(
                                   <div key={shape} style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
-                                    <span style={{fontSize:"12px",color:D.fg2,textTransform:"capitalize"}}>{shape}</span>
-                                    <span style={{fontSize:"12px",color:D.fg3}}>{count} ({Math.round((count/cs.count)*100)}%)</span>
+                                    <span style={{fontSize:"12px",color:D.text,textTransform:"capitalize"}}>{shape}</span>
+                                    <span style={{fontSize:"12px",color:D.muted}}>{count} ({Math.round((count/cs.count)*100)}%)</span>
                                   </div>
                                 ))}
                               </div>
                               <div>
-                                <div style={{fontSize:"11px",color:D.fg3,marginBottom:"6px",textTransform:"uppercase",letterSpacing:"1px"}}>Launch Angles</div>
+                                <div style={{fontSize:"11px",color:D.muted,marginBottom:"6px",textTransform:"uppercase",letterSpacing:"1px"}}>Launch Angles</div>
                                 {Object.entries(cs.launches).sort((a,b)=>b[1]-a[1]).map(([launch,count])=>(
                                   <div key={launch} style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
-                                    <span style={{fontSize:"12px",color:D.fg2,textTransform:"capitalize"}}>{launch}</span>
-                                    <span style={{fontSize:"12px",color:D.fg3}}>{count} ({Math.round((count/cs.count)*100)}%)</span>
+                                    <span style={{fontSize:"12px",color:D.text,textTransform:"capitalize"}}>{launch}</span>
+                                    <span style={{fontSize:"12px",color:D.muted}}>{count} ({Math.round((count/cs.count)*100)}%)</span>
                                   </div>
                                 ))}
                               </div>
                             </div>
-                            <div style={{marginTop:"12px",fontSize:"13px",color:D.fg3,fontStyle:"italic"}}>
+                            <div style={{marginTop:"12px",fontSize:"13px",color:D.muted,fontStyle:"italic"}}>
                               Distance range: {cs.minCarry}y (min) — {cs.avgCarry}y (avg) — {cs.maxCarry}y (max)
                             </div>
                           </div>
@@ -1565,50 +1585,65 @@ Respond in this EXACT JSON format with no other text:
           <div style={{display:"flex",flexDirection:"column"}}>
             <div style={{display:"flex",background:D.dark,borderBottom:`1px solid ${D.border}`,position:"sticky",top:"64px",zIndex:10}}>
               {[{id:"feed",label:"Feed"},{id:"leaderboard",label:"🏆 Board"},{id:"friends",label:"Friends"},{id:"rounds",label:"My Rounds"}].map(t=>(
-                <button key={t.id} onClick={()=>setSocialTab(t.id)} style={{flex:1,padding:"10px 4px",background:"transparent",border:"none",borderBottom:`2px solid ${socialTab===t.id?D.green:"transparent"}`,color:socialTab===t.id?D.green:D.fg3,fontSize:"11px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:socialTab===t.id?"600":"400"}}>{t.label}</button>
+                <button key={t.id} onClick={()=>setSocialTab(t.id)} style={{flex:1,padding:"10px 4px",background:"transparent",border:"none",borderBottom:`2px solid ${socialTab===t.id?D.green:"transparent"}`,color:socialTab===t.id?D.green:D.muted,fontSize:"11px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:socialTab===t.id?"600":"400"}}>{t.label}</button>
               ))}
             </div>
             <div style={{padding:"16px"}}>
               {socialTab==="feed"&&(
                 <>
-                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.fg1,marginBottom:"16px"}}>Activity Feed</div>
+                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"16px"}}>Activity Feed</div>
                   {feed.length===0?(
                     <div style={{textAlign:"center",padding:"48px 20px"}}>
                       <div style={{fontSize:"52px",marginBottom:"14px"}}>👥</div>
-                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:D.fg1,marginBottom:"8px"}}>Find Your Crew</div>
-                      <div style={{color:D.fg3,fontSize:"14px",lineHeight:1.6}}>Add friends to see their rounds, trash talk them, and compete on the leaderboard</div>
+                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:D.white,marginBottom:"8px"}}>Find Your Crew</div>
+                      <div style={{color:D.muted,fontSize:"14px",lineHeight:1.6}}>Add friends to see their rounds, trash talk them, and compete on the leaderboard</div>
                       <button onClick={()=>setSocialTab("friends")} style={{...S.btnPrimary,marginTop:"20px",maxWidth:"200px",margin:"20px auto 0"}}>Find Friends</button>
                     </div>
-                  ):feed.map((r,i)=>{
+                  ):( showAllFeed?feed:feed.slice(0,5) ).map((r,i)=>{
                     const diff=r.total_score-r.total_par;
                     const isMe=r.user_id===user?.id;
                     return(
-                      <div key={i} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:"16px",marginBottom:"12px",overflow:"hidden"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"12px"}}>
-                          <Avatar name={r.profile?.full_name} size={44} highlight={isMe} photoUrl={r.profile?.avatar_url} onClick={()=>r.profile?.avatar_url&&setShowAvatarZoom(r.profile.avatar_url)}/>
-                          <div style={{flex:1}}><div style={{fontWeight:"600",color:D.fg1,fontSize:"15px"}}>{r.profile?.full_name||"Golfer"}{isMe?" (You)":""}</div><div style={{fontSize:"12px",color:D.fg3}}>{fmtDateShort(r.played_at)}</div></div>
-                          <ScorePill score={r.total_score} par={r.total_par}/>
+                      <div key={i} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:"14px",marginBottom:"10px",overflow:"hidden"}}>
+                        {/* Header row */}
+                        <div style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 12px"}}>
+                          <Avatar name={r.profile?.full_name} size={34} highlight={isMe} photoUrl={r.profile?.avatar_url} T={D} onClick={()=>r.profile?.avatar_url&&setShowAvatarZoom(r.profile.avatar_url)}/>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontWeight:"600",color:D.white,fontSize:"13px",fontFamily:"'Space Grotesk',sans-serif"}}>
+                              {r.profile?.full_name||"Golfer"}{isMe&&<span style={{color:D.accent,fontSize:"10px",marginLeft:"5px"}}>you</span>}
+                            </div>
+                            <div style={{fontSize:"11px",color:D.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.course_name||"Unknown"} · {fmtDateShort(r.played_at)}</div>
+                          </div>
+                          <div style={{textAlign:"right",flexShrink:0}}>
+                            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:diff<0?D.accent:diff===0?D.blue:D.red,lineHeight:1}}>{diff>0?`+${diff}`:diff===0?"E":diff}</div>
+                            <div style={{fontSize:"10px",color:D.muted}}>{r.total_score} strokes</div>
+                          </div>
                         </div>
-                        <div style={{background:D.surface,borderRadius:"10px",padding:"10px 14px",marginBottom:"12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <div><div style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",color:D.fg2,fontSize:"15px"}}>{r.course_name||"Unknown Course"}</div><div style={{fontSize:"12px",color:D.fg3,marginTop:"2px"}}>{r.holes_played} holes · par {r.total_par}</div></div>
-                          <div style={{textAlign:"right"}}><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"30px",fontWeight:"800",color:diff<0?D.green:diff===0?D.blue:D.red,lineHeight:1}}>{r.total_score}</div><div style={{fontSize:"11px",color:D.fg3}}>strokes</div></div>
-                        </div>
-                        <div style={{display:"flex",gap:"8px"}}>
-                          <button onClick={()=>{const j=randJab();setJabPost(j);}} style={{...S.pill,flex:1,textAlign:"center"}}>😂 Jab</button>
-                          <button onClick={()=>speak(`${r.profile?.full_name||"Your buddy"} shot ${r.total_score} at ${r.course_name||"the course"}. ${diff<0?"Birdie machine!":diff===0?"Solid par golf.":"Keep grinding!"}`)} style={{...S.pill,flex:1,textAlign:"center"}}>👏 React</button>
-                          {isMe&&<button onClick={()=>shareRound(r)} style={{background:D.accentDim,border:`1px solid ${D.accent}44`,borderRadius:"99px",padding:"5px 14px",color:D.accent,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",flex:1,textAlign:"center"}}>📤 Share</button>}
+                        {/* Actions */}
+                        <div style={{display:"flex",borderTop:`1px solid ${D.border}`}}>
+                          <button onClick={()=>{const j=randJab();setJabPost(j);}} style={{flex:1,background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"7px",display:"flex",alignItems:"center",justifyContent:"center",gap:"4px"}}>😂 Jab</button>
+                          <button onClick={()=>speak(`${r.profile?.full_name||"buddy"} shot ${r.total_score}. ${diff<0?"Birdie machine!":diff===0?"Solid par.":"Keep grinding!"}`)} style={{flex:1,background:"transparent",border:"none",borderLeft:`1px solid ${D.border}`,color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"7px",display:"flex",alignItems:"center",justifyContent:"center",gap:"4px"}}>👏 React</button>
+                          {isMe&&<button onClick={()=>shareRound(r)} style={{flex:1,background:"transparent",border:"none",borderLeft:`1px solid ${D.border}`,color:D.accent,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"7px",fontWeight:"600",display:"flex",alignItems:"center",justifyContent:"center",gap:"4px"}}>📤 Share</button>}
                         </div>
                       </div>
                     );
                   })}
-                </>
-              )}
+                  {!showAllFeed&&feed.length>5&&(
+                    <button onClick={()=>setShowAllFeed(true)} style={{width:"100%",background:D.surface,border:`1px solid ${D.border}`,borderRadius:"12px",padding:"11px",color:D.muted,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:"500",marginTop:"4px"}}>
+                      View {feed.length-5} more rounds ↓
+                    </button>
+                  )}
+                  {showAllFeed&&feed.length>5&&(
+                    <button onClick={()=>setShowAllFeed(false)} style={{width:"100%",background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"6px",marginTop:"4px"}}>
+                      Show less ↑
+                    </button>
+                  )}
+                </>            )}
               {socialTab==="leaderboard"&&(
                 <>
-                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.fg1,marginBottom:"4px"}}>Monthly Board</div>
-                  <div style={{color:D.fg3,fontSize:"13px",marginBottom:"16px"}}>Best rounds among you and your friends this month</div>
+                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"4px"}}>Monthly Board</div>
+                  <div style={{color:D.muted,fontSize:"13px",marginBottom:"16px"}}>Best rounds among you and your friends this month</div>
                   {leaderboard.length===0?(
-                    <div style={{textAlign:"center",padding:"48px 20px"}}><div style={{fontSize:"52px",marginBottom:"14px"}}>🏆</div><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",color:D.fg1,marginBottom:"8px"}}>No rounds yet</div><div style={{color:D.fg3,fontSize:"14px"}}>Save a round to appear here</div></div>
+                    <div style={{textAlign:"center",padding:"48px 20px"}}><div style={{fontSize:"52px",marginBottom:"14px"}}>🏆</div><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",color:D.white,marginBottom:"8px"}}>No rounds yet</div><div style={{color:D.muted,fontSize:"14px"}}>Save a round to appear here</div></div>
                   ):leaderboard.map((r,i)=>{
                     const diff=r.total_score-r.total_par;
                     const isMe=r.user_id===user?.id;
@@ -1617,8 +1652,8 @@ Respond in this EXACT JSON format with no other text:
                       <div key={i} style={{background:i===0?`linear-gradient(135deg,${D.accentDim},${D.surface})`:D.card,border:`1px solid ${i===0?D.green:D.border}`,borderRadius:"16px",padding:"14px 16px",marginBottom:"10px",display:"flex",alignItems:"center",gap:"12px"}}>
                         <div style={{fontSize:"28px",minWidth:"36px",textAlign:"center"}}>{medals[i]||`${i+1}`}</div>
                         <Avatar name={r.profile?.full_name} size={40} highlight={isMe} photoUrl={r.profile?.avatar_url}/>
-                        <div style={{flex:1}}><div style={{fontWeight:"600",color:D.fg1,fontSize:"14px"}}>{r.profile?.full_name||"Golfer"}{isMe?" 👈":""}</div><div style={{fontSize:"12px",color:D.fg3}}>{r.course_name||"Unknown"} · {fmtDateShort(r.played_at)}</div></div>
-                        <div style={{textAlign:"right"}}><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:diff<0?D.green:diff===0?D.blue:D.red,lineHeight:1}}>{diff>0?`+${diff}`:diff===0?"E":diff}</div><div style={{fontSize:"11px",color:D.fg3}}>{r.total_score}</div></div>
+                        <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"14px"}}>{r.profile?.full_name||"Golfer"}{isMe?" 👈":""}</div><div style={{fontSize:"12px",color:D.muted}}>{r.course_name||"Unknown"} · {fmtDateShort(r.played_at)}</div></div>
+                        <div style={{textAlign:"right"}}><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:diff<0?D.green:diff===0?D.blue:D.red,lineHeight:1}}>{diff>0?`+${diff}`:diff===0?"E":diff}</div><div style={{fontSize:"11px",color:D.muted}}>{r.total_score}</div></div>
                       </div>
                     );
                   })}
@@ -1626,35 +1661,35 @@ Respond in this EXACT JSON format with no other text:
               )}
               {socialTab==="friends"&&(
                 <>
-                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.fg1,marginBottom:"16px"}}>Friends</div>
+                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"16px"}}>Friends</div>
                   {friendReqs.length>0&&(
                     <div style={{marginBottom:"20px"}}>
                       <div style={{fontSize:"11px",color:D.gold,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>FRIEND REQUESTS ({friendReqs.length})</div>
                       {friendReqs.map(req=>(
                         <div key={req.id} style={{...S.card,display:"flex",alignItems:"center",gap:"12px",marginBottom:"8px"}}>
                           <Avatar name={req.requester?.full_name} size={44} photoUrl={req.requester?.avatar_url}/>
-                          <div style={{flex:1}}><div style={{fontWeight:"600",color:D.fg1,fontSize:"15px"}}>{req.requester?.full_name}</div><div style={{fontSize:"12px",color:D.fg3}}>wants to connect</div></div>
+                          <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{req.requester?.full_name}</div><div style={{fontSize:"12px",color:D.muted}}>wants to connect</div></div>
                           <button onClick={()=>acceptFriendReq(req.id,req.user_id)} style={{background:`linear-gradient(135deg,${D.green},#16a34a)`,border:"none",borderRadius:"10px",padding:"8px 16px",color:"#fff",fontWeight:"600",fontSize:"13px",cursor:"pointer"}}>Accept</button>
                         </div>
                       ))}
                     </div>
                   )}
                   <div style={{marginBottom:"20px"}}>
-                    <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>FIND PLAYERS</div>
+                    <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>FIND PLAYERS</div>
                     <input placeholder="Search by name..." value={searchQ} onChange={e=>{setSearchQ(e.target.value);searchUsers(e.target.value);}} style={{...S.input,marginBottom:"10px"}}/>
                     {searchRes.map(u=>(
                       <div key={u.id} style={{...S.card,display:"flex",alignItems:"center",gap:"12px",marginBottom:"8px"}}>
                         <Avatar name={u.full_name} size={44} photoUrl={u.avatar_url}/>
-                        <div style={{flex:1}}><div style={{fontWeight:"600",color:D.fg1,fontSize:"15px"}}>{u.full_name}</div><div style={{fontSize:"12px",color:D.fg3}}>HCP {u.handicap_index||"—"} · {u.handicap_category||"golfer"}</div></div>
+                        <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{u.full_name}</div><div style={{fontSize:"12px",color:D.muted}}>HCP {u.handicap_index||"—"} · {u.handicap_category||"golfer"}</div></div>
                         <button onClick={()=>sendFriendReq(u.id)} style={{background:D.accentDim,border:`1px solid ${D.accent}44`,borderRadius:"10px",padding:"8px 14px",color:D.accent,fontWeight:"600",fontSize:"13px",cursor:"pointer"}}>+ Add</button>
                       </div>
                     ))}
                   </div>
-                  <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>MY FRIENDS ({friends.length})</div>
-                  {friends.length===0?<div style={{textAlign:"center",padding:"24px",color:D.fg3,fontSize:"14px"}}>Search above to add your first friend</div>:friends.map(f=>(
+                  <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>MY FRIENDS ({friends.length})</div>
+                  {friends.length===0?<div style={{textAlign:"center",padding:"24px",color:D.muted,fontSize:"14px"}}>Search above to add your first friend</div>:friends.map(f=>(
                     <div key={f.id} style={{...S.card,display:"flex",alignItems:"center",gap:"12px",marginBottom:"8px"}}>
                       <Avatar name={f.full_name} size={44} photoUrl={f.avatar_url} onClick={()=>f.avatar_url&&setShowAvatarZoom(f.avatar_url)}/>
-                      <div style={{flex:1}}><div style={{fontWeight:"600",color:D.fg1,fontSize:"15px"}}>{f.full_name}</div><div style={{fontSize:"12px",color:D.fg3}}>HCP {f.handicap_index||"—"} · {f.handicap_category||"golfer"}</div></div>
+                      <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{f.full_name}</div><div style={{fontSize:"12px",color:D.muted}}>HCP {f.handicap_index||"—"} · {f.handicap_category||"golfer"}</div></div>
                       <div style={{fontSize:"22px"}}>⛳</div>
                     </div>
                   ))}
@@ -1662,14 +1697,14 @@ Respond in this EXACT JSON format with no other text:
               )}
               {socialTab==="rounds"&&(
                 <>
-                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.fg1,marginBottom:"16px"}}>My Rounds</div>
-                  {roundHistory.length===0?<div style={{textAlign:"center",padding:"48px 20px"}}><div style={{fontSize:"52px",marginBottom:"14px"}}>📋</div><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",color:D.fg1,marginBottom:"8px"}}>No rounds saved yet</div><div style={{color:D.fg3,fontSize:"14px"}}>Save a round from the Scorecard tab</div></div>:roundHistory.map((r,i)=>{
+                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"16px"}}>My Rounds</div>
+                  {roundHistory.length===0?<div style={{textAlign:"center",padding:"48px 20px"}}><div style={{fontSize:"52px",marginBottom:"14px"}}>📋</div><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",color:D.white,marginBottom:"8px"}}>No rounds saved yet</div><div style={{color:D.muted,fontSize:"14px"}}>Save a round from the Scorecard tab</div></div>:roundHistory.map((r,i)=>{
                     const diff=r.total_score-r.total_par;
                     return(
                       <div key={i} style={{...S.card,marginBottom:"12px"}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"8px"}}>
-                          <div><div style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",color:D.fg1,fontSize:"16px"}}>{r.course_name||"Unknown Course"}</div><div style={{fontSize:"12px",color:D.fg3,marginTop:"2px"}}>{fmtDate(r.played_at)} · {r.holes_played} holes</div></div>
-                          <div style={{textAlign:"right"}}><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"32px",fontWeight:"800",color:diff<0?D.green:diff===0?D.blue:D.red,lineHeight:1}}>{r.total_score}</div><div style={{fontSize:"11px",color:D.fg3}}>{diff>0?`+${diff}`:diff===0?"even par":`${diff}`}</div></div>
+                          <div><div style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",color:D.white,fontSize:"16px"}}>{r.course_name||"Unknown Course"}</div><div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{fmtDate(r.played_at)} · {r.holes_played} holes</div></div>
+                          <div style={{textAlign:"right"}}><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"32px",fontWeight:"800",color:diff<0?D.green:diff===0?D.blue:D.red,lineHeight:1}}>{r.total_score}</div><div style={{fontSize:"11px",color:D.muted}}>{diff>0?`+${diff}`:diff===0?"even par":`${diff}`}</div></div>
                         </div>
                         <div style={{display:"flex",gap:"8px"}}>
                           <button onClick={()=>setShowCard(r)} style={{...S.pill,flex:1,textAlign:"center"}}>📊 Summary Card</button>
@@ -1696,19 +1731,19 @@ Respond in this EXACT JSON format with no other text:
                 </button>
                 <input ref={avatarInputRef} type="file" accept="image/*" onChange={e=>uploadAvatar(e.target.files[0])} style={{display:"none"}}/>
               </div>
-              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.fg1,marginTop:"10px"}}>{userProfile?.full_name||"Golfer"}</div>
-              <div style={{fontSize:"13px",color:D.fg3,marginTop:"4px"}}>{user?.email}</div>
+              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginTop:"10px"}}>{userProfile?.full_name||"Golfer"}</div>
+              <div style={{fontSize:"13px",color:D.muted,marginTop:"4px"}}>{user?.email}</div>
               <div style={{display:"flex",justifyContent:"center",gap:"28px",marginTop:"20px"}}>
                 {[["Rounds",roundHistory.length,"📋"],["Friends",friends.length,"👥"],["HCP",userProfile?.handicap_index||"—","⛳"]].map(([l,v,icon])=>(
-                  <div key={l} style={{textAlign:"center"}}><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.accent}}>{v}</div><div style={{fontSize:"12px",color:D.fg3,marginTop:"2px"}}>{icon} {l}</div></div>
+                  <div key={l} style={{textAlign:"center"}}><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.accent}}>{v}</div><div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{icon} {l}</div></div>
                 ))}
               </div>
             </div>
-            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.fg1,marginBottom:"14px"}}>Settings</div>
+            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.white,marginBottom:"14px"}}>Settings</div>
 
             {/* Name */}
             <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Your Name</div>
+              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Your Name</div>
               <input
                 placeholder="Enter your full name"
                 defaultValue={userProfile?.full_name||""}
@@ -1719,56 +1754,56 @@ Respond in this EXACT JSON format with no other text:
 
             {/* Dark / Light mode toggle */}
             <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Display</div>
-              <button onClick={toggleTheme} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"14px",padding:"14px 16px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
-                <span style={{color:D.fg2,fontSize:"15px",fontWeight:"500"}}>{isDark?"🌙 Dark Mode":"☀️ Light Mode"}</span>
-                <div style={{width:"48px",height:"26px",borderRadius:"13px",background:isDark?D.accentDim:D.border,border:`1.5px solid ${isDark?D.green:D.border}`,position:"relative",transition:"all 0.2s"}}>
-                  <div style={{position:"absolute",top:"3px",left:isDark?"24px":"3px",width:"18px",height:"18px",borderRadius:"50%",background:isDark?D.green:D.fg3,transition:"all 0.2s"}}/>
+              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Display</div>
+              <button onClick={()=>setDarkMode(d=>!d)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"14px",padding:"14px 16px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
+                <span style={{color:D.text,fontSize:"15px",fontWeight:"500"}}>{darkMode?"🌙 Dark Mode":"☀️ Light Mode"}</span>
+                <div style={{width:"48px",height:"26px",borderRadius:"13px",background:darkMode?D.accentDim:D.border,border:`1.5px solid ${darkMode?D.green:D.border}`,position:"relative",transition:"all 0.2s"}}>
+                  <div style={{position:"absolute",top:"3px",left:darkMode?"24px":"3px",width:"18px",height:"18px",borderRadius:"50%",background:darkMode?D.green:D.muted,transition:"all 0.2s"}}/>
                 </div>
               </button>
             </div>
             <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Caddie Style</div>
+              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Caddie Style</div>
               {PERSONAS.map(p=>(
                 <button key={p.id} onClick={()=>setProfile(prev=>({...prev,persona:p.id}))} style={{display:"flex",alignItems:"center",gap:"14px",width:"100%",background:profile.persona===p.id?D.accentDim:D.surface,border:`1.5px solid ${profile.persona===p.id?D.green:D.border}`,borderRadius:"14px",padding:"14px",marginBottom:"8px",cursor:"pointer"}}>
                   <span style={{fontSize:"22px"}}>{p.icon}</span>
-                  <div style={{flex:1,textAlign:"left"}}><div style={{fontWeight:"600",color:D.fg1,fontSize:"15px"}}>{p.label}</div><div style={{fontSize:"12px",color:D.fg3,marginTop:"2px"}}>{p.desc}</div></div>
+                  <div style={{flex:1,textAlign:"left"}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{p.label}</div><div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{p.desc}</div></div>
                   {profile.persona===p.id&&<div style={{width:"22px",height:"22px",borderRadius:"50%",background:D.accent,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:"12px"}}>✓</div>}
                 </button>
               ))}
             </div>
             <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Handicap</div>
+              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Handicap</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
                 {HANDICAPS.map(h=>(
                   <button key={h.value} onClick={()=>setProfile(p=>({...p,handicap:h.value,hcp:h.hcp}))} style={{background:profile.handicap===h.value?D.accentDim:D.surface,border:`1.5px solid ${profile.handicap===h.value?D.green:D.border}`,borderRadius:"14px",padding:"14px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center"}}>
-                    <span style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"16px",color:profile.handicap===h.value?D.accent:D.fg2}}>{h.label}</span>
-                    <span style={{fontSize:"12px",color:D.fg3,marginTop:"2px"}}>HCP {h.sub}</span>
+                    <span style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"16px",color:profile.handicap===h.value?D.accent:D.text}}>{h.label}</span>
+                    <span style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>HCP {h.sub}</span>
                   </button>
                 ))}
               </div>
             </div>
             <div style={{marginBottom:"18px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-                <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase"}}>My Bag</div>
-                <button onClick={()=>setEditingBag(!editingBag)} style={{background:editingBag?D.accentDim:D.surface,border:`1px solid ${editingBag?D.green:D.border}`,borderRadius:"99px",padding:"5px 14px",color:editingBag?D.green:D.fg3,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>{editingBag?"✓ Done":"Edit Distances"}</button>
+                <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase"}}>My Bag</div>
+                <button onClick={()=>setEditingBag(!editingBag)} style={{background:editingBag?D.accentDim:D.surface,border:`1px solid ${editingBag?D.green:D.border}`,borderRadius:"99px",padding:"5px 14px",color:editingBag?D.green:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>{editingBag?"✓ Done":"Edit Distances"}</button>
               </div>
               {profile.bag.map((item,idx)=>(
                 <div key={idx} style={{display:"flex",alignItems:"center",gap:"12px",padding:"9px 14px",background:D.surface,borderRadius:"10px",border:`1px solid ${D.border}`,marginBottom:"4px"}}>
-                  <span style={{color:D.fg3,fontSize:"13px",minWidth:"72px"}}>{item.club}</span>
+                  <span style={{color:D.muted,fontSize:"13px",minWidth:"72px"}}>{item.club}</span>
                   {editingBag?<input type="number" value={item.carry} onChange={e=>{const nb=[...profile.bag];nb[idx]={...nb[idx],carry:parseInt(e.target.value)||0};setProfile(p=>({...p,bag:nb}));}} style={{...S.input,width:"70px",padding:"4px 10px",fontSize:"14px"}}/>:<div style={{flex:1,height:"4px",background:D.border,borderRadius:"2px"}}><div style={{height:"100%",width:`${(item.carry/260)*100}%`,background:`linear-gradient(90deg,${D.green},${D.accent})`,borderRadius:"2px",opacity:0.8}}/></div>}
-                  <span style={{color:D.fg2,fontSize:"14px",fontWeight:"600",minWidth:"44px",textAlign:"right"}}>{item.carry}y</span>
+                  <span style={{color:D.text,fontSize:"14px",fontWeight:"600",minWidth:"44px",textAlign:"right"}}>{item.carry}y</span>
                 </div>
               ))}
             </div>
             {/* Dexterity */}
             <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Dexterity</div>
+              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Dexterity</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
                 {[{v:"right",label:"Right Handed",icon:"🏌️"},{v:"left",label:"Left Handed",icon:"🏌️‍♂️"}].map(dx=>(
                   <button key={dx.v} onClick={()=>setProfile(p=>({...p,dexterity:dx.v}))} style={{background:profile.dexterity===dx.v?D.accentDim:D.surface,border:`1.5px solid ${profile.dexterity===dx.v?D.green:D.border}`,borderRadius:"14px",padding:"14px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"6px"}}>
                     <span style={{fontSize:"24px"}}>{dx.icon}</span>
-                    <span style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"13px",color:profile.dexterity===dx.v?D.accent:D.fg2}}>{dx.label}</span>
+                    <span style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"13px",color:profile.dexterity===dx.v?D.accent:D.text}}>{dx.label}</span>
                   </button>
                 ))}
               </div>
@@ -1776,16 +1811,16 @@ Respond in this EXACT JSON format with no other text:
 
             {/* Home Course */}
             <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Home Course</div>
+              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Home Course</div>
               <input placeholder="e.g. Pebble Beach, Augusta National..." value={profile.homeCourse||""} onChange={e=>setProfile(p=>({...p,homeCourse:e.target.value}))} style={{...S.input}}/>
-              <div style={{fontSize:"11px",color:D.fg3,marginTop:"6px"}}>Obi will use this to give you course-specific tips</div>
+              <div style={{fontSize:"11px",color:D.muted,marginTop:"6px"}}>Obi will use this to give you course-specific tips</div>
             </div>
 
             <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.fg3,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Typical Miss</div>
+              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Typical Miss</div>
               <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
                 {["straight","fade","slice","draw","hook","pull","push"].map(m=>(
-                  <button key={m} onClick={()=>setProfile(p=>({...p,missTend:m}))} style={{background:profile.missTend===m?D.accentDim:D.surface,border:`1.5px solid ${profile.missTend===m?D.green:D.border}`,color:profile.missTend===m?D.green:D.fg3,borderRadius:"99px",padding:"7px 14px",fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:profile.missTend===m?"600":"400"}}>{m}</button>
+                  <button key={m} onClick={()=>setProfile(p=>({...p,missTend:m}))} style={{background:profile.missTend===m?D.accentDim:D.surface,border:`1.5px solid ${profile.missTend===m?D.green:D.border}`,color:profile.missTend===m?D.green:D.muted,borderRadius:"99px",padding:"7px 14px",fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:profile.missTend===m?"600":"400"}}>{m}</button>
                 ))}
               </div>
             </div>
