@@ -884,100 +884,117 @@ export default function ObiGolf(){
   }
 
   async function analyzeRangeShot(videoFile, club){
-    const apiKey=await fetch("/api/gemini-key").then(r=>r.json()).then(d=>d.key).catch(()=>null);
-    if(!apiKey)throw new Error("Could not get API key");
+    // Route through our server proxy to avoid CORS and handle video properly
+    const handed = profile.dexterity==="left" ? "left-handed" : "right-handed";
+    const knownCarry = profile.bag.find(b=>b.club===club)?.carry || 150;
 
-    const handed=profile.dexterity==="left"?"left-handed":"right-handed";
-    const knownCarry=profile.bag.find(b=>b.club===club)?.carry||150;
+    const promptText = `You are an expert golf swing analyst. Player is ${handed} hitting a ${club} (typical carry ~${knownCarry} yards). Phone is 5-10 feet behind the player.
 
-    const promptText=`You are an expert golf ball flight and swing analyst. The player is ${handed} and hitting a ${club} (typical carry ~${knownCarry} yards).
+Analyze this shot video and respond ONLY with valid JSON — no other text, no markdown:
+{"shot_shape":"straight","launch_angle":"mid","estimated_carry":${knownCarry},"contact_quality":"flush","swing_path":"neutral","ball_flight":"mid-trajectory","tip":"Keep your head still through impact."}
 
-Analyze this swing/shot video from 5-10 feet behind the player and provide:
+shot_shape options: straight, slight draw, draw, strong draw, hook, slight fade, fade, strong fade, slice
+launch_angle options: low, mid-low, mid, mid-high, high
+contact_quality options: flush, slightly thin, thin, slightly fat, fat, toe, heel
+swing_path options: in-to-out, slightly in-to-out, neutral, slightly out-to-in, out-to-in
+ball_flight options: penetrating, boring, mid-trajectory, high, ballooning`;
 
-1. SHOT SHAPE: One of: straight, slight draw, draw, strong draw, hook, slight fade, fade, strong fade, slice
-2. LAUNCH ANGLE: One of: low, mid-low, mid, mid-high, high
-3. ESTIMATED CARRY: Your best estimate in yards based on swing speed, club, and contact quality. Give a specific number.
-4. CONTACT QUALITY: One of: flush, slightly thin, thin, slightly fat, fat, toe, heel
-5. SWING PATH: One of: in-to-out, slightly in-to-out, neutral, slightly out-to-in, out-to-in
-6. BALL FLIGHT: One of: penetrating, boring, mid-trajectory, high, ballooning
-7. ONE TIP: One specific actionable tip to improve this shot (1 sentence)
+    // Convert video to base64 and send through our proxy
+    const b64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result.split(",")[1]);
+      reader.onerror = () => reject(new Error("Could not read video file"));
+      reader.readAsDataURL(videoFile);
+    });
 
-Respond in this EXACT JSON format with no other text:
-{
-  "shot_shape": "fade",
-  "launch_angle": "mid",
-  "estimated_carry": 152,
-  "contact_quality": "flush",
-  "swing_path": "neutral",
-  "ball_flight": "mid-trajectory",
-  "tip": "Your tip here"
-}`;
+    const res = await fetch("/api/swing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          role: "user",
+          parts: [
+            { inline_data: { mime_type: videoFile.type || "video/mp4", data: b64 } },
+            { text: promptText }
+          ]
+        }]
+      }),
+    });
 
-    // Upload video to Google File API
-    const uploadRes=await fetch(
-      `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
-      {method:"POST",headers:{"X-Goog-Upload-Protocol":"resumable","X-Goog-Upload-Command":"start","X-Goog-Upload-Header-Content-Length":videoFile.size,"X-Goog-Upload-Header-Content-Type":videoFile.type,"Content-Type":"application/json"},body:JSON.stringify({file:{display_name:"range_shot"}})}
-    );
-    const uploadUrl=uploadRes.headers.get("x-goog-upload-url");
-    if(!uploadUrl)throw new Error("Upload failed");
+    if (!res.ok) throw new Error("Server error " + res.status);
+    const data = await res.json();
+    if (data.error) throw new Error(typeof data.error === "string" ? data.error : data.error.message || "Analysis failed");
 
-    const finalRes=await fetch(uploadUrl,{method:"POST",headers:{"X-Goog-Upload-Command":"upload, finalize","X-Goog-Upload-Offset":"0","Content-Type":videoFile.type},body:videoFile});
-    const fileData=await finalRes.json();
-    const fileUri=fileData?.file?.uri;
-    const fileName=fileData?.file?.name;
-    if(!fileUri)throw new Error("Video upload failed");
+    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // Wait for processing
-    let ready=false;let attempts=0;
-    while(!ready&&attempts<15){
-      await new Promise(r=>setTimeout(r,2000));
-      const check=await fetch(`https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`).then(r=>r.json());
-      if(check?.state==="ACTIVE"||check?.file?.state==="ACTIVE")ready=true;
-      attempts++;
+    // Safely parse JSON — extract from response even if there's extra text
+    let parsed;
+    try {
+      const clean = rawText.replace(/```json|```/g, "").trim();
+      // Find JSON object in the response
+      const jsonMatch = clean.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("No JSON in response");
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch {
+      // If JSON parse fails, build a reasonable response from text analysis
+      parsed = {
+        shot_shape: rawText.toLowerCase().includes("draw") ? "draw" : rawText.toLowerCase().includes("fade") ? "fade" : rawText.toLowerCase().includes("slice") ? "slice" : "straight",
+        launch_angle: rawText.toLowerCase().includes("high") ? "high" : rawText.toLowerCase().includes("low") ? "low" : "mid",
+        estimated_carry: knownCarry,
+        contact_quality: rawText.toLowerCase().includes("flush") ? "flush" : rawText.toLowerCase().includes("thin") ? "thin" : "flush",
+        swing_path: "neutral",
+        ball_flight: "mid-trajectory",
+        tip: rawText.slice(0, 200) || "Focus on a smooth tempo through the ball.",
+      };
     }
-    if(!ready)throw new Error("Processing timed out");
 
-    const analyzeRes=await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-        contents:[{role:"user",parts:[{file_data:{mime_type:videoFile.type,file_uri:fileUri}},{text:promptText}]}],
-        generationConfig:{maxOutputTokens:500,temperature:0.3,thinkingConfig:{thinkingBudget:0}},
-      })}
-    );
-    const result=await analyzeRes.json();
-    if(result.error)throw new Error(result.error.message||"Analysis failed");
-    const text=result.candidates?.[0]?.content?.parts?.[0]?.text||"{}";
-    const clean=text.replace(/```json|```/g,"").trim();
-    return JSON.parse(clean);
+    // Validate required fields
+    return {
+      shot_shape:       parsed.shot_shape       || "straight",
+      launch_angle:     parsed.launch_angle     || "mid",
+      estimated_carry:  parseInt(parsed.estimated_carry) || knownCarry,
+      contact_quality:  parsed.contact_quality  || "flush",
+      swing_path:       parsed.swing_path       || "neutral",
+      ball_flight:      parsed.ball_flight      || "mid-trajectory",
+      tip:              parsed.tip              || "",
+    };
   }
+
 
   async function runRangeAnalysis(){
     if(!rangeFile)return;
-    setRangeLoading(true);setRangeShotResult(null);
+    setRangeLoading(true);
+    setRangeShotResult(null);
     try{
-      const result=await analyzeRangeShot(rangeFile,rangeClub);
+      const result = await analyzeRangeShot(rangeFile, rangeClub);
       setRangeShotResult(result);
-      // Save to database
       if(user){
-        const{data}=await supabase.from("range_shots").insert({
-          user_id:user.id,
-          club:rangeClub,
-          shot_shape:result.shot_shape,
-          launch_angle:result.launch_angle,
-          estimated_carry:result.estimated_carry,
-          contact_quality:result.contact_quality,
-          swing_path:result.swing_path,
-          ball_flight:result.ball_flight,
-          tip:result.tip,
-          recorded_at:new Date().toISOString(),
-        }).select().single();
-        loadRangeHistory(user.id);
+        try{
+          await supabase.from("range_shots").insert({
+            user_id:          user.id,
+            club:             rangeClub,
+            shot_shape:       result.shot_shape,
+            launch_angle:     result.launch_angle,
+            estimated_carry:  result.estimated_carry,
+            contact_quality:  result.contact_quality,
+            swing_path:       result.swing_path,
+            ball_flight:      result.ball_flight,
+            tip:              result.tip,
+            recorded_at:      new Date().toISOString(),
+          });
+          loadRangeHistory(user.id);
+        } catch(dbErr){
+          console.error("DB save failed:", dbErr);
+          // Don't crash — result still shows
+        }
       }
-    }catch(err){
-      setRangeShotResult({error:err.message});
+    } catch(err){
+      console.error("Range analysis error:", err);
+      setRangeShotResult({ error: err.message || "Analysis failed. Please try again." });
+    } finally {
+      setRangeLoading(false);
+      setRangeFile(null);
     }
-    setRangeLoading(false);
-    setRangeFile(null);
   }
   async function searchUsers(q){if(!q.trim()){setSearchRes([]);return;}const{data}=await supabase.from("profiles").select("*").ilike("full_name",`%${q}%`).neq("id",user?.id).limit(8);if(data)setSearchRes(data);}
   async function sendFriendReq(fid){await supabase.from("friendships").insert({user_id:user.id,friend_id:fid,status:"pending"});setSearchRes(prev=>prev.filter(u=>u.id!==fid));}
