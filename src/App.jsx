@@ -1939,11 +1939,6 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
                   </div>
                 )}
 
-                {/* All club profiles summary */}
-                {Object.keys(clubStats).length>0&&(
-                  <div style={{marginTop:"20px"}}>
-                    <div style={              </div>
-            )}
           </div>
         )}
 
@@ -2085,6 +2080,147 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
           </div>
         )}
 
+        {/* SOCIAL TAB */}
+        {tab==="social"&&(
+          <div>
+            <div style={{display:"flex",background:D.dark,borderBottom:`1px solid ${D.border}`,position:"sticky",top:"52px",zIndex:10}}>
+              {[{id:"feed",label:"Feed"},{id:"rounds",label:"My Rounds"},{id:"friends",label:`Friends${friendReqs.length>0?" ·"+friendReqs.length:""}`}].map(t=>(
+                <button key={t.id} onClick={()=>setSocialView(t.id)}
+                  style={{flex:1,padding:"11px 4px",background:"transparent",border:"none",borderBottom:`2px solid ${socialView===t.id?D.accent:"transparent"}`,color:socialView===t.id?D.accent:D.muted,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:socialView===t.id?"600":"400",transition:"all 0.15s"}}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div style={{padding:"16px"}}>
+
+              {/* FEED */}
+              {socialView==="feed"&&(
+                <>
+                  {feed.length===0?(
+                    <div style={{textAlign:"center",padding:"48px 20px"}}>
+                      <div style={{fontSize:"40px",marginBottom:"12px"}}>👥</div>
+                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"18px",fontWeight:"700",color:D.white,marginBottom:"6px"}}>Add friends to see their rounds</div>
+                      <div style={{color:D.muted,fontSize:"14px",marginBottom:"20px"}}>Your feed will show up here</div>
+                      <button onClick={()=>setSocialView("friends")} style={{...S.btnPrimary,width:"auto",padding:"10px 24px"}}>Find Friends</button>
+                    </div>
+                  ):(
+                    <>
+                      {(showAllFeed?feed:feed.slice(0,5)).map((r,i)=>{
+                        const diff=r.total_score-r.total_par;
+                        const isMe=r.user_id===user?.id;
+                        return(
+                          <div key={i} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:"14px",marginBottom:"10px",overflow:"hidden"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:"10px",padding:"12px 14px"}}>
+                              <Avatar name={r.profile?.full_name} size={36} highlight={isMe} photoUrl={r.profile?.avatar_url} T={D} onClick={()=>r.profile?.avatar_url&&setShowAvatarZoom(r.profile.avatar_url)}/>
+                              <div style={{flex:1,minWidth:0}}>
+                                <div style={{fontWeight:"600",color:D.white,fontSize:"14px",fontFamily:"'Space Grotesk',sans-serif"}}>
+                                  {r.profile?.full_name||"Golfer"}{isMe&&<span style={{color:D.accent,fontSize:"10px",marginLeft:"6px"}}>you</span>}
+                                </div>
+                                <div style={{fontSize:"12px",color:D.muted,marginTop:"1px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.course_name||"Unknown course"} · {fmtDateShort(r.played_at)}</div>
+                              </div>
+                              <div style={{textAlign:"right",flexShrink:0}}>
+                                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:diff<0?D.accent:diff===0?D.blue:D.red,lineHeight:1}}>{diff>0?"+"+diff:diff===0?"E":diff}</div>
+                                <div style={{fontSize:"11px",color:D.muted}}>{r.total_score} strokes</div>
+                              </div>
+                            </div>
+                            <div style={{display:"flex",borderTop:`1px solid ${D.border}`}}>
+                              <button onClick={()=>{const j=randJab();setJabPost(j);}} style={{flex:1,background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"8px",display:"flex",alignItems:"center",justifyContent:"center",gap:"5px"}}>😂 Jab</button>
+                              {isMe&&<button onClick={()=>shareRound(r)} style={{flex:1,background:"transparent",border:"none",borderLeft:`1px solid ${D.border}`,color:D.accent,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"8px",fontWeight:"600",display:"flex",alignItems:"center",justifyContent:"center",gap:"5px"}}>📤 Share</button>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {!showAllFeed&&feed.length>5&&(
+                        <button onClick={()=>setShowAllFeed(true)} style={{width:"100%",background:D.surface,border:`1px solid ${D.border}`,borderRadius:"12px",padding:"12px",color:D.muted,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
+                          View {feed.length-5} more rounds ↓
+                        </button>
+                      )}
+                      {showAllFeed&&feed.length>5&&(
+                        <button onClick={()=>setShowAllFeed(false)} style={{width:"100%",background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"8px"}}>Show less ↑</button>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* MY ROUNDS */}
+              {socialView==="rounds"&&(
+                <>
+                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.white,marginBottom:"14px"}}>My Rounds</div>
+                  {myRounds.length===0?(
+                    <div style={{textAlign:"center",padding:"32px 20px",color:D.muted,fontSize:"14px"}}>No rounds saved yet.</div>
+                  ):myRounds.map((r,i)=>{
+                    const diff=r.total_score-r.total_par;
+                    return(
+                      <div key={i} style={{...S.card,marginBottom:"10px",display:"flex",alignItems:"center",gap:"12px"}}>
+                        <div style={{flex:1}}>
+                          <div style={{fontWeight:"600",color:D.white,fontSize:"14px",fontFamily:"'Space Grotesk',sans-serif"}}>{r.course_name||"Unknown course"}</div>
+                          <div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{r.holes_played} holes · {fmtDate(r.played_at)}</div>
+                        </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:diff<0?D.accent:diff===0?D.blue:D.red,lineHeight:1}}>{diff>0?"+"+diff:diff===0?"E":diff}</div>
+                          <div style={{fontSize:"11px",color:D.muted}}>{r.total_score}</div>
+                        </div>
+                        <button onClick={()=>shareRound(r)} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"10px",padding:"8px",cursor:"pointer",color:D.muted}}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* FRIENDS */}
+              {socialView==="friends"&&(
+                <>
+                  {friendReqs.length>0&&(
+                    <div style={{marginBottom:"20px"}}>
+                      <div style={{fontSize:"12px",color:D.accent,fontWeight:"600",letterSpacing:"1px",textTransform:"uppercase",marginBottom:"10px"}}>Requests</div>
+                      {friendReqs.map((req,i)=>(
+                        <div key={i} style={{...S.card,marginBottom:"8px",display:"flex",alignItems:"center",gap:"10px"}}>
+                          <Avatar name={req.requester?.full_name} size={36} photoUrl={req.requester?.avatar_url} T={D}/>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:"600",color:D.white,fontSize:"14px"}}>{req.requester?.full_name}</div>
+                            <div style={{fontSize:"12px",color:D.muted}}>wants to connect</div>
+                          </div>
+                          <button onClick={()=>acceptFriendReq(req.id,req.user_id)} style={{background:D.accentDim,border:`1px solid ${D.accent}44`,borderRadius:"8px",color:D.accent,fontSize:"12px",cursor:"pointer",padding:"6px 12px",fontWeight:"600"}}>Accept</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{marginBottom:"16px"}}>
+                    <input placeholder="Search by name…" value={friendSearch} onChange={e=>{setFriendSearch(e.target.value);searchUsers(e.target.value);}} style={{...S.input}}/>
+                  </div>
+                  {searchRes.map((u,i)=>(
+                    <div key={i} style={{...S.card,marginBottom:"8px",display:"flex",alignItems:"center",gap:"10px"}}>
+                      <Avatar name={u.full_name} size={36} photoUrl={u.avatar_url} T={D}/>
+                      <div style={{flex:1}}>
+                        <div style={{fontWeight:"600",color:D.white,fontSize:"14px"}}>{u.full_name}</div>
+                        <div style={{fontSize:"12px",color:D.muted}}>{u.handicap_category||"Golfer"}</div>
+                      </div>
+                      <button onClick={()=>sendFriendReq(u.id)} style={{background:D.accentDim,border:`1px solid ${D.accent}44`,borderRadius:"8px",color:D.accent,fontSize:"12px",cursor:"pointer",padding:"6px 12px",fontWeight:"600"}}>Add</button>
+                    </div>
+                  ))}
+                  {friends.length>0&&!friendSearch&&(
+                    <>
+                      <div style={{fontSize:"12px",color:D.muted,fontWeight:"600",letterSpacing:"1px",textTransform:"uppercase",marginBottom:"10px",marginTop:"4px"}}>Your Friends</div>
+                      {friends.map((f,i)=>(
+                        <div key={i} style={{...S.card,marginBottom:"8px",display:"flex",alignItems:"center",gap:"10px"}}>
+                          <Avatar name={f.full_name} size={36} photoUrl={f.avatar_url} T={D}/>
+                          <div style={{flex:1}}>
+                            <div style={{fontWeight:"600",color:D.white,fontSize:"14px"}}>{f.full_name}</div>
+                            <div style={{fontSize:"12px",color:D.muted}}>{f.handicap_category||"Golfer"}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* PROFILE TAB */}
         {tab==="profile"&&(
           <div style={{padding:"16px"}}>
@@ -2206,265 +2342,4 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
   );
 }
 
-export default function ObiGolf(){ return <ErrorBoundary><ObiGolfApp/></ErrorBoundary>; }        {/* SOCIAL TAB */}
-        {tab==="social"&&(
-          <div>
-            {/* Sub-nav: Feed / Rounds / Friends */}
-            <div style={{display:"flex",background:D.dark,borderBottom:`1px solid ${D.border}`,position:"sticky",top:"52px",zIndex:10}}>
-              {[{id:"feed",label:"Feed"},{id:"rounds",label:"My Rounds"},{id:"friends",label:`Friends${friendReqs.length>0?" ·"+friendReqs.length:""}`}].map(t=>(
-                <button key={t.id} onClick={()=>setSocialView(t.id)}
-                  style={{flex:1,padding:"11px 4px",background:"transparent",border:"none",borderBottom:`2px solid ${socialView===t.id?D.accent:"transparent"}`,color:socialView===t.id?D.accent:D.muted,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:socialView===t.id?"600":"400",transition:"all 0.15s"}}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-
-            <div style={{padding:"16px"}}>
-
-              {/* ── FEED ── */}
-              {socialView==="feed"&&(
-                <>
-                  {feed.length===0?(
-                    <div style={{textAlign:"center",padding:"48px 20px"}}>
-                      <div style={{fontSize:"40px",marginBottom:"12px"}}>👥</div>
-                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"18px",fontWeight:"700",color:D.white,marginBottom:"6px"}}>Add friends to see their rounds</div>
-                      <div style={{color:D.muted,fontSize:"14px",marginBottom:"20px"}}>Your feed will show up here</div>
-                      <button onClick={()=>setSocialView("friends")} style={{...S.btnPrimary,width:"auto",padding:"10px 24px"}}>Find Friends</button>
-                    </div>
-                  ):(
-                    <>
-                      {(showAllFeed?feed:feed.slice(0,5)).map((r,i)=>{
-                        const diff=r.total_score-r.total_par;
-                        const isMe=r.user_id===user?.id;
-                        return(
-                          <div key={i} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:"14px",marginBottom:"10px",overflow:"hidden"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:"10px",padding:"12px 14px"}}>
-                              <Avatar name={r.profile?.full_name} size={36} highlight={isMe} photoUrl={r.profile?.avatar_url} T={D} onClick={()=>r.profile?.avatar_url&&setShowAvatarZoom(r.profile.avatar_url)}/>
-                              <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontWeight:"600",color:D.white,fontSize:"14px",fontFamily:"'Space Grotesk',sans-serif"}}>
-                                  {r.profile?.full_name||"Golfer"}{isMe&&<span style={{color:D.accent,fontSize:"10px",marginLeft:"6px"}}>you</span>}
-                                </div>
-                                <div style={{fontSize:"12px",color:D.muted,marginTop:"1px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.course_name||"Unknown course"} · {fmtDateShort(r.played_at)}</div>
-                              </div>
-                              <div style={{textAlign:"right",flexShrink:0}}>
-                                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:diff<0?D.accent:diff===0?D.blue:D.red,lineHeight:1}}>{diff>0?"+"+diff:diff===0?"E":diff}</div>
-                                <div style={{fontSize:"11px",color:D.muted}}>{r.total_score} strokes</div>
-                              </div>
-                            </div>
-                            <div style={{display:"flex",borderTop:`1px solid ${D.border}`}}>
-                              <button onClick={()=>{const j=randJab();setJabPost(j);}} style={{flex:1,background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"8px",display:"flex",alignItems:"center",justifyContent:"center",gap:"5px"}}>😂 Jab</button>
-                              {isMe&&<button onClick={()=>shareRound(r)} style={{flex:1,background:"transparent",border:"none",borderLeft:`1px solid ${D.border}`,color:D.accent,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"8px",fontWeight:"600",display:"flex",alignItems:"center",justifyContent:"center",gap:"5px"}}>📤 Share</button>}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {!showAllFeed&&feed.length>5&&(
-                        <button onClick={()=>setShowAllFeed(true)} style={{width:"100%",background:D.surface,border:`1px solid ${D.border}`,borderRadius:"12px",padding:"12px",color:D.muted,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
-                          View {feed.length-5} more rounds ↓
-                        </button>
-                      )}
-                      {showAllFeed&&feed.length>5&&(
-                        <button onClick={()=>setShowAllFeed(false)} style={{width:"100%",background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"8px"}}>Show less ↑</button>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
-
-              {/* ── MY ROUNDS ── */}
-              {socialView==="rounds"&&(
-                <>
-                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.white,marginBottom:"14px"}}>My Rounds</div>
-                  {myRounds.length===0?(
-                    <div style={{textAlign:"center",padding:"32px 20px",color:D.muted,fontSize:"14px"}}>No rounds saved yet. Finish a round on the Caddie tab to save it.</div>
-                  ):myRounds.map((r,i)=>{
-                    const diff=r.total_score-r.total_par;
-                    return(
-                      <div key={i} style={{...S.card,marginBottom:"10px",display:"flex",alignItems:"center",gap:"12px"}}>
-                        <div style={{flex:1}}>
-                          <div style={{fontWeight:"600",color:D.white,fontSize:"14px",fontFamily:"'Space Grotesk',sans-serif"}}>{r.course_name||"Unknown course"}</div>
-                          <div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{r.holes_played} holes · {fmtDate(r.played_at)}</div>
-                        </div>
-                        <div style={{textAlign:"right"}}>
-                          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:diff<0?D.accent:diff===0?D.blue:D.red,lineHeight:1}}>{diff>0?"+"+diff:diff===0?"E":diff}</div>
-                          <div style={{fontSize:"11px",color:D.muted}}>{r.total_score}</div>
-                        </div>
-                        <button onClick={()=>shareRound(r)} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"10px",padding:"8px",cursor:"pointer",color:D.muted}}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-                        </button>
-                      </div>
-                    );
-                  })}
-                </>
-              )}
-
-              {/* ── FRIENDS ── */}
-              {socialView==="friends"&&(
-                <>
-                  {/* Pending requests */}
-                  {friendReqs.length>0&&(
-                    <div style={{marginBottom:"20px"}}>
-                      <div style={{fontSize:"12px",color:D.accent,fontWeight:"600",letterSpacing:"1px",textTransform:"uppercase",marginBottom:"10px"}}>Requests</div>
-                      {friendReqs.map((req,i)=>(
-                        <div key={i} style={{...S.card,marginBottom:"8px",display:"flex",alignItems:"center",gap:"10px"}}>
-                          <Avatar name={req.requester?.full_name} size={36} photoUrl={req.requester?.avatar_url} T={D}/>
-                          <div style={{flex:1}}>
-                            <div style={{fontWeight:"600",color:D.white,fontSize:"14px"}}>{req.requester?.full_name}</div>
-                            <div style={{fontSize:"12px",color:D.muted}}>wants to connect</div>
-                          </div>
-                          <button onClick={()=>acceptFriendReq(req.id,req.user_id)} style={{background:D.accentDim,border:`1px solid ${D.accent}44`,borderRadius:"8px",color:D.accent,fontSize:"12px",cursor:"pointer",padding:"6px 12px",fontWeight:"600"}}>Accept</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {/* Search */}
-                  <div style={{marginBottom:"16px"}}>
-                    <input placeholder="Search by name…" value={friendSearch} onChange={e=>{setFriendSearch(e.target.value);searchUsers(e.target.value);}}
-                      style={{...S.input}}/>
-                  </div>
-                  {searchRes.map((u,i)=>(
-                    <div key={i} style={{...S.card,marginBottom:"8px",display:"flex",alignItems:"center",gap:"10px"}}>
-                      <Avatar name={u.full_name} size={36} photoUrl={u.avatar_url} T={D}/>
-                      <div style={{flex:1}}>
-                        <div style={{fontWeight:"600",color:D.white,fontSize:"14px"}}>{u.full_name}</div>
-                        <div style={{fontSize:"12px",color:D.muted}}>{u.handicap_category||"Golfer"}</div>
-                      </div>
-                      <button onClick={()=>sendFriendReq(u.id)} style={{background:D.accentDim,border:`1px solid ${D.accent}44`,borderRadius:"8px",color:D.accent,fontSize:"12px",cursor:"pointer",padding:"6px 12px",fontWeight:"600"}}>Add</button>
-                    </div>
-                  ))}
-                  {/* Current friends */}
-                  {friends.length>0&&!friendSearch&&(
-                    <>
-                      <div style={{fontSize:"12px",color:D.muted,fontWeight:"600",letterSpacing:"1px",textTransform:"uppercase",marginBottom:"10px",marginTop:"4px"}}>Your Friends</div>
-                      {friends.map((f,i)=>(
-                        <div key={i} style={{...S.card,marginBottom:"8px",display:"flex",alignItems:"center",gap:"10px"}}>
-                          <Avatar name={f.full_name} size={36} photoUrl={f.avatar_url} T={D}/>
-                          <div style={{flex:1}}>
-                            <div style={{fontWeight:"600",color:D.white,fontSize:"14px"}}>{f.full_name}</div>
-                            <div style={{fontSize:"12px",color:D.muted}}>{f.handicap_category||"Golfer"}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        )}
-        {/* PROFILE TAB */}
-        {tab==="profile"&&(
-          <div style={{padding:"20px 16px"}}>
-            <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:"20px",padding:"24px",marginBottom:"20px",textAlign:"center"}}>
-              {/* Avatar with upload */}
-              <div style={{position:"relative",display:"inline-block",marginBottom:"4px"}}>
-                <Avatar name={userProfile?.full_name||user?.email} size={80} highlight photoUrl={avatarUrl} onClick={()=>avatarUrl&&setShowAvatarZoom(avatarUrl)}/>
-                <button onClick={()=>avatarInputRef.current?.click()} style={{position:"absolute",bottom:0,right:0,width:"28px",height:"28px",borderRadius:"50%",background:D.accent,border:"2px solid "+D.dark,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"14px"}}>
-                  {uploadingAvatar?"⏳":"📷"}
-                </button>
-                <input ref={avatarInputRef} type="file" accept="image/*" onChange={e=>uploadAvatar(e.target.files[0])} style={{display:"none"}}/>
-              </div>
-              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginTop:"10px"}}>{userProfile?.full_name||"Golfer"}</div>
-              <div style={{fontSize:"13px",color:D.muted,marginTop:"4px"}}>{user?.email}</div>
-              <div style={{display:"flex",justifyContent:"center",gap:"28px",marginTop:"20px"}}>
-                {[["Rounds",roundHistory.length,"📋"],["Friends",friends.length,"👥"],["HCP",userProfile?.handicap_index||"—","⛳"]].map(([l,v,icon])=>(
-                  <div key={l} style={{textAlign:"center"}}><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.accent}}>{v}</div><div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{icon} {l}</div></div>
-                ))}
-              </div>
-            </div>
-            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.white,marginBottom:"14px"}}>Settings</div>
-
-            {/* Name */}
-            <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Your Name</div>
-              <input
-                placeholder="Enter your full name"
-                defaultValue={userProfile?.full_name||""}
-                id="profile-name-input"
-                style={{...S.input}}
-              />
-            </div>
-
-            {/* Dark / Light mode toggle */}
-            <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Display</div>
-              <button onClick={()=>setDarkMode(d=>!d)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"14px",padding:"14px 16px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
-                <span style={{color:D.text,fontSize:"15px",fontWeight:"500"}}>{darkMode?"🌙 Dark Mode":"☀️ Light Mode"}</span>
-                <div style={{width:"48px",height:"26px",borderRadius:"13px",background:darkMode?D.accentDim:D.border,border:`1.5px solid ${darkMode?D.green:D.border}`,position:"relative",transition:"all 0.2s"}}>
-                  <div style={{position:"absolute",top:"3px",left:darkMode?"24px":"3px",width:"18px",height:"18px",borderRadius:"50%",background:darkMode?D.green:D.muted,transition:"all 0.2s"}}/>
-                </div>
-              </button>
-            </div>
-            <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Caddie Style</div>
-              {PERSONAS.map(p=>(
-                <button key={p.id} onClick={()=>setProfile(prev=>({...prev,persona:p.id}))} style={{display:"flex",alignItems:"center",gap:"14px",width:"100%",background:profile.persona===p.id?D.accentDim:D.surface,border:`1.5px solid ${profile.persona===p.id?D.green:D.border}`,borderRadius:"14px",padding:"14px",marginBottom:"8px",cursor:"pointer"}}>
-                  <span style={{fontSize:"22px"}}>{p.icon}</span>
-                  <div style={{flex:1,textAlign:"left"}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{p.label}</div><div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{p.desc}</div></div>
-                  {profile.persona===p.id&&<div style={{width:"22px",height:"22px",borderRadius:"50%",background:D.accent,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:"12px"}}>✓</div>}
-                </button>
-              ))}
-            </div>
-            <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Handicap</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
-                {HANDICAPS.map(h=>(
-                  <button key={h.value} onClick={()=>setProfile(p=>({...p,handicap:h.value,hcp:h.hcp}))} style={{background:profile.handicap===h.value?D.accentDim:D.surface,border:`1.5px solid ${profile.handicap===h.value?D.green:D.border}`,borderRadius:"14px",padding:"14px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center"}}>
-                    <span style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"16px",color:profile.handicap===h.value?D.accent:D.text}}>{h.label}</span>
-                    <span style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>HCP {h.sub}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div style={{marginBottom:"18px"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-                <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase"}}>My Bag</div>
-                <button onClick={()=>setEditingBag(!editingBag)} style={{background:editingBag?D.accentDim:D.surface,border:`1px solid ${editingBag?D.green:D.border}`,borderRadius:"99px",padding:"5px 14px",color:editingBag?D.green:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>{editingBag?"✓ Done":"Edit Distances"}</button>
-              </div>
-              {profile.bag.map((item,idx)=>(
-                <div key={idx} style={{display:"flex",alignItems:"center",gap:"12px",padding:"9px 14px",background:D.surface,borderRadius:"10px",border:`1px solid ${D.border}`,marginBottom:"4px"}}>
-                  <span style={{color:D.muted,fontSize:"13px",minWidth:"72px"}}>{item.club}</span>
-                  {editingBag?<input type="number" value={item.carry} onChange={e=>{const nb=[...profile.bag];nb[idx]={...nb[idx],carry:parseInt(e.target.value)||0};setProfile(p=>({...p,bag:nb}));}} style={{...S.input,width:"70px",padding:"4px 10px",fontSize:"14px"}}/>:<div style={{flex:1,height:"4px",background:D.border,borderRadius:"2px"}}><div style={{height:"100%",width:`${(item.carry/260)*100}%`,background:`linear-gradient(90deg,${D.green},${D.accent})`,borderRadius:"2px",opacity:0.8}}/></div>}
-                  <span style={{color:D.text,fontSize:"14px",fontWeight:"600",minWidth:"44px",textAlign:"right"}}>{item.carry}y</span>
-                </div>
-              ))}
-            </div>
-            {/* Dexterity */}
-            <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Dexterity</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
-                {[{v:"right",label:"Right Handed",icon:"🏌️"},{v:"left",label:"Left Handed",icon:"🏌️‍♂️"}].map(dx=>(
-                  <button key={dx.v} onClick={()=>setProfile(p=>({...p,dexterity:dx.v}))} style={{background:profile.dexterity===dx.v?D.accentDim:D.surface,border:`1.5px solid ${profile.dexterity===dx.v?D.green:D.border}`,borderRadius:"14px",padding:"14px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"6px"}}>
-                    <span style={{fontSize:"24px"}}>{dx.icon}</span>
-                    <span style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"13px",color:profile.dexterity===dx.v?D.accent:D.text}}>{dx.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Home Course */}
-            <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Home Course</div>
-              <input placeholder="e.g. Pebble Beach, Augusta National..." value={profile.homeCourse||""} onChange={e=>setProfile(p=>({...p,homeCourse:e.target.value}))} style={{...S.input}}/>
-              <div style={{fontSize:"11px",color:D.muted,marginTop:"6px"}}>Obi will use this to give you course-specific tips</div>
-            </div>
-
-            <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Typical Miss</div>
-              <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
-                {["straight","fade","slice","draw","hook","pull","push"].map(m=>(
-                  <button key={m} onClick={()=>setProfile(p=>({...p,missTend:m}))} style={{background:profile.missTend===m?D.accentDim:D.surface,border:`1.5px solid ${profile.missTend===m?D.green:D.border}`,color:profile.missTend===m?D.green:D.muted,borderRadius:"99px",padding:"7px 14px",fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:profile.missTend===m?"600":"400"}}>{m}</button>
-                ))}
-              </div>
-            </div>
-            <button onClick={saveProfile} style={{...S.btnPrimary,marginBottom:"10px"}}>💾 Save Changes</button>
-            <button onClick={fetchWeather} style={{...S.btnSecondary,marginBottom:"10px"}}>{wxLoading?"Refreshing...":"🔄 Refresh Weather"}</button>
-            <button onClick={handleLogout} style={{background:"transparent",border:`1.5px solid ${D.red}44`,borderRadius:"14px",color:D.red,fontSize:"15px",padding:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",width:"100%",marginBottom:"20px"}}>Sign Out</button>
-          </div>
-        )}
-      </div>
-      <style>{CSS}</style>
-    </div>
-  );
-}
-
+export default function ObiGolf(){ return <ErrorBoundary><ObiGolfApp/></ErrorBoundary>; }
