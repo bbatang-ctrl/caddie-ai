@@ -884,79 +884,125 @@ export default function ObiGolf(){
   }
 
   async function analyzeRangeShot(videoFile, club){
-    // Route through our server proxy to avoid CORS and handle video properly
+    // Get API key from our server (small request — no size issue)
+    const keyRes = await fetch("/api/gemini-key");
+    if (!keyRes.ok) throw new Error("Could not get API key");
+    const { key: apiKey } = await keyRes.json();
+    if (!apiKey) throw new Error("API key not configured");
+
     const handed = profile.dexterity==="left" ? "left-handed" : "right-handed";
     const knownCarry = profile.bag.find(b=>b.club===club)?.carry || 150;
 
-    const promptText = `You are an expert golf swing analyst. Player is ${handed} hitting a ${club} (typical carry ~${knownCarry} yards). Phone is 5-10 feet behind the player.
+    const promptText = `You are an expert golf swing and ball flight analyst. Player is ${handed} hitting a ${club} (typical carry ~${knownCarry} yards). Camera is 5-10 feet behind the player.
 
-Analyze this shot video and respond ONLY with valid JSON — no other text, no markdown:
+Respond ONLY with this exact JSON, no other text:
 {"shot_shape":"straight","launch_angle":"mid","estimated_carry":${knownCarry},"contact_quality":"flush","swing_path":"neutral","ball_flight":"mid-trajectory","tip":"Keep your head still through impact."}
 
-shot_shape options: straight, slight draw, draw, strong draw, hook, slight fade, fade, strong fade, slice
-launch_angle options: low, mid-low, mid, mid-high, high
-contact_quality options: flush, slightly thin, thin, slightly fat, fat, toe, heel
-swing_path options: in-to-out, slightly in-to-out, neutral, slightly out-to-in, out-to-in
-ball_flight options: penetrating, boring, mid-trajectory, high, ballooning`;
+shot_shape: straight|slight draw|draw|strong draw|hook|slight fade|fade|strong fade|slice
+launch_angle: low|mid-low|mid|mid-high|high
+contact_quality: flush|slightly thin|thin|slightly fat|fat|toe|heel
+swing_path: in-to-out|slightly in-to-out|neutral|slightly out-to-in|out-to-in
+ball_flight: penetrating|boring|mid-trajectory|high|ballooning`;
 
-    // Convert video to base64 and send through our proxy
-    const b64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = e => resolve(e.target.result.split(",")[1]);
-      reader.onerror = () => reject(new Error("Could not read video file"));
-      reader.readAsDataURL(videoFile);
+    // Step 1 — Upload video DIRECTLY from browser to Google File API
+    // This bypasses Vercel entirely so no 4.5MB limit
+    const startRes = await fetch(
+      `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "X-Goog-Upload-Protocol": "resumable",
+          "X-Goog-Upload-Command": "start",
+          "X-Goog-Upload-Header-Content-Length": videoFile.size,
+          "X-Goog-Upload-Header-Content-Type": videoFile.type || "video/mp4",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ file: { display_name: "range_shot" } }),
+      }
+    );
+
+    if (!startRes.ok) throw new Error("Could not start upload — check your internet connection");
+    const uploadUrl = startRes.headers.get("x-goog-upload-url");
+    if (!uploadUrl) throw new Error("Upload URL not received — try a shorter video");
+
+    // Step 2 — Upload video bytes directly to Google (no Vercel in the loop)
+    const uploadRes = await fetch(uploadUrl, {
+      method: "POST",
+      headers: {
+        "X-Goog-Upload-Command": "upload, finalize",
+        "X-Goog-Upload-Offset": "0",
+        "Content-Type": videoFile.type || "video/mp4",
+      },
+      body: videoFile,
     });
 
-    const res = await fetch("/api/swing", {
+    if (!uploadRes.ok) throw new Error("Video upload failed — try a shorter clip under 30 seconds");
+    const fileData = await uploadRes.json();
+    const fileUri = fileData?.file?.uri;
+    const fileName = fileData?.file?.name;
+    if (!fileUri) throw new Error("Upload incomplete — try again");
+
+    // Step 3 — Wait for Google to process video
+    let ready = false, attempts = 0;
+    while (!ready && attempts < 15) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const check = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`
+        ).then(r => r.json());
+        if (check?.state === "ACTIVE" || check?.file?.state === "ACTIVE") ready = true;
+      } catch { /* keep trying */ }
+      attempts++;
+    }
+    if (!ready) throw new Error("Processing timed out — try a clip under 15 seconds");
+
+    // Step 4 — Analyze with Gemini (small request, goes through Vercel fine)
+    const analyzeRes = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{
           role: "user",
           parts: [
-            { inline_data: { mime_type: videoFile.type || "video/mp4", data: b64 } },
+            { file_data: { mime_type: videoFile.type || "video/mp4", file_uri: fileUri } },
             { text: promptText }
           ]
         }]
       }),
     });
 
-    if (!res.ok) throw new Error("Server error " + res.status);
-    const data = await res.json();
+    if (!analyzeRes.ok) throw new Error("Analysis request failed");
+    const data = await analyzeRes.json();
     if (data.error) throw new Error(typeof data.error === "string" ? data.error : data.error.message || "Analysis failed");
 
     const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // Safely parse JSON — extract from response even if there's extra text
+    // Safely extract JSON from response
     let parsed;
     try {
-      const clean = rawText.replace(/```json|```/g, "").trim();
-      // Find JSON object in the response
-      const jsonMatch = clean.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("No JSON in response");
-      parsed = JSON.parse(jsonMatch[0]);
+      const clean = rawText.replace(/\`\`\`json|\`\`\`/g, "").trim();
+      const match = clean.match(/\{[\s\S]*\}/);
+      parsed = JSON.parse(match ? match[0] : clean);
     } catch {
-      // If JSON parse fails, build a reasonable response from text analysis
       parsed = {
         shot_shape: rawText.toLowerCase().includes("draw") ? "draw" : rawText.toLowerCase().includes("fade") ? "fade" : rawText.toLowerCase().includes("slice") ? "slice" : "straight",
         launch_angle: rawText.toLowerCase().includes("high") ? "high" : rawText.toLowerCase().includes("low") ? "low" : "mid",
         estimated_carry: knownCarry,
-        contact_quality: rawText.toLowerCase().includes("flush") ? "flush" : rawText.toLowerCase().includes("thin") ? "thin" : "flush",
+        contact_quality: rawText.toLowerCase().includes("flush") ? "flush" : "flush",
         swing_path: "neutral",
         ball_flight: "mid-trajectory",
-        tip: rawText.slice(0, 200) || "Focus on a smooth tempo through the ball.",
+        tip: rawText.slice(0, 180) || "Focus on a smooth tempo through the ball.",
       };
     }
 
-    // Validate required fields
     return {
-      shot_shape:       parsed.shot_shape       || "straight",
-      launch_angle:     parsed.launch_angle     || "mid",
-      estimated_carry:  parseInt(parsed.estimated_carry) || knownCarry,
-      contact_quality:  parsed.contact_quality  || "flush",
-      swing_path:       parsed.swing_path       || "neutral",
-      ball_flight:      parsed.ball_flight      || "mid-trajectory",
-      tip:              parsed.tip              || "",
+      shot_shape:      parsed.shot_shape      || "straight",
+      launch_angle:    parsed.launch_angle    || "mid",
+      estimated_carry: parseInt(parsed.estimated_carry) || knownCarry,
+      contact_quality: parsed.contact_quality || "flush",
+      swing_path:      parsed.swing_path      || "neutral",
+      ball_flight:     parsed.ball_flight     || "mid-trajectory",
+      tip:             parsed.tip             || "",
     };
   }
 
