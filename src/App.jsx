@@ -456,8 +456,11 @@ function ObiGolfApp(){
     let osmData=null;
     try{
       // Build Overpass query - search by course name first
-      const courseWords=courseName.split(" ").filter(w=>w.length>3).slice(0,2).join("|");
-      const q="[out:json][timeout:25];"+"area["+'"name"~"'+courseName+'",i]["leisure"="golf_course"]->.c;'+"(way["golf"](area.c);node["golf"](area.c););out body;>;out skel qt;";
+      const q=
+        "[out:json][timeout:25];"
+        +"area[\"name\"~\""+courseName.replace(/"/g,"")+"\"\",i][\"leisure\"=\"golf_course\"]->.c;"
+        +"(way[\"golf\"](area.c);node[\"golf\"](area.c););"
+        +"out body;>;out skel qt;";
       const resp=await fetch("https://overpass-api.de/api/interpreter",{
         method:"POST",body:"data="+encodeURIComponent(q),
         headers:{"Content-Type":"application/x-www-form-urlencoded"}
