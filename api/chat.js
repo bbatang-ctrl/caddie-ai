@@ -6,12 +6,11 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: "API key not configured on server" });
+  if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY not set" });
 
   try {
     const { messages, system } = req.body;
 
-    // Convert messages array to Gemini contents format
     const contents = messages.map(m => ({
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text: m.content }]
@@ -26,8 +25,8 @@ export default async function handler(req, res) {
           system_instruction: system ? { parts: [{ text: system }] } : undefined,
           contents,
           generationConfig: {
-            maxOutputTokens: 400,
-            temperature: 0.4,
+            maxOutputTokens: 800,
+            temperature: 0.2,
             thinkingConfig: { thinkingBudget: 0 },
           },
         }),
@@ -35,9 +34,7 @@ export default async function handler(req, res) {
     );
 
     const data = await response.json();
-
-    // Return in the format the app expects: { content: [{ text: "..." }] }
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response from Obi.";
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response.";
     return res.status(200).json({ content: [{ text }] });
   } catch (err) {
     return res.status(500).json({ error: err.message });
