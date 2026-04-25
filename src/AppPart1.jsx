@@ -521,36 +521,33 @@ class ErrorBoundary extends React.Component {
 }
 
 // -- Multi-Step Onboarding Component ------------------------------
-function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onComplete }) {
-  const [step, setStep] = useState(0);
-  const [localName, setLocalName] = useState(authName || "");
-  const [homeCourse, setHomeCourse] = useState("");
-  const [ageRange, setAgeRange] = useState("");
+function OnboardingFlow({ profile, setProfile, authName, setAuthName, onComplete }) {
+  const [step, setStep] = React.useState(0);
+  const [localName, setLocalName] = React.useState(authName || "");
+  const [homeCourse, setHomeCourse] = React.useState(profile.homeCourse || "");
+
+  function cn(...c){ return c.filter(Boolean).join(" "); }
 
   const steps = [
-    { id: "name",      title: "What's your name?",           sub: "Obi will use this every time you play" },
-    { id: "dexterity", title: "How do you swing?",           sub: "Obi tailors all advice to your swing side" },
-    { id: "handicap",  title: "What's your level?",          sub: "Helps Obi calibrate strategy and advice" },
-    { id: "age",       title: "What's your age range?",      sub: "Optional - helps personalize coaching style" },
-    { id: "course",    title: "Do you have a home course?",  sub: "Optional - Obi will know it well" },
-    { id: "persona",   title: "Choose your caddie style",    sub: "You can always change this in Settings" },
+    { id: "name",      title: "What\'s your name?",        sub: "Obi uses it every round." },
+    { id: "dexterity", title: "How do you swing?",          sub: "Tailors all club advice." },
+    { id: "handicap",  title: "What\'s your level?",       sub: "Calibrates strategy & tips." },
+    { id: "course",    title: "Home course?",               sub: "Optional — Obi learns it well." },
+    { id: "persona",   title: "Choose your caddie style",   sub: "Change any time in Settings." },
   ];
 
   const current = steps[step];
-  const progress = ((step) / steps.length) * 100;
+  const progress = Math.round((step / steps.length) * 100);
+  const canNext = current.id !== "name" || localName.trim().length > 0;
 
   const next = () => {
-    // Save data at each step
-    if (step === 0) setAuthName(localName);
-    if (step === 3) setProfile(p => ({ ...p, ageRange }));
-    if (step === 4) setProfile(p => ({ ...p, homeCourse }));
-
+    if (current.id === "name")   setAuthName(localName.trim());
+    if (current.id === "course") setProfile(p => ({ ...p, homeCourse }));
     if (step < steps.length - 1) {
       setStep(s => s + 1);
     } else {
-      // Final step - save everything and complete
-      setAuthName(localName);
-      setProfile(p => ({ ...p, homeCourse, ageRange }));
+      setAuthName(localName.trim());
+      setProfile(p => ({ ...p, homeCourse }));
       setTimeout(() => onComplete(), 50);
     }
   };
@@ -560,145 +557,147 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
     else onComplete();
   };
 
-  const canNext = () => {
-    if (current.id === "name") return localName.trim().length > 0;
-    return true;
-  };
+  const cardBtn = (selected, onClick, children) => (
+    <button onClick={onClick}
+      className={cn(
+        "flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all",
+        selected
+          ? "border-[#22c55e] bg-[#22c55e]/10 dark:border-[#4ade80] dark:bg-[#4ade80]/10"
+          : "border-[#e4e4ef] bg-white hover:border-[#22c55e]/50 dark:border-[#2a2a3a] dark:bg-[#17171f] dark:hover:border-[#4ade80]/50"
+      )}>
+      {children}
+      {selected && (
+        <div className="h-5 w-5 rounded-full bg-[#22c55e] dark:bg-[#4ade80] flex items-center justify-center">
+          <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none"><path d="M2 6l3 3 5-5" stroke="#000" strokeWidth="2" strokeLinecap="round"/></svg>
+        </div>
+      )}
+    </button>
+  );
+
+  const rowBtn = (selected, onClick, children) => (
+    <button onClick={onClick}
+      className={cn(
+        "w-full flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all",
+        selected
+          ? "border-[#22c55e] bg-[#22c55e]/10 dark:border-[#4ade80] dark:bg-[#4ade80]/10"
+          : "border-[#e4e4ef] bg-white hover:border-[#22c55e]/50 dark:border-[#2a2a3a] dark:bg-[#17171f] dark:hover:border-[#4ade80]/50"
+      )}>
+      {children}
+      {selected && (
+        <div className="ml-auto h-5 w-5 rounded-full bg-[#22c55e] dark:bg-[#4ade80] shrink-0 flex items-center justify-center">
+          <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none"><path d="M2 6l3 3 5-5" stroke="#000" strokeWidth="2" strokeLinecap="round"/></svg>
+        </div>
+      )}
+    </button>
+  );
 
   return (
-    <div style={{ animation: "fadeUp 0.4s both" }}>
+    <div className="flex flex-col flex-1 animate-fade-up">
       {/* Progress bar */}
-      <div style={{ height: "3px", background: D.border, borderRadius: "2px", marginBottom: "28px", overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${progress}%`, background: `linear-gradient(90deg, ${D.accent}, ${D.accent})`, borderRadius: "2px", transition: "width 0.4s ease" }}/>
+      <div className="h-1 bg-[#e4e4ef] dark:bg-[#2a2a3a] rounded-full mb-6 overflow-hidden">
+        <div className="h-full bg-[#22c55e] dark:bg-[#4ade80] rounded-full transition-all duration-500"
+          style={{width: progress + "%"}}/>
       </div>
 
-      {/* Step indicator */}
-      <div style={{ fontSize: "11px", color: D.muted, letterSpacing: "2px", textTransform: "uppercase", marginBottom: "8px", textAlign: "center" }}>
+      {/* Step counter */}
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6b6b8a] dark:text-[#7070a0] mb-4" style={{fontFamily:"Space Grotesk,Inter,sans-serif"}}>
         Step {step + 1} of {steps.length}
-      </div>
+      </p>
 
-      <div style={{ ...S.card, marginBottom: "16px" }}>
-        <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: "22px", fontWeight: "700", color: D.white, marginBottom: "6px" }}>{current.title}</div>
-        <div style={{ color: D.muted, fontSize: "14px", marginBottom: "20px" }}>{current.sub}</div>
+      {/* Card */}
+      <div className="rounded-2xl border border-[#e4e4ef] dark:border-[#2a2a3a] bg-white dark:bg-[#17171f] p-5 mb-5 flex-1">
+        <h2 className="text-[22px] font-bold tracking-tight text-[#1a1a28] dark:text-[#f0f0f8] mb-1" style={{fontFamily:"Space Grotesk,Inter,sans-serif"}}>
+          {current.title}
+        </h2>
+        <p className="text-[13px] text-[#6b6b8a] dark:text-[#7070a0] mb-5">{current.sub}</p>
 
-        {/* STEP 0 - Name */}
+        {/* STEP 0 — Name */}
         {current.id === "name" && (
-          <div>
-            <input
-              autoFocus
-              placeholder="Your first name"
-              value={localName}
-              onChange={e => setLocalName(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && canNext() && next()}
-              style={{ ...S.input, fontSize: "18px", fontWeight: "600" }}
-            />
-          </div>
+          <input autoFocus placeholder="Your first name"
+            value={localName} onChange={e => setLocalName(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && canNext && next()}
+            className="w-full rounded-xl border border-[#e4e4ef] dark:border-[#2a2a3a] bg-[#f1f1f6] dark:bg-[#22222e] px-4 py-3 text-[18px] font-semibold text-[#1a1a28] dark:text-[#f0f0f8] outline-none focus:border-[#22c55e] dark:focus:border-[#4ade80] transition placeholder:text-[#6b6b8a]"
+          />
         )}
 
-        {/* STEP 1 - Dexterity */}
+        {/* STEP 1 — Dexterity */}
         {current.id === "dexterity" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            {[
-              { v: "right", label: "Right Handed", icon: "🏌️", desc: "Standard swing" },
-              { v: "left",  label: "Left Handed",  icon: "🏌️‍♂️", desc: "Mirror swing" },
-            ].map(dx => (
-              <button key={dx.v} onClick={() => { setProfile(p => ({ ...p, dexterity: dx.v })); }}
-                style={{ background: profile.dexterity === dx.v ? D.accentDim : D.surface, border: `2px solid ${profile.dexterity === dx.v ? D.accent : D.border}`, borderRadius: "14px", padding: "20px 12px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", transition: "all 0.2s" }}>
-                <span style={{ fontSize: "36px" }}>{dx.icon}</span>
-                <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "14px", color: profile.dexterity === dx.v ? D.accent : D.text }}>{dx.label}</span>
-                <span style={{ fontSize: "11px", color: D.muted }}>{dx.desc}</span>
-                {profile.dexterity === dx.v && <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: D.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "12px" }}>✓</div>}
-              </button>
+          <div className="grid grid-cols-2 gap-3">
+            {[{v:"right",label:"Right Handed",icon:"🏌️",desc:"Standard swing"},{v:"left",label:"Left Handed",icon:"🏌️",desc:"Mirror swing"}].map(dx=>(
+              cardBtn(profile.dexterity===dx.v, ()=>setProfile(p=>({...p,dexterity:dx.v})),
+                <React.Fragment>
+                  <span className="text-3xl">{dx.icon}</span>
+                  <span className="text-[14px] font-bold text-[#1a1a28] dark:text-[#f0f0f8]" style={{fontFamily:"Space Grotesk,Inter,sans-serif"}}>{dx.label}</span>
+                  <span className="text-[11px] text-[#6b6b8a] dark:text-[#7070a0]">{dx.desc}</span>
+                </React.Fragment>
+              )
             ))}
           </div>
         )}
 
-        {/* STEP 2 - Handicap */}
+        {/* STEP 2 — Handicap */}
         {current.id === "handicap" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            {[
-              { label: "Beginner", sub: "30+",   value: "beginner", hcp: 36, icon: "🌱", desc: "Just starting out" },
-              { label: "High",     sub: "18–29", value: "high",     hcp: 24, icon: "📈", desc: "Building consistency" },
-              { label: "Mid",      sub: "9–17",  value: "mid",      hcp: 13, icon: "⛳", desc: "Breaking 90" },
-              { label: "Low",      sub: "0–8",   value: "low",      hcp: 4,  icon: "🏆", desc: "Scratch territory" },
-            ].map(h => (
-              <button key={h.value} onClick={() => setProfile(p => ({ ...p, handicap: h.value, hcp: h.hcp }))}
-                style={{ background: profile.handicap === h.value ? D.accentDim : D.surface, border: `2px solid ${profile.handicap === h.value ? D.accent : D.border}`, borderRadius: "14px", padding: "16px 10px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", transition: "all 0.2s" }}>
-                <span style={{ fontSize: "28px" }}>{h.icon}</span>
-                <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "15px", color: profile.handicap === h.value ? D.accent : D.text }}>{h.label}</span>
-                <span style={{ fontSize: "11px", color: D.muted }}>HCP {h.sub}</span>
-                <span style={{ fontSize: "11px", color: D.subtle }}>{h.desc}</span>
-                {profile.handicap === h.value && <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: D.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px", marginTop: "4px" }}>✓</div>}
-              </button>
+          <div className="grid grid-cols-2 gap-3">
+            {[{label:"Beginner",sub:"30+",value:"beginner",hcp:36,icon:"🌱"},{label:"High",sub:"18–29",value:"high",hcp:24,icon:"📈"},{label:"Mid",sub:"9–17",value:"mid",hcp:13,icon:"⛳"},{label:"Low",sub:"0–8",value:"low",hcp:4,icon:"🏆"}].map(h=>(
+              cardBtn(profile.handicap===h.value, ()=>setProfile(p=>({...p,handicap:h.value,hcp:h.hcp})),
+                <React.Fragment>
+                  <span className="text-3xl">{h.icon}</span>
+                  <span className="text-[14px] font-bold text-[#1a1a28] dark:text-[#f0f0f8]" style={{fontFamily:"Space Grotesk,Inter,sans-serif"}}>{h.label}</span>
+                  <span className="text-[11px] text-[#6b6b8a] dark:text-[#7070a0]">HCP {h.sub}</span>
+                </React.Fragment>
+              )
             ))}
           </div>
         )}
 
-        {/* STEP 3 - Age range */}
-        {current.id === "age" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            {[
-              { v: "under25", label: "Under 25", icon: "🔥" },
-              { v: "25-40",   label: "25 – 40",  icon: "💪" },
-              { v: "40-55",   label: "40 – 55",  icon: "⛳" },
-              { v: "55plus",  label: "55+",       icon: "🏆" },
-            ].map(a => (
-              <button key={a.v} onClick={() => setAgeRange(a.v)}
-                style={{ background: ageRange === a.v ? D.accentDim : D.surface, border: `2px solid ${ageRange === a.v ? D.accent : D.border}`, borderRadius: "14px", padding: "16px 10px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", transition: "all 0.2s" }}>
-                <span style={{ fontSize: "28px" }}>{a.icon}</span>
-                <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "14px", color: ageRange === a.v ? D.accent : D.text }}>{a.label}</span>
-                {ageRange === a.v && <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: D.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px" }}>✓</div>}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* STEP 4 - Home course */}
+        {/* STEP 3 — Home course */}
         {current.id === "course" && (
           <div>
-            <input
-              placeholder="e.g. Pebble Beach, Augusta National, my local muni..."
-              value={homeCourse}
-              onChange={e => setHomeCourse(e.target.value)}
-              style={{ ...S.input, marginBottom: "8px" }}
+            <input placeholder="e.g. Pebble Beach, my local muni..."
+              value={homeCourse} onChange={e=>setHomeCourse(e.target.value)}
+              className="w-full rounded-xl border border-[#e4e4ef] dark:border-[#2a2a3a] bg-[#f1f1f6] dark:bg-[#22222e] px-4 py-3 text-[15px] text-[#1a1a28] dark:text-[#f0f0f8] outline-none focus:border-[#22c55e] dark:focus:border-[#4ade80] transition placeholder:text-[#6b6b8a] mb-3"
             />
-            <div style={{ fontSize: "12px", color: D.muted, lineHeight: 1.5 }}>
-              Obi will know your home course layout, typical conditions, and key holes to watch out for.
-            </div>
+            <p className="text-[12px] text-[#6b6b8a] dark:text-[#7070a0] leading-relaxed">Obi will know your home course layout, typical conditions, and key holes to watch out for.</p>
           </div>
         )}
 
-        {/* STEP 5 - Persona */}
+        {/* STEP 4 — Persona */}
         {current.id === "persona" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {[
-              { id: "pro",       icon: "🏆", label: "Tour Pro",   desc: "Calm, clinical, Tour-level precision. Speaks with quiet authority." },
-              { id: "coach",     icon: "🎯", label: "The Coach",  desc: "Encouraging, warm, confidence-building. Keeps you positive." },
-              { id: "oldschool", icon: "🚬", label: "Old School", desc: "Gritty, direct, zero fluff. Old-school caddie energy." },
-            ].map(p => (
-              <button key={p.id} onClick={() => setProfile(prev => ({ ...prev, persona: p.id }))}
-                style={{ display: "flex", alignItems: "center", gap: "14px", width: "100%", background: profile.persona === p.id ? D.accentDim : D.surface, border: `2px solid ${profile.persona === p.id ? D.accent : D.border}`, borderRadius: "14px", padding: "16px", cursor: "pointer", textAlign: "left", transition: "all 0.2s" }}>
-                <span style={{ fontSize: "28px" }}>{p.icon}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: "700", color: D.white, fontSize: "16px" }}>{p.label}</div>
-                  <div style={{ fontSize: "12px", color: D.muted, marginTop: "3px", lineHeight: 1.4 }}>{p.desc}</div>
-                </div>
-                {profile.persona === p.id && <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: D.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "13px", flexShrink: 0 }}>✓</div>}
-              </button>
+          <div className="space-y-2.5">
+            {[{id:"pro",icon:"🎯",label:"Tour Pro",desc:"Calm, clinical, Tour-level precision. No fluff."},{id:"coach",icon:"📚",label:"The Coach",desc:"Encouraging, warm, confidence-building."},{id:"hype",icon:"🔥",label:"Hype Man",desc:"Energetic, loud, pumps you up every hole."},{id:"savage",icon:"💀",label:"Savage",desc:"Brutal honesty. Roasts your bad shots."},{id:"oldschool",icon:"🪨",label:"Old School",desc:"Gritty, direct, old-fashioned caddie."}].map(p=>(
+              rowBtn(profile.persona===p.id, ()=>setProfile(prev=>({...prev,persona:p.id})),
+                <React.Fragment>
+                  <span className="text-2xl">{p.icon}</span>
+                  <div>
+                    <p className="text-[14px] font-bold text-[#1a1a28] dark:text-[#f0f0f8]" style={{fontFamily:"Space Grotesk,Inter,sans-serif"}}>{p.label}</p>
+                    <p className="text-[11px] text-[#6b6b8a] dark:text-[#7070a0] mt-0.5">{p.desc}</p>
+                  </div>
+                </React.Fragment>
+              )
             ))}
           </div>
         )}
       </div>
 
-      {/* Navigation */}
-      <button onClick={next} disabled={!canNext()} style={{ ...S.btnPrimary, opacity: canNext() ? 1 : 0.4, marginBottom: "10px" }}>
-        {step === steps.length - 1 ? "Let's Play Golf 🏌️" : step === steps.length - 2 ? "Almost there →" : "Next →"}
+      {/* Buttons */}
+      <button onClick={next} disabled={!canNext}
+        className="w-full rounded-xl py-3.5 text-[13px] font-bold uppercase tracking-wider transition mb-2"
+        style={{fontFamily:"Space Grotesk,Inter,sans-serif",background:canNext?"#22c55e":"#e4e4ef",color:canNext?"#000":"#6b6b8a",cursor:canNext?"pointer":"default"}}>
+        {step === steps.length - 1 ? "Let\'s Play Golf 🏌️" : "Continue →"}
       </button>
-      {step > 0 && current.id !== "name" && (
-        <button onClick={skip} style={{ ...S.btnGhost }}>Skip for now</button>
+      {(current.id !== "name") && (
+        <button onClick={skip}
+          className="w-full py-2.5 text-[12px] font-bold uppercase tracking-wider text-[#6b6b8a] hover:text-[#1a1a28] dark:hover:text-[#f0f0f8] transition"
+          style={{fontFamily:"Space Grotesk,Inter,sans-serif"}}>
+          Skip for now
+        </button>
       )}
       {step > 0 && (
-        <button onClick={() => setStep(s => s - 1)} style={{ ...S.btnGhost, marginTop: "2px" }}>Back</button>
+        <button onClick={()=>setStep(s=>s-1)}
+          className="w-full py-2 text-[11px] font-bold uppercase tracking-wider text-[#6b6b8a] hover:text-[#1a1a28] dark:hover:text-[#f0f0f8] transition"
+          style={{fontFamily:"Space Grotesk,Inter,sans-serif"}}>
+          ← Back
+        </button>
       )}
     </div>
   );
