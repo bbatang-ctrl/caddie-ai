@@ -182,9 +182,7 @@ function ObiGolfApp(){
   const [gir,setGir]=useState(Array(18).fill(null));             // true/false/null
   const [putts,setPutts]=useState(Array(18).fill(null));         // number
   const [scorecardOpen,setScorecardOpen]=useState(false);
-  const [holeMap,setHoleMap]=useState(null);          // {svg, description, par, yards, tips}
-  const [holeMapLoading,setHoleMapLoading]=useState(false);
-  const [showHoleMap,setShowHoleMap]=useState(false);
+
   const [holeOpen,setHoleOpen]=useState(false);
 
   // ── Weather ──────────────────────────────────────────────────────
