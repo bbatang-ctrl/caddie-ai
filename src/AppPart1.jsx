@@ -704,6 +704,15 @@ function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onCo
   );
 }
 
+
+// ── Helpers added for new App.jsx ──────────────────────────────
+function firstName(fullName){
+  if(!fullName)return"";
+  return fullName.trim().split(" ")[0];
+}
+
+// ScoreBadge alias for ScorePill
+const ScoreBadge = ScorePill;
 export { DARK_THEME, LIGHT_THEME, DEFAULT_BAG };
 export { Ball, ScoreBadge, Avatar };
 export { fmtDate, fmtDateShort, windDir, wxIcon, playingYards, firstName, randJab };
