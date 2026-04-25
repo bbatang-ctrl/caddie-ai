@@ -9,6 +9,12 @@
 :root {
   --radius: 0.75rem;
 
+  /* Legacy var names for backward compatibility */
+  --bg: #ffffff;
+  --fg: #1a1a28;
+  --card-border: #e4e4ef;
+  --muted-fg: #6b6b8a;
+
   --background: #ffffff;
   --foreground: #1a1a28;
   --card: #fafafa;
@@ -38,30 +44,54 @@
    DARK THEME
    ============================================================ */
 .dark {
-  --background: #0f0f16;
-  --foreground: #f0f0f8;
-  --card: #17171f;
-  --card-foreground: #f0f0f8;
-  --popover: #17171f;
-  --popover-foreground: #f0f0f8;
+  --background: #0d0d12;
+  --foreground: #eeeef5;
+  --card: #14141c;
+  --card-foreground: #eeeef5;
+  --popover: #14141c;
+  --popover-foreground: #eeeef5;
   --primary: #4ade80;
-  --primary-foreground: #0f0f16;
-  --secondary: #1e1e28;
-  --secondary-foreground: #f0f0f8;
-  --muted: #1c1c26;
-  --muted-foreground: #7070a0;
+  --primary-foreground: #061a0d;
+  --secondary: #1c1c27;
+  --secondary-foreground: #eeeef5;
+  --muted: #1c1c27;
+  --muted-foreground: #7878a0;
   --accent: #fbbf24;
-  --accent-foreground: #0f0f16;
+  --accent-foreground: #1a0a00;
   --destructive: #f87171;
-  --destructive-foreground: #f0f0f8;
+  --destructive-foreground: #3b0000;
   --success: #4ade80;
   --warning: #fbbf24;
-  --border: #2a2a3a;
-  --input: #22222e;
-  --ring: #f0f0f8;
-  --surface: #131318;
-  --surface-2: #1c1c26;
+  --border: #26263a;
+  --input: #1c1c27;
+  --ring: #4ade80;
+  --surface: #111118;
+  --surface-2: #1c1c27;
+  /* Legacy var names used by old inline-styles */
+  --bg: #0d0d12;
+  --fg: #eeeef5;
+  --card-border: #26263a;
+  --surface: #111118;
+  --muted-fg: #7878a0;
 }
+
+/* Dark mode explicit background overrides */
+.dark,
+.dark body,
+.dark #root {
+  background-color: #0d0d12 !important;
+  color: #eeeef5;
+}
+
+.dark .bg-background { background-color: #0d0d12 !important; }
+.dark .bg-card       { background-color: #14141c !important; }
+.dark .bg-secondary  { background-color: #1c1c27 !important; }
+.dark .bg-muted      { background-color: #1c1c27 !important; }
+.dark .bg-input      { background-color: #1c1c27 !important; }
+.dark .border-border { border-color: #26263a !important; }
+.dark .text-foreground { color: #eeeef5 !important; }
+.dark .text-muted-foreground { color: #7878a0 !important; }
+
 
 /* ============================================================
    BASE
@@ -239,4 +269,21 @@ html {
 .scroll-smooth-ios {
   -webkit-overflow-scrolling: touch;
   overflow-y: auto;
+}
+
+/* Dark mode body background */
+.dark body,
+.dark #root {
+  background-color: #0d0d12;
+  color: #eeeef5;
+}
+
+/* Ensure all card backgrounds respect dark mode */
+.dark .bg-white {
+  background-color: #14141c !important;
+}
+
+/* Fix any hardcoded white backgrounds in dark mode */
+.dark [class*="bg-white"] {
+  background-color: var(--card) !important;
 }
