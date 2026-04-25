@@ -367,272 +367,365 @@ function ObiGolfApp(){
       +"\nRULES: Only clubs from bag. No markdown. No bullets. Always finish sentences. Tailor to "+handed+" player.";
   };
 
-  // ── GPS tracking ─────────────────────────────────────────────────
-  const [gpsPos,setGpsPos]=useState(null);      // {lat,lng,accuracy}
+  // ── GPS ──────────────────────────────────────────────────────────
+  const [gpsPos,setGpsPos]=useState(null);
   const [gpsWatcher,setGpsWatcher]=useState(null);
 
   const startGPS=useCallback(()=>{
     if(!navigator.geolocation)return;
     const id=navigator.geolocation.watchPosition(
-      pos=>setGpsPos({lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy}),
-      err=>console.warn("GPS error",err),
-      {enableHighAccuracy:true,maximumAge:3000,timeout:10000}
+      p=>setGpsPos({lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy)}),
+      err=>console.warn("GPS",err),
+      {enableHighAccuracy:true,maximumAge:2000,timeout:10000}
     );
     setGpsWatcher(id);
   },[]);
 
   const stopGPS=useCallback(()=>{
     if(gpsWatcher!=null)navigator.geolocation.clearWatch(gpsWatcher);
-    setGpsWatcher(null);
+    setGpsWatcher(null);setGpsPos(null);
   },[gpsWatcher]);
 
-  // Haversine distance in yards between two lat/lng points
-  const distYards=(lat1,lng1,lat2,lng2)=>{
-    const R=6371000;
-    const dLat=(lat2-lat1)*Math.PI/180;
-    const dLng=(lng2-lng1)*Math.PI/180;
-    const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  const haversineYards=(lat1,lng1,lat2,lng2)=>{
+    const R=6371000,toRad=x=>x*Math.PI/180;
+    const dLat=toRad(lat2-lat1),dLng=toRad(lng2-lng1);
+    const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
     return Math.round(2*R*Math.asin(Math.sqrt(a))*1.09361);
   };
 
-  // ── Hole map fetcher ─────────────────────────────────────────────
+  // ── Hole map ──────────────────────────────────────────────────────
   const [holeMap,setHoleMap]=useState(null);
   const [holeMapLoading,setHoleMapLoading]=useState(false);
   const [showHoleMap,setShowHoleMap]=useState(false);
+  const [osmError,setOsmError]=useState(false);
 
   const fetchHoleMap=useCallback(async(courseName,holeNum)=>{
     if(!courseName||holeMapLoading)return;
-    setHoleMapLoading(true);
-    setHoleMap(null);
+    setHoleMapLoading(true);setHoleMap(null);setOsmError(false);
+
+    // ── STEP 1: Try OpenStreetMap Overpass API for real course data ──
+    let osmData=null;
     try{
-      const prompt="Return ONLY a JSON object (no markdown, no explanation) for "+courseName+" hole "+holeNum+". Format:\n"+
-        '{"par":4,"yards":412,"index":7,'+
-        '"description":"One sentence about hole layout and key challenge.",'+
-        '"shape":"dogleg-left",'+
-        '"hazards":["water left of green","bunker right 220y from tee"],'+
-        '"tips":"One specific strategic tip for this hole.",'+
-        '"green_lat":36.5677,"green_lng":-121.9522,'+
-        '"tee_lat":36.5701,"tee_lng":-121.9530,'+
-        '"features":['+
-          '{"type":"fairway","points":[[0.5,0.9],[0.4,0.7],[0.45,0.5],[0.5,0.3],[0.5,0.1]],"width":0.18},'+
-          '{"type":"green","cx":0.5,"cy":0.08,"rx":0.12,"ry":0.07},'+
-          '{"type":"bunker","cx":0.35,"cy":0.12,"rx":0.06,"ry":0.04},'+
-          '{"type":"water","points":[[0.1,0.6],[0.3,0.55],[0.25,0.45],[0.05,0.5]]},'+
-          '{"type":"trees","cx":0.7,"cy":0.5,"r":0.08}'+
-        ']}\n\n'+
-        "Use coordinates as 0-1 fractions of a 300x500 canvas (0,0=top-left, tee at bottom y=0.9, green at top y=0.08). "+
-        "For a dogleg-left the fairway points should curve left. Include realistic bunkers and hazards for this specific hole.";
-
-      const r=await fetch("/api/chat",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          messages:[{role:"user",content:prompt}],
-          system:"You are a golf course data API. Return ONLY valid JSON with no markdown code fences."
-        })
+      const q=`[out:json][timeout:20];
+area["name"~"${courseName}",i]["leisure"="golf_course"]->.c;
+(
+  way["golf"="fairway"]["ref"="${holeNum}"](area.c);
+  way["golf"="green"]["ref"="${holeNum}"](area.c);
+  way["golf"="bunker"]["ref"="${holeNum}"](area.c);
+  way["golf"="water_hazard"]["ref"="${holeNum}"](area.c);
+  way["golf"="tee"]["ref"="${holeNum}"](area.c);
+  way["golf"="fairway"](area.c);
+  way["golf"="green"](area.c);
+  way["golf"="bunker"](area.c);
+  way["golf"="tee"](area.c);
+  way["golf"="water_hazard"](area.c);
+);
+out body;>;out skel qt;`;
+      const resp=await fetch("https://overpass-api.de/api/interpreter",{
+        method:"POST",body:"data="+encodeURIComponent(q),
+        headers:{"Content-Type":"application/x-www-form-urlencoded"}
       });
-      const d=await r.json();
-      const text=d?.content?.[0]?.text||"";
+      if(resp.ok){
+        const d=await resp.json();
+        osmData=parseOSMHole(d,holeNum);
+      }
+    }catch(e){console.warn("Overpass failed",e);}
 
-      // Strip markdown fences if present
-      const clean=text.replace(/```json/g,"").replace(/```/g,"").trim();
-      const start=clean.indexOf("{");
-      const end=clean.lastIndexOf("}");
-      if(start>=0&&end>start){
-        const parsed=JSON.parse(clean.slice(start,end+1));
-        setHoleMap(parsed);
-        if(parsed.yards)setYardage(String(parsed.yards));
-        if(parsed.par)setHolePars(prev=>{const n=[...prev];n[holeNum-1]=parsed.par;return n;});
-        setShowHoleMap(true);
-      }else{
-        // Fallback: set a minimal map so UI still renders
-        setHoleMap({par:holePars[holeNum-1],yards:yardage||400,index:holeNum,
-          description:"Hole "+holeNum+" at "+courseName,shape:"straight",
-          hazards:[],tips:"Play to the center of the green.",
-          features:[
-            {type:"fairway",points:[[0.5,0.9],[0.48,0.6],[0.5,0.3],[0.5,0.08]],width:0.16},
-            {type:"green",cx:0.5,cy:0.08,rx:0.12,ry:0.07}
-          ]});
-        setShowHoleMap(true);
+    // ── STEP 2: Always get authoritative data from Gemini ────────────
+    try{
+      const p="Return ONLY a JSON object, no markdown. Course: "+courseName+" Hole: "+holeNum+
+        ". Include: par (integer), yards (integer from tee to center of green), strokeIndex (handicap index 1-18),"+
+        " description (one sentence), shape (straight/dogleg-left/dogleg-right), "+
+        " tee_lat, tee_lng, green_lat, green_lng (real GPS decimal coordinates),"+
+        " hazards (array of strings), tips (one specific sentence for this hole)."+
+        " Use your knowledge of the actual course. Be precise with yardage and par.";
+      const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({messages:[{role:"user",content:p}],
+          system:"Golf course data API. Return only valid JSON. Be accurate with real course data."})});
+      const d=await r.json();
+      const t=(d?.content?.[0]?.text||"").replace(/```json/g,"").replace(/```/g,"").trim();
+      const s=t.indexOf("{"),e=t.lastIndexOf("}");
+      if(s>=0&&e>s){
+        const gd=JSON.parse(t.slice(s,e+1));
+        setHoleMap({...gd,osmFeatures:osmData});
+        if(gd.yards)setYardage(String(gd.yards));
+        if(gd.par)setHolePars(prev=>{const n=[...prev];n[holeNum-1]=gd.par;return n;});
       }
     }catch(e){
-      console.error("Hole map error:",e);
-      setHoleMap({par:holePars[holeNum-1]||4,yards:yardage||400,index:holeNum,
-        description:"Hole "+holeNum+" at "+courseName,shape:"straight",
-        hazards:[],tips:"Play to the center of the green.",
-        features:[
-          {type:"fairway",points:[[0.5,0.9],[0.48,0.6],[0.5,0.3],[0.5,0.08]],width:0.16},
-          {type:"green",cx:0.5,cy:0.08,rx:0.12,ry:0.07}
-        ]});
-      setShowHoleMap(true);
+      // If Gemini fails but we have OSM, still show map
+      if(osmData){
+        setHoleMap({par:osmData.estimatedPar||4,yards:osmData.estimatedYards||400,
+          description:courseName+" hole "+holeNum,hazards:[],tips:"",osmFeatures:osmData});
+      }
     }
     setHoleMapLoading(false);
   },[holeMapLoading,holePars,yardage]);
 
-  useEffect(()=>{
-    if(course&&showHoleMap)fetchHoleMap(course,hole);
-  },[hole,course]);
+  useEffect(()=>{if(course&&showHoleMap)fetchHoleMap(course,hole);},[hole,course]);
 
-  // Canvas renderer for hole map
-  const HoleMapCanvas=({map,gps,W=300,H=500})=>{
-    const canvasRef=useRef(null);
+  // ── Parse OSM data into renderable features ───────────────────────
+  const parseOSMHole=(osmData,holeNum)=>{
+    const nodes={};
+    osmData.elements.filter(e=>e.type==="node").forEach(n=>{nodes[n.id]={lat:n.lat,lng:n.lon};});
+    const ways=osmData.elements.filter(e=>e.type==="way");
+
+    const getCoords=way=>(way.nodes||[]).map(id=>nodes[id]).filter(Boolean);
+
+    // Find features for this specific hole first, then fall back to any
+    const tagged=(golf,ref)=>ways.filter(w=>w.tags?.golf===golf&&(ref?w.tags?.ref===String(ref):true));
+
+    const features=[];
+    const addFeature=(type,ways_)=>{
+      ways_.forEach(w=>{
+        const coords=getCoords(w);
+        if(coords.length>0)features.push({type,coords,ref:w.tags?.ref});
+      });
+    };
+
+    // Try hole-specific first
+    let fairways=tagged("fairway",holeNum);
+    let greens=tagged("green",holeNum);
+    let tees=tagged("tee",holeNum);
+    let bunkers=tagged("bunker",holeNum);
+    let water=tagged("water_hazard",holeNum);
+
+    // If no hole-specific data, we just have all features (less ideal)
+    if(!fairways.length)fairways=tagged("fairway");
+    if(!greens.length)greens=tagged("green");
+    if(!tees.length)tees=tagged("tee");
+    if(!bunkers.length)bunkers=tagged("bunker");
+    if(!water.length)water=tagged("water_hazard");
+
+    addFeature("fairway",fairways.slice(0,3));
+    addFeature("green",greens.slice(0,1));
+    addFeature("tee",tees.slice(0,2));
+    addFeature("bunker",bunkers.slice(0,8));
+    addFeature("water",water.slice(0,3));
+
+    if(!features.length)return null;
+
+    // Calculate bounding box for normalization
+    const allCoords=features.flatMap(f=>f.coords);
+    const lats=allCoords.map(c=>c.lat),lngs=allCoords.map(c=>c.lng);
+    const minLat=Math.min(...lats),maxLat=Math.max(...lats);
+    const minLng=Math.min(...lngs),maxLng=Math.max(...lngs);
+    const latSpan=maxLat-minLat||0.001,lngSpan=maxLng-minLng||0.001;
+
+    // Normalize coords to 0-1 range (flip lat so north=top)
+    const norm=coord=>({
+      x:(coord.lng-minLng)/lngSpan,
+      y:1-(coord.lat-minLat)/latSpan
+    });
+
+    const normFeatures=features.map(f=>({...f,pts:f.coords.map(norm)}));
+
+    // Estimate par and yards from fairway geometry
+    const fw=features.find(f=>f.type==="fairway");
+    const green=features.find(f=>f.type==="green");
+    const tee=features.find(f=>f.type==="tee");
+    let estimatedYards=400;
+    if(fw&&tee&&green){
+      const teeC={lat:(Math.min(...tee.coords.map(c=>c.lat))+Math.max(...tee.coords.map(c=>c.lat)))/2,
+                  lng:(Math.min(...tee.coords.map(c=>c.lng))+Math.max(...tee.coords.map(c=>c.lng)))/2};
+      const greenC={lat:(Math.min(...green.coords.map(c=>c.lat))+Math.max(...green.coords.map(c=>c.lat)))/2,
+                    lng:(Math.min(...green.coords.map(c=>c.lng))+Math.max(...green.coords.map(c=>c.lng)))/2};
+      const R=6371000,toRad=x=>x*Math.PI/180;
+      const dLat=toRad(greenC.lat-teeC.lat),dLng=toRad(greenC.lng-teeC.lng);
+      const a=Math.sin(dLat/2)**2+Math.cos(toRad(teeC.lat))*Math.cos(toRad(greenC.lat))*Math.sin(dLng/2)**2;
+      estimatedYards=Math.round(2*R*Math.asin(Math.sqrt(a))*1.09361);
+    }
+
+    return{features:normFeatures,bounds:{minLat,maxLat,minLng,maxLng},
+      estimatedYards,estimatedPar:estimatedYards<175?3:estimatedYards<430?4:5};
+  };
+
+  // ── Canvas renderer ───────────────────────────────────────────────
+  const HoleMapCanvas=({map,gps,W=280,H=440})=>{
+    const cvRef=useRef(null);
     useEffect(()=>{
-      const cv=canvasRef.current;
-      if(!cv||!map)return;
+      const cv=cvRef.current;if(!cv||!map)return;
       const ctx=cv.getContext("2d");
       ctx.clearRect(0,0,W,H);
 
-      // Sky/rough background
-      ctx.fillStyle="#c8e6c9";
+      // Rough background
+      ctx.fillStyle="#86efac";
       ctx.fillRect(0,0,W,H);
 
-      // Draw features
-      (map.features||[]).forEach(f=>{
-        if(f.type==="fairway"&&f.points){
-          ctx.beginPath();
-          const hw=((f.width||0.16)*W)/2;
-          // Build path along centerline with width
-          const pts=f.points.map(p=>[p[0]*W,p[1]*H]);
-          // Create thick stroke
-          ctx.strokeStyle="#4ade80";
-          ctx.lineWidth=hw*2;
-          ctx.lineCap="round";
-          ctx.lineJoin="round";
-          ctx.moveTo(pts[0][0],pts[0][1]);
-          for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
-          ctx.stroke();
-          // Lighter center
-          ctx.strokeStyle="#86efac";
-          ctx.lineWidth=hw*0.8;
-          ctx.moveTo(pts[0][0],pts[0][1]);
-          for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
-          ctx.stroke();
-        }
-        if(f.type==="green"){
-          ctx.beginPath();
-          ctx.ellipse(f.cx*W,f.cy*H,(f.rx||0.1)*W,(f.ry||0.07)*H,0,0,Math.PI*2);
-          ctx.fillStyle="#22c55e";
-          ctx.fill();
-          ctx.strokeStyle="#16a34a";
-          ctx.lineWidth=2;
-          ctx.stroke();
-        }
-        if(f.type==="bunker"){
-          ctx.beginPath();
-          ctx.ellipse(f.cx*W,f.cy*H,(f.rx||0.07)*W,(f.ry||0.05)*H,0,0,Math.PI*2);
-          ctx.fillStyle="#fde68a";
-          ctx.fill();
-          ctx.strokeStyle="#d97706";
-          ctx.lineWidth=1.5;
-          ctx.stroke();
-        }
-        if(f.type==="water"&&f.points){
-          ctx.beginPath();
-          const pts=f.points.map(p=>[p[0]*W,p[1]*H]);
-          ctx.moveTo(pts[0][0],pts[0][1]);
-          for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
-          ctx.closePath();
-          ctx.fillStyle="rgba(59,130,246,0.6)";
-          ctx.fill();
-          ctx.strokeStyle="#2563eb";
-          ctx.lineWidth=1.5;
-          ctx.stroke();
-        }
-        if(f.type==="trees"){
-          const r=(f.r||0.07)*Math.min(W,H);
-          ctx.beginPath();
-          ctx.arc(f.cx*W,f.cy*H,r,0,Math.PI*2);
-          ctx.fillStyle="rgba(22,101,52,0.7)";
-          ctx.fill();
-        }
-      });
+      const px=(x,y)=>[x*W,y*H];
 
-      // Tee box
-      ctx.fillStyle="#1f2937";
-      ctx.strokeStyle="#374151";
-      ctx.lineWidth=1;
-      ctx.beginPath();
-      ctx.roundRect(W/2-12,H*0.87,24,14,4);
-      ctx.fill();
+      const osmF=map.osmFeatures;
+      if(osmF&&osmF.features&&osmF.features.length>0){
+        // ── RENDER REAL OSM POLYGONS ──────────────────────────────
+        const colors={fairway:"#4ade80",green:"#16a34a",tee:"#15803d",
+                      bunker:"#fde68a",water:"#3b82f6"};
+        const strokes={fairway:"#22c55e",green:"#14532d",tee:"#14532d",
+                       bunker:"#b45309",water:"#1d4ed8"};
 
-      // Flag
-      const flagX=W/2, flagY=(map.features||[]).find(f=>f.type==="green")?.cy*H||H*0.08;
-      ctx.strokeStyle="#1f2937";
-      ctx.lineWidth=2;
-      ctx.beginPath();
-      ctx.moveTo(flagX,flagY-20);
-      ctx.lineTo(flagX,flagY+4);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(flagX,flagY-20);
-      ctx.lineTo(flagX+14,flagY-13);
-      ctx.lineTo(flagX,flagY-6);
-      ctx.closePath();
-      ctx.fillStyle="#ef4444";
-      ctx.fill();
-
-      // GPS dot
-      if(gps&&map.tee_lat&&map.green_lat){
-        // Map GPS to canvas coords
-        const latRange=map.tee_lat-map.green_lat;
-        const lngRange=map.green_lng-map.tee_lng;
-        if(Math.abs(latRange)>0.0001||Math.abs(lngRange)>0.0001){
-          const relLat=(map.tee_lat-gps.lat)/(latRange||0.001);
-          const relLng=(gps.lng-map.tee_lng)/(lngRange||0.001);
-          const px=W*(0.5+relLng*0.3);
-          const py=H*(0.87-relLat*0.75);
-          if(px>0&&px<W&&py>0&&py<H){
-            // Accuracy ring
+        // Draw order: fairway first, then water, bunker, green, tee on top
+        ["fairway","water","bunker","green","tee"].forEach(type=>{
+          osmF.features.filter(f=>f.type===type).forEach(f=>{
+            if(!f.pts||f.pts.length<2)return;
             ctx.beginPath();
-            ctx.arc(px,py,14,0,Math.PI*2);
-            ctx.fillStyle="rgba(59,130,246,0.15)";
+            ctx.moveTo(...px(f.pts[0].x,f.pts[0].y));
+            f.pts.slice(1).forEach(p=>ctx.lineTo(...px(p.x,p.y)));
+            ctx.closePath();
+            ctx.fillStyle=colors[type]||"#ccc";
             ctx.fill();
-            // Player dot
-            ctx.beginPath();
-            ctx.arc(px,py,7,0,Math.PI*2);
-            ctx.fillStyle="#3b82f6";
-            ctx.fill();
-            ctx.strokeStyle="#fff";
-            ctx.lineWidth=2;
+            ctx.strokeStyle=strokes[type]||"#999";
+            ctx.lineWidth=type==="fairway"?2:1.5;
             ctx.stroke();
-            // Pulse ring
-            ctx.beginPath();
-            ctx.arc(px,py,11,0,Math.PI*2);
-            ctx.strokeStyle="rgba(59,130,246,0.6)";
-            ctx.lineWidth=2;
-            ctx.stroke();
+          });
+        });
+
+        // Flag pin on green centroid
+        const greenF=osmF.features.find(f=>f.type==="green");
+        if(greenF&&greenF.pts.length>0){
+          const cx=greenF.pts.reduce((s,p)=>s+p.x,0)/greenF.pts.length;
+          const cy=greenF.pts.reduce((s,p)=>s+p.y,0)/greenF.pts.length;
+          ctx.strokeStyle="#111";ctx.lineWidth=2;
+          ctx.beginPath();ctx.moveTo(cx*W,cy*H+2);ctx.lineTo(cx*W,cy*H-18);ctx.stroke();
+          ctx.beginPath();ctx.moveTo(cx*W,cy*H-18);ctx.lineTo(cx*W+12,cy*H-12);
+          ctx.lineTo(cx*W,cy*H-6);ctx.closePath();
+          ctx.fillStyle="#ef4444";ctx.fill();
+        }
+
+      }else{
+        // ── FALLBACK: Gemini-guided synthetic map ─────────────────
+        const shape=map.shape||"straight";
+
+        // Fairway path based on shape
+        ctx.lineWidth=W*0.18;ctx.lineCap="round";ctx.lineJoin="round";
+        ctx.strokeStyle="#4ade80";
+        ctx.beginPath();
+        if(shape==="dogleg-left"){
+          ctx.moveTo(W*0.5,H*0.9);ctx.lineTo(W*0.52,H*0.55);
+          ctx.lineTo(W*0.3,H*0.2);ctx.lineTo(W*0.3,H*0.1);
+        }else if(shape==="dogleg-right"){
+          ctx.moveTo(W*0.5,H*0.9);ctx.lineTo(W*0.48,H*0.55);
+          ctx.lineTo(W*0.7,H*0.2);ctx.lineTo(W*0.7,H*0.1);
+        }else{
+          ctx.moveTo(W*0.5,H*0.9);ctx.lineTo(W*0.48,H*0.55);
+          ctx.lineTo(W*0.5,H*0.2);ctx.lineTo(W*0.5,H*0.1);
+        }
+        ctx.stroke();
+        // Lighter center
+        ctx.lineWidth=W*0.07;ctx.strokeStyle="#86efac";
+        ctx.beginPath();
+        if(shape==="dogleg-left"){
+          ctx.moveTo(W*0.5,H*0.9);ctx.lineTo(W*0.52,H*0.55);
+          ctx.lineTo(W*0.3,H*0.2);ctx.lineTo(W*0.3,H*0.1);
+        }else if(shape==="dogleg-right"){
+          ctx.moveTo(W*0.5,H*0.9);ctx.lineTo(W*0.48,H*0.55);
+          ctx.lineTo(W*0.7,H*0.2);ctx.lineTo(W*0.7,H*0.1);
+        }else{
+          ctx.moveTo(W*0.5,H*0.9);ctx.lineTo(W*0.48,H*0.55);
+          ctx.lineTo(W*0.5,H*0.2);ctx.lineTo(W*0.5,H*0.1);
+        }
+        ctx.stroke();
+
+        // Green
+        const gx=shape==="dogleg-left"?W*0.3:shape==="dogleg-right"?W*0.7:W*0.5;
+        const gy=H*0.1;
+        ctx.beginPath();ctx.ellipse(gx,gy,W*0.12,H*0.055,0,0,Math.PI*2);
+        ctx.fillStyle="#16a34a";ctx.fill();
+        ctx.strokeStyle="#14532d";ctx.lineWidth=2;ctx.stroke();
+
+        // Bunkers from hazards
+        const hazards=map.hazards||[];
+        hazards.forEach((h,i)=>{
+          const isLeft=h.toLowerCase().includes("left");
+          const isRight=h.toLowerCase().includes("right");
+          const isFront=h.toLowerCase().includes("front");
+          const isBunker=h.toLowerCase().includes("bunker");
+          const isWater=h.toLowerCase().includes("water")||h.toLowerCase().includes("lake")||h.toLowerCase().includes("pond");
+          if(!isBunker&&!isWater)return;
+          const bx=isLeft?gx-W*0.15:isRight?gx+W*0.15:gx+(i%2===0?-1:1)*W*0.13;
+          const by=isFront?gy+H*0.07:gy+(i*H*0.06);
+          if(isWater){
+            ctx.beginPath();ctx.ellipse(bx,by,W*0.1,H*0.04,0,0,Math.PI*2);
+            ctx.fillStyle="rgba(59,130,246,0.7)";ctx.fill();
+            ctx.strokeStyle="#2563eb";ctx.lineWidth=1.5;ctx.stroke();
+          }else{
+            ctx.beginPath();ctx.ellipse(bx,by,W*0.07,H*0.03,0,0,Math.PI*2);
+            ctx.fillStyle="#fde68a";ctx.fill();
+            ctx.strokeStyle="#b45309";ctx.lineWidth=1.5;ctx.stroke();
           }
-        }
+        });
+
+        // Flag
+        ctx.strokeStyle="#111";ctx.lineWidth=2;
+        ctx.beginPath();ctx.moveTo(gx,gy+2);ctx.lineTo(gx,gy-18);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(gx,gy-18);ctx.lineTo(gx+12,gy-12);
+        ctx.lineTo(gx,gy-6);ctx.closePath();
+        ctx.fillStyle="#ef4444";ctx.fill();
+
+        // Tee box
+        ctx.fillStyle="#15803d";ctx.strokeStyle="#14532d";ctx.lineWidth=1.5;
+        ctx.beginPath();ctx.roundRect(W*0.5-11,H*0.87,22,12,3);ctx.fill();ctx.stroke();
       }
 
-      // Distance markers along fairway
-      if(map.features){
-        const fw=map.features.find(f=>f.type==="fairway");
-        if(fw&&fw.points){
-          const greenF=map.features.find(f=>f.type==="green");
-          const greenY=(greenF?.cy||0.08)*H;
-          [100,150,200].forEach(dist=>{
-            const t=dist/(map.yards||400);
-            const idx=Math.floor(t*(fw.points.length-1));
-            if(idx<fw.points.length){
-              const px=fw.points[idx][0]*W;
-              const py=fw.points[idx][1]*H;
-              ctx.beginPath();
-              ctx.arc(px,py,4,0,Math.PI*2);
-              ctx.fillStyle="rgba(255,255,255,0.8)";
-              ctx.fill();
-              ctx.fillStyle="#1f2937";
-              ctx.font="bold 9px Inter,sans-serif";
-              ctx.textAlign="center";
-              ctx.fillText(dist+"y",px,py-7);
-            }
-          });
+      // ── Distance markers ──────────────────────────────────────────
+      const yards=map.yards||400;
+      const osmFw=map.osmFeatures?.features?.find(f=>f.type==="fairway");
+      const osmTee=map.osmFeatures?.features?.find(f=>f.type==="tee");
+      const osmGreen=map.osmFeatures?.features?.find(f=>f.type==="green");
+
+      [100,150,200].forEach(dist=>{
+        const t=dist/yards;
+        let mx=W*0.5, my=0;
+        if(osmFw&&osmFw.pts.length>1){
+          const idx=Math.min(Math.floor(t*osmFw.pts.length),osmFw.pts.length-1);
+          mx=osmFw.pts[idx].x*W;my=osmFw.pts[idx].y*H;
+        }else{
+          const shape=map.shape||"straight";
+          const gx=shape==="dogleg-left"?W*0.3:shape==="dogleg-right"?W*0.7:W*0.5;
+          my=H*(0.9-t*0.8);
+          mx=t<0.5?W*0.5+(gx-W*0.5)*t*2:gx;
+        }
+        ctx.beginPath();ctx.arc(mx,my,5,0,Math.PI*2);
+        ctx.fillStyle="rgba(255,255,255,0.9)";ctx.fill();
+        ctx.strokeStyle="#374151";ctx.lineWidth=1;ctx.stroke();
+        ctx.fillStyle="#111";ctx.font="bold 8px Inter,sans-serif";
+        ctx.textAlign="center";ctx.fillText(dist+"y",mx,my-8);
+      });
+
+      // ── GPS player dot ────────────────────────────────────────────
+      if(gps&&map.tee_lat&&map.green_lat){
+        const b=map.osmFeatures?.bounds;
+        let px_,py_;
+        if(b){
+          px_=((gps.lng-b.minLng)/(b.maxLng-b.minLng))*W;
+          py_=(1-(gps.lat-b.minLat)/(b.maxLat-b.minLat))*H;
+        }else{
+          const latSpan=map.tee_lat-map.green_lat||0.001;
+          const lngSpan=map.green_lng-map.tee_lng||0.001;
+          const osmFwRef=map.osmFeatures?.features?.find(f=>f.type==="fairway");
+          const shape=map.shape||"straight";
+          const gx=shape==="dogleg-left"?W*0.3:shape==="dogleg-right"?W*0.7:W*0.5;
+          const relY=(map.tee_lat-gps.lat)/latSpan;
+          const relX=(gps.lng-map.tee_lng)/lngSpan;
+          px_=W*0.5+relX*W*0.4;
+          py_=H*(0.9-relY*0.8);
+        }
+        if(px_>0&&px_<W&&py_>0&&py_<H){
+          // Accuracy circle
+          ctx.beginPath();ctx.arc(px_,py_,16,0,Math.PI*2);
+          ctx.fillStyle="rgba(59,130,246,0.12)";ctx.fill();
+          // Dot
+          ctx.beginPath();ctx.arc(px_,py_,8,0,Math.PI*2);
+          ctx.fillStyle="#2563eb";ctx.fill();
+          ctx.strokeStyle="#fff";ctx.lineWidth=2.5;ctx.stroke();
+          // Pulse ring
+          ctx.beginPath();ctx.arc(px_,py_,13,0,Math.PI*2);
+          ctx.strokeStyle="rgba(59,130,246,0.5)";ctx.lineWidth=2;ctx.stroke();
         }
       }
 
     },[map,gps,W,H]);
-
-    return <canvas ref={canvasRef} width={W} height={H} style={{width:"100%",height:"auto",maxHeight:"360px",objectFit:"contain"}}/>;
+    return(
+      <canvas ref={cvRef} width={W} height={H}
+        style={{width:"100%",height:"auto",display:"block",borderRadius:"8px"}}/>
+    );
   };
 
   const sendMessage=async(text)=>{
@@ -1331,12 +1424,16 @@ function ObiGolfApp(){
                           <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border bg-foreground text-background">
                             <div>
                               <p className="display text-[13px] font-bold tracking-tight truncate">{course}</p>
-                              <p className="display text-[10px] font-bold opacity-60">Hole {hole} · Par {holeMap.par} · {holeMap.yards}yds · Hdcp {holeMap.index||hole}</p>
+                              <p className="display text-[10px] font-bold opacity-60">Hole {hole} · Par {holeMap.par} · {holeMap.yards}yds{holeMap.strokeIndex?" · Hdcp "+holeMap.strokeIndex:""}</p>
                             </div>
-                            <div className="text-right">
-                              <p className="display text-[10px] font-bold uppercase tracking-wider opacity-70 capitalize">{holeMap.shape||"straight"}</p>
+                            <div className="text-right shrink-0 ml-2">
+                              {holeMap.osmFeatures?(
+                                <span className="display text-[9px] font-bold uppercase tracking-wider bg-primary/20 text-primary rounded px-1.5 py-0.5">Real map</span>
+                              ):(
+                                <span className="display text-[9px] font-bold uppercase tracking-wider opacity-50 rounded px-1.5 py-0.5 border border-white/20 capitalize">{holeMap.shape||"straight"}</span>
+                              )}
                               {gpsPos&&holeMap.green_lat&&(
-                                <p className="display text-[12px] font-bold text-primary">{distYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)}y to pin</p>
+                                <p className="stat text-[16px] font-bold text-primary mt-0.5">{haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)}y</p>
                               )}
                             </div>
                           </div>
@@ -1350,8 +1447,8 @@ function ObiGolfApp(){
                           {gpsPos&&holeMap.green_lat&&(
                             <div className="grid grid-cols-3 gap-px bg-border">
                               {[
-                                ["To pin",distYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)+"y"],
-                                ["From tee",holeMap.tee_lat?distYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng)+"y":"--"],
+                                ["To pin",haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)+"y"],
+                                ["From tee",holeMap.tee_lat?haversineYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng)+"y":"--"],
                                 ["Acc",gpsPos.accuracy?Math.round(gpsPos.accuracy)+"m":"--"],
                               ].map(([l,v])=>(
                                 <div key={l} className="bg-card px-3 py-2 text-center">
