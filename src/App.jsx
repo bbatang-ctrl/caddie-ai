@@ -151,8 +151,9 @@ function ObiGolfApp(){
 
   useEffect(()=>{
     const el=document.documentElement;
-    el.classList.toggle("light",!isDark);
-    document.body.style.background="var(--bg)";
+    el.classList.toggle("dark", isDark);
+    el.classList.toggle("light", !isDark);
+    document.body.style.backgroundColor = isDark ? "#0d0d12" : "#ffffff";
     try{localStorage.setItem("obi_dark",String(isDark));}catch{}
   },[isDark]);
 
@@ -197,7 +198,7 @@ function ObiGolfApp(){
   const [authError,setAuthError]=useState("");
 
   // ── Navigation ───────────────────────────────────────────────────
-  const [tab,setTab]=useState("caddie");
+  const [tab,setTab]=useState("home");
   const changeTab=(newTab)=>{
     if(window.speechSynthesis)window.speechSynthesis.cancel();
     setSpeaking(false);
@@ -1238,19 +1239,115 @@ function ObiGolfApp(){
   return(
     <div className="flex flex-col bg-background text-foreground overflow-hidden" style={{height:"100dvh",maxWidth:"480px",margin:"0 auto",position:"relative"}}>
       {showCard&&(
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-5" onClick={()=>setShowCard(null)}>
-          <div className="bg-card border border-border rounded-2xl w-full max-w-sm max-h-[80vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4"><span className="display text-[17px] font-bold text-foreground">Round Summary</span><button onClick={()=>setShowCard(null)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5"/></button></div>
-            <p className="display text-[15px] font-bold text-foreground">{showCard.course_name}</p>
-            <p className="text-[11px] text-muted-foreground mb-4">{fmtDate(showCard.played_at)}</p>
-            <div className="grid grid-cols-3 gap-2.5">
-              {[["SCORE",showCard.total_score,"text-foreground"],["vs PAR",(showCard.score_vs_par>0?"+":"")+showCard.score_vs_par,showCard.score_vs_par<=0?"text-primary":"text-destructive"],["HOLES",(showCard.holes_played||18)+"/18","text-foreground"]].map(([l,v,c])=>(
-                <div key={l} className="bg-secondary rounded-xl p-3 text-center">
-                  <p className="display text-[9px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">{l}</p>
-                  <p className={"stat text-[26px] leading-none "+c}>{v}</p>
-                </div>
-              ))}
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={()=>setShowCard(null)}>
+          <div className="bg-card border border-border rounded-2xl w-full overflow-y-auto" style={{maxWidth:"460px",maxHeight:"88vh"}} onClick={e=>e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <div>
+                <p className="display text-[15px] font-bold text-foreground">{showCard.course_name||"Unknown Course"}</p>
+                <p className="text-[11px] text-muted-foreground">{fmtDate(showCard.played_at)}</p>
+              </div>
+              <button onClick={()=>setShowCard(null)} className="text-muted-foreground hover:text-foreground ml-3 shrink-0"><X className="h-5 w-5"/></button>
             </div>
+            {/* Score summary */}
+            <div className="grid grid-cols-4 gap-px bg-border border-b border-border">
+              {(()=>{
+                const diff=showCard.score_vs_par||0;
+                const diffStr=diff===0?"E":diff>0?"+"+diff:""+diff;
+                const fwyHit=(showCard.fairways||[]).filter(f=>f===true).length;
+                const fwyTot=(showCard.fairways||[]).filter(f=>f!==null).length;
+                const girHit=(showCard.gir||[]).filter(g=>g===true).length;
+                const girTot=(showCard.gir||[]).filter(g=>g!==null).length;
+                const puttTot=(showCard.putts||[]).filter(p=>p!==null).reduce((a,b)=>a+b,0);
+                return[
+                  ["Score",showCard.total_score,"text-foreground"],
+                  ["vs Par",diffStr,diff<=0?"text-primary":"text-destructive"],
+                  ["FWY",fwyTot>0?fwyHit+"/"+fwyTot:"--","text-foreground"],
+                  ["Putts",puttTot||"--","text-foreground"],
+                ].map(([l,v,c])=>(
+                  <div key={l} className="bg-card px-2 py-3 text-center">
+                    <p className="display text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-1">{l}</p>
+                    <p className={"stat text-[22px] leading-none "+c}>{v}</p>
+                  </div>
+                ));
+              })()}
+            </div>
+            {/* Scorecard grid */}
+            {(()=>{
+              const sc=showCard.scorecard||[];
+              const pars=showCard.hole_pars||Array(18).fill(4);
+              const fw=showCard.fairways||Array(18).fill(null);
+              const gr=showCard.gir||Array(18).fill(null);
+              const pt=showCard.putts||Array(18).fill(null);
+              const hasAny=sc.some(Boolean);
+              if(!hasAny)return(
+                <div className="p-6 text-center">
+                  <p className="display text-[13px] font-bold text-muted-foreground">No hole-by-hole data saved</p>
+                </div>
+              );
+              return(
+                <div className="overflow-x-auto">
+                  <table className="w-full text-center" style={{minWidth:"540px"}}>
+                    <thead>
+                      <tr className="bg-secondary/50 border-b border-border">
+                        <td className="display text-[9px] font-bold uppercase text-muted-foreground px-2 py-1.5 text-left w-8">Hole</td>
+                        {Array.from({length:18},(_,i)=>i+1).map(n=>(
+                          <td key={n} className="display text-[9px] font-bold uppercase text-muted-foreground py-1.5 px-0.5">{n}</td>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      <tr>
+                        <td className="display text-[9px] font-bold uppercase text-muted-foreground px-2 py-2 text-left">Par</td>
+                        {pars.map((p,i)=><td key={i} className="display text-[11px] text-muted-foreground py-2 px-0.5">{p}</td>)}
+                      </tr>
+                      <tr>
+                        <td className="display text-[9px] font-bold uppercase text-muted-foreground px-2 py-2 text-left">Score</td>
+                        {sc.map((s,i)=>(
+                          <td key={i} className="py-2 px-0.5">
+                            <span className={cn("display text-[12px] font-bold",
+                              s===null?"text-muted-foreground/30":
+                              s<pars[i]?"text-primary":s>pars[i]+1?"text-destructive":"text-foreground")}>
+                              {s||"·"}
+                            </span>
+                          </td>
+                        ))}
+                      </tr>
+                      {fw.some(f=>f!==null)&&(
+                        <tr>
+                          <td className="display text-[9px] font-bold uppercase text-muted-foreground px-2 py-2 text-left">FWY</td>
+                          {fw.map((f,i)=>(
+                            <td key={i} className="py-2 px-0.5">
+                              <span className={cn("display text-[11px] font-bold",f===null?"text-muted-foreground/30":f?"text-primary":"text-destructive")}>{f===null?"·":f?"✓":"✗"}</span>
+                            </td>
+                          ))}
+                        </tr>
+                      )}
+                      {gr.some(g=>g!==null)&&(
+                        <tr>
+                          <td className="display text-[9px] font-bold uppercase text-muted-foreground px-2 py-2 text-left">GIR</td>
+                          {gr.map((g,i)=>(
+                            <td key={i} className="py-2 px-0.5">
+                              <span className={cn("display text-[11px] font-bold",g===null?"text-muted-foreground/30":g?"text-primary":"text-destructive")}>{g===null?"·":g?"✓":"✗"}</span>
+                            </td>
+                          ))}
+                        </tr>
+                      )}
+                      {pt.some(p=>p!==null)&&(
+                        <tr>
+                          <td className="display text-[9px] font-bold uppercase text-muted-foreground px-2 py-2 text-left">Putts</td>
+                          {pt.map((p,i)=>(
+                            <td key={i} className="py-2 px-0.5">
+                              <span className={cn("display text-[11px] font-bold",p===null?"text-muted-foreground/30":p<=1?"text-primary":p>=3?"text-destructive":"text-foreground")}>{p===null?"·":p}</span>
+                            </td>
+                          ))}
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -1377,7 +1474,14 @@ function ObiGolfApp(){
               </div>
             )}
             <button onClick={()=>setIsDark(d=>!d)} className="h-8 w-8 rounded-full flex items-center justify-center bg-secondary text-secondary-foreground hover:bg-muted transition">{isDark?<Sun className="h-3.5 w-3.5"/>:<Moon className="h-3.5 w-3.5"/>}</button>
-            <button onClick={()=>setTab("profile_panel")} className="h-8 w-8 rounded-full flex items-center justify-center bg-secondary text-secondary-foreground hover:bg-muted transition"><Settings className="h-3.5 w-3.5"/></button>
+            <button onClick={()=>setTab("profile_panel")}
+              className="h-8 w-8 rounded-full flex items-center justify-center bg-secondary text-secondary-foreground hover:bg-muted transition" title="Settings">
+              <Settings className="h-3.5 w-3.5"/>
+            </button>
+            <button onClick={handleLogout}
+              className="h-8 w-8 rounded-full flex items-center justify-center bg-secondary text-secondary-foreground hover:bg-destructive/20 hover:text-destructive transition" title="Sign out">
+              <LogOut className="h-3.5 w-3.5"/>
+            </button>
           </div>
         </div>
       </header>
