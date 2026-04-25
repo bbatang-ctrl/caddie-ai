@@ -9,22 +9,13 @@ export default async function handler(req, res) {
   if (!apiKey) return res.status(500).json({ error: "API key not configured on server" });
 
   try {
-    const { contents } = req.body;
+    const { messages, system } = req.body;
 
-    // Check if this is a file_data request (range mode analysis)
-    // or a regular chat request
-    const hasFileData = contents?.some(c =>
-      c.parts?.some(p => p.file_data)
-    );
-
-    // For file_data (video analysis) — send directly to Gemini, no primer needed
-    // For regular chat — add system primer
-    let finalContents = contents;
-    if (!hasFileData) {
-      // Regular chat — this shouldn't normally come through here
-      // but handle it gracefully
-      finalContents = contents;
-    }
+    // Convert messages array to Gemini contents format
+    const contents = messages.map(m => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }]
+    }));
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -32,10 +23,11 @@ export default async function handler(req, res) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: finalContents,
+          system_instruction: system ? { parts: [{ text: system }] } : undefined,
+          contents,
           generationConfig: {
-            maxOutputTokens: 800,
-            temperature: 0.3,
+            maxOutputTokens: 400,
+            temperature: 0.4,
             thinkingConfig: { thinkingBudget: 0 },
           },
         }),
@@ -43,7 +35,10 @@ export default async function handler(req, res) {
     );
 
     const data = await response.json();
-    return res.status(200).json(data);
+
+    // Return in the format the app expects: { content: [{ text: "..." }] }
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response from Obi.";
+    return res.status(200).json({ content: [{ text }] });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
