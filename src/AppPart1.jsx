@@ -111,7 +111,7 @@ function ScorePill({ score, par, large=false }) {
 
 const HANDICAPS=[{label:"Beginner",sub:"30+",value:"beginner",hcp:36},{label:"High",sub:"18-29",value:"high",hcp:24},{label:"Mid",sub:"9-17",value:"mid",hcp:13},{label:"Low",sub:"0-8",value:"low",hcp:4}];
 const PERSONAS=[{id:"pro",icon:"🏆",label:"Tour Pro",desc:"Calm. Clinical. Precise."},{id:"coach",icon:"🎯",label:"The Coach",desc:"Encouraging & confidence-building."},{id:"oldschool",icon:"🚬",label:"Old School",desc:"Gritty, direct, zero fluff."}];
-const DEFAULT_BAG=[{club:"Driver",carry:230},{club:"3-Wood",carry:210},{club:"5-Wood",carry:195},{club:"4-Iron",carry:180},{club:"5-Iron",carry:170},{club:"6-Iron",carry:160},{club:"7-Iron",carry:150},{club:"8-Iron",carry:140},{club:"9-Iron",carry:130},{club:"PW",carry:120},{club:"GW",carry:105},{club:"SW",carry:90},{club:"LW",carry:70}];
+const DEFAULT_BAG=[{club:"Driver",carry:230},{club:"3-Wood",carry:210},{club:"5-Wood",carry:195},{club:"Hybrid",carry:190},{club:"4-Iron",carry:180},{club:"5-Iron",carry:170},{club:"6-Iron",carry:160},{club:"7-Iron",carry:150},{club:"8-Iron",carry:140},{club:"9-Iron",carry:130},{club:"PW",carry:120},{club:"GW",carry:105},{club:"SW",carry:90},{club:"LW",carry:70}];
 const QUICK_PROMPTS=[{label:"🏌 Club?",prompt:"What club should I hit from here?"},{label:"🗺 Hole plan",prompt:"Walk me through the strategy for this hole."},{label:"🌿 In rough",prompt:"My ball is sitting down in the rough. What's my play?"},{label:"💨 Wind",prompt:"How is this wind affecting my shot and what should I adjust?"},{label:"⚖️ Lay up?",prompt:"Should I lay up or go for it? Give me the risk/reward breakdown."},{label:"🏖 Bunker",prompt:"I'm in a greenside bunker. Talk me through the shot."},{label:"🎯 Putting",prompt:"Give me a putting read and routine for this green."},{label:"🔄 Reset",prompt:"I just mishit badly. Help me reset mentally for the next shot."}];
 const JABS=["That's why you pay for the caddie 😂","Course management called… 💀","Bold strategy. Very bold. 😅","Obi is disappointed in you 🙏","The rough misses you already 🌿","Scratch player energy… not 😂","That one hurt to watch 😬","Back to the range with you 🏌"];
 
@@ -664,7 +664,7 @@ function OnboardingFlow({ profile, setProfile, authName, setAuthName, onComplete
         {/* STEP 4 — Persona */}
         {current.id === "persona" && (
           <div className="space-y-2.5">
-            {[{id:"pro",icon:"🎯",label:"Tour Pro",desc:"Calm, clinical, Tour-level precision. No fluff."},{id:"coach",icon:"📚",label:"The Coach",desc:"Encouraging, warm, confidence-building."},{id:"hype",icon:"🔥",label:"Hype Man",desc:"Energetic, loud, pumps you up every hole."},{id:"savage",icon:"💀",label:"Savage",desc:"Brutal honesty. Roasts your bad shots."},{id:"oldschool",icon:"🪨",label:"Old School",desc:"Gritty, direct, old-fashioned caddie."}].map(p=>(
+            {[{id:"pro",icon:"🎯",label:"Tour Pro",desc:"Calm, clinical precision. Quiet authority, every shot."},{id:"coach",icon:"📚",label:"The Coach",desc:"Warm and encouraging. Builds your confidence every hole."},{id:"oldschool",icon:"🪨",label:"Old School",desc:"Gritty, direct, no-nonsense. Old-fashioned and real."}].map(p=>(
               rowBtn(profile.persona===p.id, ()=>setProfile(prev=>({...prev,persona:p.id})),
                 <React.Fragment>
                   <span className="text-2xl">{p.icon}</span>
