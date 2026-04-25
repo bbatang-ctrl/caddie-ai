@@ -661,6 +661,10 @@ function ObiGolfApp(){
         )}
         {authScreen==="onboard"&&(
           <OnboardingFlow
+            D={isDark?DARK_THEME:LIGHT_THEME}
+            S={S}
+            authName={authName}
+            setAuthName={setAuthName}
             step={onboardStep}
             setStep={setOnboardStep}
             profile={profile}
@@ -1052,7 +1056,7 @@ function ObiGolfApp(){
 
                 {rangeShotResult&&!rangeShotResult.error&&(
                   <div>
-                    <ShotShapeDiagram shape={rangeShotResult.shape||"straight"} isLeft={profile.dexterity==="left"}/>
+                    <ShotShapeDiagram result={rangeShotResult} club={rangeClub} dexterity={profile.dexterity}/>
                     <div style={{...S.card,marginTop:"10px",borderColor:T.primary+"66",background:T.primaryDim}}>
                       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px",marginBottom:"14px"}}>
                         {[["Shape",rangeShotResult.shape||"straight"],["Carry",(rangeShotResult.carry||0)+"y"],["Direction",rangeShotResult.direction||"center"]].map(([l,v])=>(
