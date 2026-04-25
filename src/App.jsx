@@ -182,6 +182,9 @@ function ObiGolfApp(){
   const [gir,setGir]=useState(Array(18).fill(null));             // true/false/null
   const [putts,setPutts]=useState(Array(18).fill(null));         // number
   const [scorecardOpen,setScorecardOpen]=useState(false);
+  const [holeMap,setHoleMap]=useState(null);          // {svg, description, par, yards, tips}
+  const [holeMapLoading,setHoleMapLoading]=useState(false);
+  const [showHoleMap,setShowHoleMap]=useState(false);
   const [holeOpen,setHoleOpen]=useState(false);
 
   // ── Weather ──────────────────────────────────────────────────────
@@ -362,6 +365,51 @@ function ObiGolfApp(){
       +"\nRECENT: "+recentStr
       +"\nRULES: Only clubs from bag. No markdown. No bullets. Always finish sentences. Tailor to "+handed+" player.";
   };
+
+  // ── Hole map fetcher ─────────────────────────────────────────────
+  const fetchHoleMap = useCallback(async (courseName, holeNum) => {
+    if (!courseName || holeMapLoading) return;
+    setHoleMapLoading(true);
+    setHoleMap(null);
+    try {
+      const svgExample = '<svg viewBox="0 0 300 500" xmlns="http://www.w3.org/2000/svg"><polygon points="120,480 180,480 175,300 160,200 150,100 140,200 125,300" fill="#4ade80" opacity="0.8"/><rect x="135" y="460" width="30" height="20" rx="4" fill="#22c55e"/><ellipse cx="150" cy="80" rx="30" ry="20" fill="#86efac"/><line x1="150" y1="60" x2="150" y2="80" stroke="#1f2937" stroke-width="2"/><polygon points="150,60 165,67 150,74" fill="#ef4444"/></svg>';
+      const prompt = "You are a golf course architect and caddie. For hole " + holeNum + " at " + courseName + ":\n\nReturn ONLY valid JSON (no markdown) in this exact format:\n{\n  \"par\": 4,\n  \"yards\": 412,\n  \"index\": 7,\n  \"description\": \"2-3 sentence description of the hole layout, key features, and challenges\",\n  \"shape\": \"dogleg-left\",\n  \"hazards\": [\"water left\", \"bunker right\"],\n  \"tips\": \"Brief caddie tip for this specific hole\",\n  \"svg\": \"" + svgExample + "\"\n}\n\nThe SVG must show the actual hole shape of " + courseName + " hole " + holeNum + " with: fairway (green polygon), putting green (darker ellipse), tee box (rectangle at bottom), bunkers (tan ellipses), water (blue shapes if any), flag at top. Portrait 300x500 viewBox, tee at bottom, green at top. Use stroke-width not strokeWidth.";
+
+      const r = await fetch("/api/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          messages: [{role: "user", content: prompt}],
+          system: "You are a golf course data API. Return only valid JSON, no markdown fences."
+        })
+      });
+      const d = await r.json();
+      const text = d?.content?.[0]?.text || "";
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start >= 0 && end > start) {
+        const parsed = JSON.parse(text.slice(start, end + 1));
+        setHoleMap(parsed);
+        // Auto-fill par and yardage
+        if (parsed.yards) setYardage(String(parsed.yards));
+        if (parsed.par) setHolePars(prev => {
+          const n = [...prev]; n[holeNum - 1] = parsed.par; return n;
+        });
+        setShowHoleMap(true);
+      }
+    } catch (e) {
+      console.error("Hole map error:", e);
+    }
+    setHoleMapLoading(false);
+  }, [holeMapLoading]);
+
+  // Re-fetch hole map when course or hole changes (if map was open)
+  useEffect(() => {
+    if (course && showHoleMap) {
+      fetchHoleMap(course, hole);
+    }
+  }, [hole, course]);
+
 
   const sendMessage=async(text)=>{
     const msg=text||input;
@@ -1004,6 +1052,85 @@ function ObiGolfApp(){
                   </div>
                 </div>
               </div>
+
+              {/* ── Hole Map ─────────────────────────────── */}
+              {course&&(
+                <div className="mb-3">
+                  <div className="flex items-center justify-between">
+                    <button onClick={()=>{if(!holeMap&&!holeMapLoading)fetchHoleMap(course,hole);setShowHoleMap(o=>!o);}}
+                      className={cn("display text-[11px] font-bold uppercase tracking-wider inline-flex items-center gap-1.5 transition",
+                        showHoleMap?"text-foreground":"text-muted-foreground hover:text-foreground")}>
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
+                      Hole map {holeMapLoading&&"(loading...)"}
+                      <ChevronDown className={cn("h-3.5 w-3.5 transition-transform",showHoleMap&&"rotate-180")} strokeWidth={2.5}/>
+                    </button>
+                    {course&&holeMap&&showHoleMap&&(
+                      <button onClick={()=>fetchHoleMap(course,hole)}
+                        className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition">
+                        Refresh
+                      </button>
+                    )}
+                  </div>
+
+                  {showHoleMap&&(
+                    <div className="mt-2 rounded-xl border border-border bg-card overflow-hidden">
+                      {holeMapLoading&&(
+                        <div className="flex items-center justify-center p-8 gap-3">
+                          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin-slow"/>
+                          <p className="display text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Generating hole map...</p>
+                        </div>
+                      )}
+                      {holeMap&&!holeMapLoading&&(
+                        <div>
+                          {/* Header */}
+                          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-secondary/40">
+                            <div>
+                              <p className="display text-[11px] font-bold uppercase tracking-wider">{course}</p>
+                              <p className="display text-[10px] text-muted-foreground font-bold">Hole {hole} · Par {holeMap.par} · {holeMap.yards}yds · Hdcp {holeMap.index}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{holeMap.shape}</p>
+                            </div>
+                          </div>
+
+                          {/* SVG map + info side by side */}
+                          <div className="flex gap-0">
+                            {/* SVG map */}
+                            <div className="w-32 shrink-0 bg-sky-950/30 flex items-center justify-center p-2 border-r border-border">
+                              {holeMap.svg&&(
+                                <div className="w-full" dangerouslySetInnerHTML={{__html: holeMap.svg
+                                  .replace(/strokeWidth=/g, 'stroke-width=')
+                                  .replace(/viewBox=/g, 'viewBox=')
+                                }}/>
+                              )}
+                            </div>
+                            {/* Info panel */}
+                            <div className="flex-1 p-3 space-y-2">
+                              <p className="text-[12px] text-foreground leading-relaxed">{holeMap.description}</p>
+                              {holeMap.hazards&&holeMap.hazards.length>0&&(
+                                <div>
+                                  <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Hazards</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {holeMap.hazards.map((h,i)=>(
+                                      <span key={i} className="display text-[9px] font-bold uppercase tracking-wider bg-destructive/10 text-destructive rounded-md px-1.5 py-0.5">{h}</span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {holeMap.tips&&(
+                                <div className="rounded-lg bg-primary/10 border border-primary/30 p-2">
+                                  <p className="display text-[10px] font-bold uppercase tracking-wider text-primary mb-0.5">Obi&apos;s tip</p>
+                                  <p className="text-[11px] text-foreground leading-snug">{holeMap.tips}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Scorecard toggle */}
               <div className="flex items-center justify-between mb-3">
