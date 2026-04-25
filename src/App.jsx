@@ -1532,6 +1532,373 @@ function ObiGolfApp(){
           </div>
         )}
 
+        {tab==="caddie"&&(
+          <div className="flex flex-col h-full min-h-0">
+
+            {/* ── Course + hole setup ──────────────────────── */}
+            <div className="px-4 pt-3 shrink-0 space-y-3">
+              {/* Course banner */}
+              <div className="rounded-xl bg-foreground text-background p-3.5">
+                <div className="flex items-center gap-3">
+                  <MapPin className="h-4 w-4 shrink-0 opacity-60" strokeWidth={2.5}/>
+                  <div className="min-w-0 flex-1">
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] opacity-60">Live round</p>
+                    <input value={courseInput} onChange={e=>setCourseInput(e.target.value)}
+                      onBlur={()=>{if(courseInput)setCourse(courseInput);}}
+                      onKeyDown={e=>{if(e.key==="Enter"&&courseInput)setCourse(courseInput);}}
+                      placeholder="Set course name..."
+                      className="display text-[15px] font-bold tracking-tight bg-transparent outline-none placeholder:opacity-40 w-full"/>
+                  </div>
+                  <span className="display text-xs font-bold tracking-wider text-primary shrink-0">{course?"ON":"--"}</span>
+                </div>
+              </div>
+
+              {/* Hole + yardage + score */}
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Current hole</p>
+                  <div className="relative">
+                    <select value={hole} onChange={e=>setHole(Number(e.target.value))}
+                      className="appearance-none display text-[13px] font-bold uppercase tracking-wider rounded-lg border border-border bg-background pl-3 pr-8 py-1.5 cursor-pointer focus:outline-none focus:border-foreground transition text-foreground">
+                      {Array.from({length:18},(_,i)=>i+1).map(n=><option key={n} value={n}>Hole {n}</option>)}
+                    </select>
+                    <ChevronDown className="h-3.5 w-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" strokeWidth={2.5}/>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">Hole</p>
+                    <div className="flex items-end gap-1">
+                      <span className="stat text-[30px] leading-none">{hole}</span>
+                      <span className="text-xs text-muted-foreground pb-1 font-bold">/18 · Par {holePars[hole-1]}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">To pin</p>
+                    <div className="flex items-end gap-1">
+                      <input type="number" placeholder="---" value={yardage} onChange={e=>setYardage(e.target.value)}
+                        className="stat text-[30px] leading-none text-primary bg-transparent border-b-2 border-primary/40 focus:border-primary w-20 outline-none transition-colors"/>
+                      <span className="text-xs text-muted-foreground pb-1 font-bold">YDS</span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">Score</p>
+                    <div className="flex gap-1 flex-wrap">
+                      {[holePars[hole-1]-1,holePars[hole-1],holePars[hole-1]+1,holePars[hole-1]+2].map(v=>(
+                        <button key={v} onClick={()=>setScorecard(s=>{const n=[...s];n[hole-1]=v;return n;})}
+                          className={cn("h-8 w-8 rounded-lg display text-[13px] font-bold transition border",
+                            scorecard[hole-1]===v?"bg-primary text-primary-foreground border-primary":"border-border text-muted-foreground hover:border-foreground/40")}>
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* GPS rangefinder strip */}
+              {gpsPos&&(manualPins[hole]||holeMap?.green_lat)&&(
+                <div className="rounded-xl border border-border bg-card overflow-hidden">
+                  <div className="grid grid-cols-2 gap-px bg-border">
+                    {(()=>{
+                      const pin=manualPins[hole]||{lat:holeMap?.green_lat,lng:holeMap?.green_lng};
+                      const toPin=pin?.lat?haversineYards(gpsPos.lat,gpsPos.lng,pin.lat,pin.lng):null;
+                      const fromTee=holeMap?.tee_lat?haversineYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng):null;
+                      return(
+                        <React.Fragment>
+                          <div className="bg-card px-3 py-2.5 text-center">
+                            <p className="display text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-0.5">To pin</p>
+                            <p className="stat text-[28px] leading-none text-primary">{toPin?toPin+"y":"--"}</p>
+                          </div>
+                          <div className="bg-card px-3 py-2.5 text-center">
+                            <p className="display text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-0.5">From tee</p>
+                            <p className="stat text-[28px] leading-none text-foreground">{fromTee?fromTee+"y":"--"}</p>
+                          </div>
+                        </React.Fragment>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
+              {gpsPos&&!manualPins[hole]&&!holeMap?.green_lat&&(
+                <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5">
+                  <p className="display text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-1.5">GPS on — no pin set for hole {hole}</p>
+                  <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
+                    className="display text-[11px] font-bold uppercase tracking-wider bg-amber-600 text-white rounded-lg px-3 py-1.5 hover:opacity-90 transition">
+                    I&apos;m at the green — set pin here
+                  </button>
+                </div>
+              )}
+              {!gpsPos&&(
+                <button onClick={startGPS}
+                  className="w-full rounded-xl border border-primary/30 bg-primary/5 px-3 py-2.5 display text-[11px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10 transition inline-flex items-center justify-center gap-2">
+                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                  Enable GPS rangefinder
+                </button>
+              )}
+
+              {/* Hole map toggle */}
+              {course&&(
+                <div>
+                  <div className="flex items-center justify-between">
+                    <button onClick={()=>{if(showHoleMap){setShowHoleMap(false);}else{setShowHoleMap(true);if(!holeMap)fetchHoleMap(course,hole);}}}
+                      className={cn("display text-[11px] font-bold uppercase tracking-wider inline-flex items-center gap-1.5 transition",showHoleMap?"text-foreground":"text-muted-foreground hover:text-foreground")}>
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
+                      Hole map {holeMapLoading&&"(loading...)"}
+                    </button>
+                    {showHoleMap&&(
+                      <div className="flex items-center gap-2">
+                        {gpsWatcher==null?(
+                          <button onClick={startGPS} className="display text-[10px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-1.5 border border-primary/30 rounded-lg px-2 py-1 bg-primary/10 hover:bg-primary/20 transition">
+                            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                            GPS off
+                          </button>
+                        ):(
+                          <button onClick={stopGPS} className="display text-[10px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-1.5 border border-primary/30 rounded-lg px-2 py-1 bg-primary/10">
+                            <span className="h-2 w-2 rounded-full bg-primary inline-block" style={{animation:"pulse-dot 1s infinite"}}/>
+                            GPS live
+                          </button>
+                        )}
+                        <button onClick={()=>fetchHoleMap(course,hole)} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition">↺</button>
+                      </div>
+                    )}
+                  </div>
+                  {showHoleMap&&(
+                    <div className="rounded-xl border border-border bg-card overflow-hidden mt-2">
+                      {holeMapLoading&&(
+                        <div className="flex items-center justify-center gap-3 p-8">
+                          <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent" style={{animation:"spin 0.8s linear infinite"}}/>
+                          <p className="display text-[12px] font-bold uppercase tracking-wider text-muted-foreground">Generating hole map...</p>
+                        </div>
+                      )}
+                      {holeMap&&!holeMapLoading&&(
+                        <React.Fragment>
+                          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border bg-foreground text-background">
+                            <div>
+                              <p className="display text-[13px] font-bold tracking-tight truncate">{course}</p>
+                              <p className="display text-[10px] font-bold opacity-60">Hole {hole} · Par {holeMap.par} · {holeMap.yards}yds{holeMap.strokeIndex?" · Hdcp "+holeMap.strokeIndex:""}</p>
+                            </div>
+                            <div className="text-right shrink-0 ml-2">
+                              {holeMap.osmFeatures?(
+                                <span className="display text-[9px] font-bold uppercase tracking-wider bg-primary/20 text-primary rounded px-1.5 py-0.5">Real map</span>
+                              ):(
+                                <span className="display text-[9px] font-bold uppercase tracking-wider opacity-50 rounded px-1.5 py-0.5 border border-white/20 capitalize">{holeMap.shape||"straight"}</span>
+                              )}
+                              {gpsPos&&holeMap.green_lat&&(
+                                <p className="stat text-[16px] font-bold text-primary mt-0.5">{haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)}y</p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="bg-emerald-950/20 p-2">
+                            <HoleMapCanvas map={holeMap} gps={gpsPos} W={260} H={380}/>
+                          </div>
+                          {(()=>{
+                            const pin=manualPins[hole]||{lat:holeMap.green_lat,lng:holeMap.green_lng};
+                            return(
+                              <React.Fragment>
+                                {gpsPos&&pin?.lat&&(
+                                  <div className="border-t border-border">
+                                    <div className="grid grid-cols-3 gap-px bg-border">
+                                      {[["To pin",haversineYards(gpsPos.lat,gpsPos.lng,pin.lat,pin.lng)+"y"],["From tee",holeMap.tee_lat?haversineYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng)+"y":"--"],["Accuracy",gpsPos.acc?"±"+gpsPos.acc+"m":"--"]].map(([l,v])=>(
+                                        <div key={l} className="bg-card px-2 py-2.5 text-center">
+                                          <p className="display text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-0.5">{l}</p>
+                                          <p className="stat text-[22px] leading-none text-primary">{v}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <div className="flex items-center justify-between px-3 py-2 bg-secondary/40 border-t border-border">
+                                      <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{manualPins[hole]?"📍 Manual pin":"📍 Gemini coords"}</p>
+                                      <button onClick={()=>{if(gpsPos)setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}));}}
+                                        className="display text-[10px] font-bold uppercase tracking-wider bg-primary text-primary-foreground rounded-lg px-2.5 py-1.5 hover:opacity-90 transition">
+                                        Drop pin here
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                                {!gpsPos&&(
+                                  <div className="border-t border-border bg-primary/5 px-3 py-2.5">
+                                    <p className="display text-[10px] font-bold uppercase tracking-wider text-primary/80">📍 Enable GPS rangefinder above</p>
+                                  </div>
+                                )}
+                              </React.Fragment>
+                            );
+                          })()}
+                          {(holeMap.hazards?.length>0||holeMap.tips)&&(
+                            <div className="px-3.5 py-2.5 space-y-2 border-t border-border">
+                              {holeMap.hazards?.length>0&&(
+                                <div className="flex flex-wrap gap-1">
+                                  {holeMap.hazards.map((h,i)=>(
+                                    <span key={i} className="display text-[9px] font-bold uppercase tracking-wider bg-destructive/10 text-destructive rounded px-1.5 py-0.5">{h}</span>
+                                  ))}
+                                </div>
+                              )}
+                              {holeMap.tips&&(
+                                <div className="rounded-lg bg-primary/10 border border-primary/30 px-2.5 py-2">
+                                  <p className="display text-[9px] font-bold uppercase tracking-wider text-primary mb-0.5">Obi&apos;s tip</p>
+                                  <p className="text-[12px] text-foreground leading-snug">{holeMap.tips}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </React.Fragment>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Scorecard toggle */}
+              <div className="flex items-center justify-between">
+                <button onClick={()=>setScorecardOpen(o=>!o)}
+                  className="display text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition">
+                  <BarChart3 className="h-3.5 w-3.5" strokeWidth={2.5}/>
+                  Scorecard
+                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform",scorecardOpen&&"rotate-180")} strokeWidth={2.5}/>
+                </button>
+                {scorecard.some(Boolean)&&(
+                  <button onClick={saveRound} className="display text-[11px] font-bold uppercase tracking-wider bg-foreground text-background rounded-lg px-3 py-1.5 hover:opacity-90 transition">
+                    Save Round
+                  </button>
+                )}
+              </div>
+
+              {/* Full scorecard */}
+              {scorecardOpen&&(
+                <div className="rounded-xl border border-border bg-card overflow-hidden">
+                  <div className="grid text-center bg-secondary/50 border-b border-border" style={{gridTemplateColumns:"2rem repeat(18,1fr)"}}>
+                    <div/>
+                    {Array.from({length:18},(_,i)=>i+1).map(n=>(
+                      <div key={n} className={cn("py-1.5 display text-[9px] font-bold uppercase",n===hole&&"text-primary")}>{n}</div>
+                    ))}
+                  </div>
+                  {[{label:"SCR",data:scorecard,getColor:(s,i)=>s===null?"text-muted-foreground/40":s<holePars[i]?"text-primary":s>holePars[i]+1?"text-destructive":"text-foreground",getDisplay:s=>s||"·",onClick:(i)=>{}},
+                    {label:"FWY",data:fairways,getColor:(f)=>f===null?"text-muted-foreground/40":f?"text-primary":"text-destructive",getDisplay:f=>f===null?"·":f?"✓":"✗",onClick:(i)=>setFairways(prev=>{const n=[...prev];n[i]=prev[i]===null?true:prev[i]===true?false:null;return n;})},
+                    {label:"GIR",data:gir,getColor:(g)=>g===null?"text-muted-foreground/40":g?"text-primary":"text-destructive",getDisplay:g=>g===null?"·":g?"✓":"✗",onClick:(i)=>setGir(prev=>{const n=[...prev];n[i]=prev[i]===null?true:prev[i]===true?false:null;return n;})},
+                    {label:"PUT",data:putts,getColor:(p)=>p===null?"text-muted-foreground/40":p<=1?"text-primary":p>=3?"text-destructive":"text-foreground",getDisplay:p=>p===null?"·":p,onClick:(i)=>setPutts(prev=>{const n=[...prev];n[i]=prev[i]===null?1:prev[i]<4?prev[i]+1:null;return n;})},
+                  ].map(row=>(
+                    <div key={row.label} className="grid items-center border-b border-border last:border-b-0" style={{gridTemplateColumns:"2rem repeat(18,1fr)"}}>
+                      <div className="display text-[9px] font-bold uppercase text-muted-foreground text-center py-2">{row.label}</div>
+                      {row.data.map((val,i)=>(
+                        <button key={i} onClick={()=>{if(row.label==="SCR"){setHole(i+1);}else{row.onClick(i);}}} className="text-center py-2">
+                          <span className={cn("display text-[12px] font-bold",row.getColor(val,i))}>{row.getDisplay(val)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                  {scorecard.some(Boolean)&&(
+                    <div className="flex items-center gap-4 px-3 py-2 bg-secondary/50 border-t border-border">
+                      <div><span className="display text-[9px] font-bold uppercase text-muted-foreground">Total </span><span className="display text-[13px] font-bold">{scorecard.filter(Boolean).reduce((a,b)=>a+b,0)}</span></div>
+                      {(()=>{const t=scorecard.filter(Boolean).reduce((a,b)=>a+b,0);const p=holePars.slice(0,scorecard.filter(Boolean).length).reduce((a,b)=>a+b,0);const d=t-p;return <div><span className="display text-[9px] font-bold uppercase text-muted-foreground">vs Par </span><span className={cn("display text-[13px] font-bold",d<=0?"text-primary":"text-destructive")}>{d===0?"E":d>0?"+"+d:""+d}</span></div>})()}
+                      {fairways.some(f=>f!==null)&&<div><span className="display text-[9px] font-bold uppercase text-muted-foreground">FWY </span><span className="display text-[13px] font-bold">{fairways.filter(f=>f===true).length}/{fairways.filter(f=>f!==null).length}</span></div>}
+                      {putts.some(p=>p!==null)&&<div><span className="display text-[9px] font-bold uppercase text-muted-foreground">Putts </span><span className="display text-[13px] font-bold">{putts.filter(p=>p!==null).reduce((a,b)=>a+b,0)}</span></div>}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── Obi's call ───────────────────────────────── */}
+            {messages.length>0&&messages[messages.length-1].role==="assistant"&&(
+              <div className="px-4 shrink-0 pb-2">
+                <div className="rounded-xl border border-primary/40 bg-primary/10 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-6 w-6 rounded-md bg-foreground text-primary flex items-center justify-center"><Zap className="h-3.5 w-3.5" strokeWidth={2.75}/></div>
+                    <p className="display text-[11px] font-bold uppercase tracking-[0.18em]">Obi&apos;s call</p>
+                    <span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-auto">{profile.persona==="pro"?"Tour pro":profile.persona==="coach"?"Coach":"Old School"}</span>
+                  </div>
+                  <p className="display text-xl font-bold tracking-tight leading-tight mb-1">{messages[messages.length-1].content.split(".")[0]}.</p>
+                  <p className="text-sm text-muted-foreground leading-snug">{messages[messages.length-1].content.split(".").slice(1).join(".").trim()}</p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <button onClick={()=>sendMessage("Why do you recommend that?")}
+                      className="display text-[10px] font-bold uppercase tracking-wider bg-foreground text-background rounded-lg px-2.5 py-1.5 hover:opacity-80 transition">Why?</button>
+                    <button onClick={()=>sendMessage("What are my alternatives?")}
+                      className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 hover:border-foreground/50 transition text-foreground">Alternatives</button>
+                    <button onClick={()=>sendMessage("What\'s my biggest risk here?")}
+                      className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 hover:border-foreground/50 transition text-foreground">Risk?</button>
+                    <button onClick={()=>{speaking?stopSpeak():speakText(messages[messages.length-1].content);}}
+                      className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 transition ml-auto border",speaking?"bg-primary/20 text-primary border-primary/40":"border-border text-muted-foreground hover:text-foreground")}>
+                      {speaking?"⏹ Stop":"🔊 Read"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {messages.length===0&&(
+              <div className="px-4 pt-4 pb-2 text-center shrink-0">
+                <ObiLogo size={36}/>
+                <p className="display text-[13px] font-bold text-muted-foreground mt-2">Ask Obi anything about this hole</p>
+              </div>
+            )}
+
+            {/* ── Chat history ─────────────────────────────── */}
+            <div className="flex-1 px-4 pt-2 overflow-y-auto space-y-2 min-h-0" style={{scrollbarWidth:"none"}}>
+              {messages.slice(0,-1).map((m,i)=>(
+                <div key={i} className={cn("flex",m.role==="user"?"justify-end":"justify-start gap-2 items-end")}>
+                  {m.role==="assistant"&&<ObiLogo size={18}/>}
+                  <div className={m.role==="user"?"bubble-user text-[13px]":"bubble-ai text-[13px]"}>{m.content}</div>
+                </div>
+              ))}
+              <div ref={chatEndRef}/>
+            </div>
+
+            {/* ── Input bar ────────────────────────────────── */}
+            <div className="px-3 shrink-0 border-t border-border bg-background/95 backdrop-blur-xl"
+              style={{paddingBottom:"calc(0.5rem + env(safe-area-inset-bottom))",paddingTop:"8px"}}>
+              {speaking&&(
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <div className="flex gap-0.5 items-end h-4">
+                    {[0,1,2,3,4].map(i=>(
+                      <div key={i} className="w-1 rounded-full bg-primary"
+                        style={{height:(4+i%3*4)+"px",animation:"pulse-dot 0.8s "+(i*0.12)+"s infinite"}}/>
+                    ))}
+                  </div>
+                  <span className="display text-[11px] font-bold text-primary uppercase tracking-wider">Obi speaking</span>
+                  <button onClick={stopSpeak} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground ml-auto">Stop ✕</button>
+                </div>
+              )}
+              {loading&&!speaking&&(
+                <div className="flex items-end gap-2 mb-2">
+                  <ObiLogo size={18}/>
+                  <div className="bubble-ai flex gap-1.5 items-center px-4 py-2.5">
+                    {[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 rounded-full bg-muted-foreground" style={{animation:"pulse-dot 1s "+(i*0.18)+"s infinite"}}/>)}
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <button onClick={()=>{const next=!autoSpeak;setAutoSpeak(next);try{localStorage.setItem("obi_autospeak",String(next));}catch{}if(!next)stopSpeak();}}
+                  title={autoSpeak?"Mute Obi":"Unmute Obi"}
+                  className={cn("h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition border",autoSpeak?"bg-primary/15 border-primary/40 text-primary":"bg-secondary border-border text-muted-foreground hover:text-foreground")}>
+                  {autoSpeak?(
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                  ):(
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                  )}
+                </button>
+                <div className="flex-1 flex items-center gap-2 rounded-xl border border-border bg-card pl-3 pr-1.5 py-1.5 shadow-sm">
+                  <input value={input} onChange={e=>setInput(e.target.value)}
+                    onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()}
+                    placeholder={micActive?"Listening...":"Ask Obi anything..."}
+                    className={cn("flex-1 bg-transparent text-[14px] outline-none",micActive?"text-primary font-medium":"text-foreground placeholder:text-muted-foreground")}/>
+                  {micSupported&&(
+                    <button onClick={startMic}
+                      className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition",micActive?"bg-primary text-primary-foreground":"bg-secondary text-muted-foreground hover:text-foreground hover:bg-muted")}>
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+                    </button>
+                  )}
+                  <button onClick={()=>sendMessage()} disabled={!input.trim()||loading}
+                    className={cn("h-8 w-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0 transition",(!input.trim()||loading)?"opacity-35":"hover:opacity-85 active:scale-95")}>
+                    <ArrowUp className="h-4 w-4" strokeWidth={3}/>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+
         {tab==="practice"&&(
           <div className="flex flex-col h-full min-h-0">
             {/* Practice header + sub-tab switcher */}
