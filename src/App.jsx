@@ -289,8 +289,13 @@ function ObiGolfApp(){
     });
     const {data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{
       setUser(session?.user||null);
-      if(session?.user){loadProfile(session.user);setAuthScreen("app");}
-      else setAuthScreen("login");
+      if(session?.user){
+        // Don't reset authScreen if user just completed onboarding
+        setUser(session.user);
+        loadProfile(session.user);
+      } else {
+        setAuthScreen("login");
+      }
     });
     return()=>subscription.unsubscribe();
   },[]);
@@ -301,7 +306,7 @@ function ObiGolfApp(){
       setUserProfile(data);
       setAvatarUrl(data.avatar_url||null);
       if(data.onboarded||(data.full_name&&data.handicap_category)){
-        setAuthScreen("app");
+        setAuthScreen(s=>s==="onboard"?"app":s==="app"?"app":"app");
         if(data.bag&&data.bag.length>0){
           setProfile(p=>({...p,
             handicap:data.handicap_category||p.handicap,
@@ -1229,8 +1234,12 @@ function ObiGolfApp(){
             authName={authName} setAuthName={setAuthName}
             profile={profile} setProfile={setProfile}
             onComplete={async()=>{
-              const ok=await saveProfile(authName);
-              if(ok!==false)setAuthScreen("app");
+              try {
+                await saveProfile(authName);
+              } catch(e) { console.warn("saveProfile error",e); }
+              // Always go to app — even if save had an issue
+              setAuthScreen("app");
+              setTab("home");
             }}/>
         )}
       </div>
@@ -1416,8 +1425,13 @@ function ObiGolfApp(){
                         </div>
                       </div>
                       <div className="px-3.5 pb-3.5">
-                        <button onClick={saveProfile} className="w-full bg-primary text-primary-foreground rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider hover:opacity-90 transition">
-                          Save Bag
+                        <button onClick={async()=>{
+                          const ok=await saveProfile();
+                          if(ok!==false){
+                            setProfileSection(null);
+                          }
+                        }} className="w-full bg-primary text-primary-foreground rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider hover:opacity-90 transition">
+                          Save Bag ✓
                         </button>
                       </div>
                     </div>
@@ -2310,8 +2324,23 @@ function ObiGolfApp(){
 
         {tab==="social"&&(
           <div className="pb-8">
-            <section className="px-4 pt-5"><p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Social</p><h1 className="display text-[26px] font-bold tracking-tight leading-tight mt-0.5">Your crew.</h1></section>
-            {friends.length>0&&(
+            <section className="px-4 pt-5">
+              <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Social</p>
+              <h1 className="display text-[26px] font-bold tracking-tight leading-tight mt-0.5">Your crew.</h1>
+            </section>
+            {/* Sub-tabs */}
+            <section className="px-4 pt-3">
+              <div className="flex gap-1 bg-secondary rounded-xl p-1">
+                {[["feed","Feed"],["rounds","My Rounds"],["friends","Friends"+(friendReqs.length>0?" ("+friendReqs.length+")":"")]].map(([id,label])=>(
+                  <button key={id} onClick={()=>setSocialView(id)}
+                    className={cn("flex-1 py-2 rounded-[10px] display text-[10px] font-bold uppercase tracking-wider transition-all",
+                      socialView===id?"nav-pill-active":"text-muted-foreground hover:text-foreground")}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </section>
+            {socialView==="feed"&&friends.length>0&&(
               <section className="px-4 pt-4">
                 <div className="rounded-xl border border-border bg-card overflow-hidden">
                   <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-secondary/50"><Trophy className="h-3.5 w-3.5 text-primary" strokeWidth={2.5}/><p className="display text-[11px] font-bold uppercase tracking-[0.18em]">This week&apos;s leaderboard</p></div>
@@ -2328,6 +2357,68 @@ function ObiGolfApp(){
                 </div>
               </section>
             )}
+            {/* My Rounds */}
+            {socialView==="rounds"&&(
+              <section className="px-4 pt-4 space-y-2">
+                {rounds.length===0&&(
+                  <div className="rounded-xl border border-border bg-card p-10 text-center">
+                    <p className="text-3xl mb-2">⛳</p>
+                    <p className="display text-[15px] font-bold text-foreground">No rounds saved yet</p>
+                    <p className="text-[12px] text-muted-foreground mt-1">Save a round from the Caddie tab</p>
+                  </div>
+                )}
+                {rounds.map((r,i)=>{
+                  const diff=r.score_vs_par||0;
+                  const fwyHit=(r.fairways||[]).filter(f=>f===true).length;
+                  const fwyTot=(r.fairways||[]).filter(f=>f!==null).length;
+                  const girHit=(r.gir||[]).filter(g=>g===true).length;
+                  const girTot=(r.gir||[]).filter(g=>g!==null).length;
+                  const puttTot=(r.putts||[]).filter(p=>p!==null).reduce((a,b)=>a+b,0);
+                  return(
+                    <div key={r.id||i} className="rounded-xl border border-border bg-card overflow-hidden">
+                      <button onClick={()=>setShowCard(r)} className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-secondary/30 transition text-left">
+                        <div className="h-9 w-9 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                          <MapPin className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={2.5}/>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="display text-[13px] font-bold tracking-tight truncate">{r.course_name||"Unknown"}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">{fmtDate(r.played_at)}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className={cn("stat text-xl leading-none",diff<=0?"text-primary":"text-foreground")}>{r.total_score}</p>
+                          <p className="display text-[10px] font-bold text-muted-foreground">{diff===0?"E":diff>0?"+"+diff:""+diff}</p>
+                        </div>
+                      </button>
+                      <div className="flex items-center justify-between px-3.5 py-2 border-t border-border bg-secondary/20">
+                        <div className="flex gap-3 min-w-0 flex-1">
+                          {fwyTot>0&&<span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">FWY <span className="text-foreground">{fwyHit}/{fwyTot}</span></span>}
+                          {girTot>0&&<span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">GIR <span className="text-foreground">{girHit}/{girTot}</span></span>}
+                          {puttTot>0&&<span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Putts <span className="text-foreground">{puttTot}</span></span>}
+                          {!fwyTot&&!girTot&&!puttTot&&<span className="display text-[10px] text-muted-foreground italic">No stats tracked</span>}
+                        </div>
+                        <div className="flex gap-1.5 shrink-0">
+                          <button onClick={()=>setShowCard(r)}
+                            className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2 py-1 text-muted-foreground hover:text-foreground transition">
+                            View
+                          </button>
+                          <button onClick={async()=>{
+                            if(!window.confirm("Delete this round from "+( r.course_name||"Unknown")+"?"))return;
+                            const{error}=await supabase.from("rounds").delete().eq("id",r.id);
+                            if(!error)setRounds(prev=>prev.filter(x=>x.id!==r.id));
+                          }}
+                            className="display text-[10px] font-bold uppercase tracking-wider border border-destructive/30 rounded-lg px-2 py-1 text-destructive hover:bg-destructive/10 transition">
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </section>
+            )}
+
+            {/* Feed */}
+            {socialView==="feed"&&(
             <section className="px-4 pt-4">
               <div className="flex items-center justify-between mb-2">
                 <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Friend activity</p>
