@@ -828,7 +828,7 @@ function ObiGolfApp(){
       setMessages(m=>[...m,{role:"assistant",content:reply}]);
       // Auto-speak if enabled
       if(autoSpeak){
-        setTimeout(()=>speakText(reply),150);
+        setTimeout(()=>speakText(reply),400);
       }
     }catch(e){
       setMessages(m=>[...m,{role:"assistant",content:"Sorry, having trouble connecting. Try again."}]);
@@ -838,19 +838,40 @@ function ObiGolfApp(){
 
   // ── Voice output ──────────────────────────────────────────────────
   const speakText=(text)=>{
-    if(!window.speechSynthesis)return;
+    if(!window.speechSynthesis||!text)return;
     window.speechSynthesis.cancel();
-    const clean=text.replace(/[*_#]/g,"").replace(/\n/g," ").trim();
-    const utt=new SpeechSynthesisUtterance(clean);
-    utt.rate=0.92;utt.pitch=0.92;utt.volume=1;
-    // Prefer a natural voice
+    setSpeaking(false);
+    const clean=text.replace(/[*_#`]/g,"").replace(/\n/g," ").replace(/\s+/g," ").trim();
+    if(!clean)return;
+    const doSpeak=()=>{
+      const utt=new SpeechSynthesisUtterance(clean);
+      utt.rate=0.9;utt.pitch=1;utt.volume=1;
+      // Pick a good English voice — getVoices() is populated by now
+      const voices=window.speechSynthesis.getVoices();
+      const pick=voices.find(v=>/samantha|karen|daniel|alex|moira/i.test(v.name)&&v.lang.startsWith("en"))
+        ||voices.find(v=>v.lang==="en-US"&&!v.name.includes("Google"))
+        ||voices.find(v=>v.lang.startsWith("en"))
+        ||voices[0];
+      if(pick)utt.voice=pick;
+      utt.onstart=()=>setSpeaking(true);
+      utt.onend=()=>setSpeaking(false);
+      utt.onerror=()=>setSpeaking(false);
+      window.speechSynthesis.speak(utt);
+    };
+    // Voices may not be loaded yet on first call
     const voices=window.speechSynthesis.getVoices();
-    const preferred=voices.find(v=>v.name.includes("Samantha")||v.name.includes("Daniel")||v.name.includes("Alex")||v.name.includes("Google")||v.lang==="en-US");
-    if(preferred)utt.voice=preferred;
-    utt.onstart=()=>setSpeaking(true);
-    utt.onend=()=>setSpeaking(false);
-    utt.onerror=()=>setSpeaking(false);
-    window.speechSynthesis.speakText(utt);
+    if(voices.length>0){
+      doSpeak();
+    }else{
+      window.speechSynthesis.onvoiceschanged=()=>{
+        window.speechSynthesis.onvoiceschanged=null;
+        doSpeak();
+      };
+      // Fallback: just speak after short delay even if voices never fire
+      setTimeout(()=>{
+        if(!speaking)doSpeak();
+      },300);
+    }
   };
 
   const stopSpeak=()=>{
