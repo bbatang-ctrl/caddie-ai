@@ -8,7 +8,22 @@ import {DARK_THEME,LIGHT_THEME,DEFAULT_BAG,Ball,ScoreBadge,Avatar,
 import { Home, MessageCircle, Target, Users, User, Sun, Moon, Settings, Cloud, ChevronRight, ChevronDown, MapPin, Zap, ArrowUp, Video, Sparkles, Activity, Play, LogOut, Briefcase, BarChart3, Bell, X, TrendingDown, TrendingUp, Trophy } from "lucide-react";
 function cn(...c){return c.filter(Boolean).join(" ");}
 const NAV=[{id:"home",label:"Home",Icon:Home},{id:"practice",label:"Practice",Icon:Target},{id:"caddie",label:"Caddie",Icon:MessageCircle},{id:"social",label:"Social",Icon:Users}];
-const LOGO="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAg1UlEQVR42pV6a3Mj2XneOafvuJMEmjMAB8SN5M5wODMkd2d3ZyWtbpackrSOXanEKafyA6JfYJd/Rhy7XEmlnDixFdlOFEkrS7vSksPrkDsEyVmCJG68DUGiu0EC3UA3uk93n3xoAOSs4lSFHzgg+M6Dt4qnn/e8z/OAlZWV4+NjQgghxDCM5eXlRqNBCHmx/uLo6IgQsrOzs7OzQwipVqvr6+uEkEaj8XzpuWVZlmUtLS316l/8v+qXlpa8+udLz7369fX16v8P/vr6eh9/e3d3lxBydHS0srxC/emf/inDMKZp6rpudrssy1IU1e12aZZmGbbb7VIICQJvmhYhRBAEx7Ety+I4nhC3e6ueYRiGYbrdLkVRgiCYpgkA8PkEjG2MMc/zrut2uwbLshSFul2TYRiWZcxb9QQM8DHHcYQQDx9RlNcYyzBGt0tRFM8LpmkSQgSfgNLpNM/zh4eHxeKhJMvZbFbX9VKplE6lBYHf399PJMbu3o0X9gt+vz+dTheLJcPo5nK5Wq1Wq9W8+mKxmEqlBEHY399PJBLxu3f39/d9Pl8qlS6Xyl3DyGazF7VarXaRy+Z03SgWi+l0WhB8hf39RCJx9+7d/f39gC/Qxzdu4xu6XioWU6kULwj7+/vx+JhX7xOETCYDd3d3IpHI8PAwgtC08PHxcTweDwaDlXI5FArFRPHs7AQAeG8sKUl1ra1lszlVVS8uapl0hgBQrVYTiUQwGKxUysFgSIyJp2fHgMBkclySJVVVc7mcpmm1Wi2dTkMAq0fVePxuMBgql0uhUEgUxdPTUwBg8l5SkuqqpuZyE5qm1mq1dDoDIahWj7x+ypVSKBju14NkMilJUrPZRO1O23Edvz+AaBpCCCEAAEAIAQTA++69gSCAgBCCEEQQEkIAgghBAAgAACJICIEQQgQBgAACiCAAgBACEYQQ9H8LCCA9NAAhRBAi7zMH+N5P3n8EAAKvC9j/BgCEBELivQ8AAMsrK9XqESFkezu/vZ0nhFQqldXVVe9hWlhcwBhjjBcWFxpXDULI6upqpVohhGzv5PP5rX79CiGk0VAWFhYwxhbGCwsL3sO3urpSqVQ8fK++Wq3e4C8sYIyxZS0s3OBXPfzt7V4/1QF+Y3Gxh7+42MOHkiTZtq3reigYJIRo7bbP52MYRtM0hmFYljUMAwAiCD7LsmzbDgQCGGNd14OBAIBA09o+n0DTTLvdZhiaZVijawAABZ63MLZt2+/3e/jBYAAAqGmaz+ejabrd1hiaYTnOMHQAoCAIA3zbxp2OHgwGAQCapvp8/pt+ONbQDQgALwgeTaFYLMayrCTVg6FQOBKRZZll2Wg02mgotm2LoqipqqpqoihijGVZjkajLMtKkhQOR8LhiCRJLMPFYjFZljG2xdFRtdVSWy1xdBRjLMuSh1+v18OhcDgcliWJZdlYLKYoDWzboiiqLVVV1dv4DMPKkhQOh0PhkCT1+1EU27bFmKipqqppoijati3LMlhbWzs6PiKEvNrd9fi1Wq2+ePGCEKLI8srKsmEYhmGsrKwoikwI2djY8I7c7qvd3V2PvytevSzLy8vLuq4bhrGyuqLIijcfqkdVQsju7g3f9+uV5T7+6sqKoiiEkI2b+l4/R7f7WV42DMPQ9ZWVZa+e+uM//mOO5UyzSyGK4ziMsUtcnuMdx8EYsywLADBNk6ZpiqbMrknTNMsypmkiBDmOt7AFCOF43nFsjG2GYSCEXj1NUV3LpGmKYVnTNBGieJ7H2CIE8L16i2FZCKBpdmmaoWjKMk2KpliGNc0uQojjvHoP3+uHAQCYlknTjDd/UDabFQShUNi/G4/HE/FCoeD3+TOZTLFYNLoeH5/XarVcLmfc5u/CXjwxFo8n9gsFwefPpDMef09MTJzXzs/Pz3O5nG549Rkf7ysUCvF4PB6P7xUKPp8vnU6XSiXD6E7kJmrefPDwD4vpdIb3CXuFQiIxFo/HC4WC7xZ+LjdRq11cXFzmcjnD0A8ODuD29nYkEhFF8fTsFJAev/b4W9XOa+fZbIYAUK0cJRLxYDBYLhdDobAojp6eHEMI7yXHLy8vNU2dnJhqqS1v9BACqtWKNx/KpVIoHBZF8eT0GBAwPp6q1+uqqk5OTrRa6kXtPJPNEUCOKkfxHn4pFAqLonh6cgIgSCbHJUlSW62JiUlVU2u180wm651DD9/jfggAQACSHuvfGgXea3AzHyBEAwp2CQEAIIQgRAB6FD7g8kF9DwdBqjc0vA8kACEEAHSJC4k3H3r4N5PB+yLEawIAD6A3GQa/JY1G47OFAd8vXt3wcZUQkt/O5/P52/ytyMrzpefe/W9xcbGhvFG/vZ3Pb79Z32h8tvCZh//Zwmcef6+trZUrFUJIsVQsFYs9vl9bJYQ0lB7fY2+eXF0RQlbX1nr95PMeGVQqlaWl57BcKXMsx7KsrusAAJ/fZ5kWxjgYDGIb6z0+JprWmw+qqvI8b9v2qy92eM43/XAGArfT0cPhsGVZnU4nGApCCNWW6vf7vXqWZXv4EPh8PfxAMAABaKlquVQ2uvr9+w8ikQiFqNv1EAJB8FnYwhgHA0Hbxu1OJxQKAQJUVfX7/TRNI0WWPb5vtzVVVcWYiDFWFCkajbIMK9WlcDgcDkckWWIYJhqNXl01TNPaeLE87Ddpt7G6/JuT0zNd14eHhliWlWUpHA6HQ2FZlr36RqNhYyyKoqapaksVY6LjOLIsx6Kxq+vmT3/yYx/TvjdK/+Ln/4tGTDQavWo0bPtWvShiCyuyHI1GaZqRJCkcCodCIVnuzRNICFEUpVgszs3NQQBfbr2cmpwciUY3NzdjsVgqlXr16hUAYGZm5qh6JEn1d997b21traUc/u4Pftdqtw8Pii93Kl/9+vfNrs7xfDabfbX7ihDy6PGjo6MjWZafPn3aUJTDYnF+bh4A8HLrZS6XE0Xxk09+dXa8/9Vns8nkHc7vW17YVFpgcmriwYOHsiyXisW5+XkAwNbW1tTk1Eh0ZHNzMxqLplPpV69eQQgePpw5Ojqq1+vUD3/4Q9u2b/E9RdG0ZVoU6vExhJDnecuyACG8wAMCd19tPZ5OsRSybXtj49XUxPju7s5w9O7IyLCudxCEvCB4fM9xnOPYtm3TNAMAsSyLpmme5y8uLg8Ln9+fSJQqJ+lU0jYxw8BS9fz+9Ixu6I7jsAwLIDFNi6Zoiqa8wcKwXj+I47gBPjo4POh2e/f78/PXudyEYRjF4mE6k+7x8di9eDy+v18Q/L5MJluuVK4a0tBwxHFsQODvfvuDvZ2d+1OJSrnAMOz+/sHYvXvxRKJQKAiCkMlkiqVSR9cnJiZqF7Xz2utcLmd0zY9/+uN35h/s7x185xvvQgBd1w0EA6FwIH43XilXDMPITeRqF7VarZabyBmGUSwV0+m0j+f39gpjY2PxeGKvUBAEIZvNQl3XVVWt1WrZbAYAWKn0+btcCoXDYuyGjy/rl21NS6Wzn/zj3//O1x8DSLm2K/j8xfxa6byVGE/V6ub3f/BRsVhEFBxPpiRJUtVmNjeptlqXlxeZbNbGuHF1ld/amkiHSoX9h7l47slTo9OGiGIY5u9+8tnMo/ffemuy1WrWahfZ7Bt8398fRo9PjhFEyWSyXq83m03kUTUhxGN3QgjoX8o90vXu5AAABJH3ju24rgMAAAhBo2vm7j9oS2cjIxEXN2u1C57niOtxLHFdggCAEDqO4zouz/Pnr2uu2RiJxszri0wuYxhd6O0LjgNJb8GACN3MopsX/fWgv6Z4naPPX77sdDpzc3NHR0flcnlubq6td/L5/MzMTDAQ3NjYyGZzmUx248VGKBiaefSoeHh4fa3ZDoEAEQghIi6g0ndClfLxV549+rsf//dMJnv//oMvvng1MjL8+PGT3d1djK35+bfPz1/XL6WrhvTh1+YKX+ylE1FCCRAQACGFqHa7HY4MPXo0s7WVb7fbs7OzR0fVarUyOzvbbrfzW1szMzOBQGBjY2NiYiKdTr948SIYDD5+/HiwD3SCwRAAQFVVn9/HMqymqQzDchzX6XQghD6fr9vtYoyHh4dXVp6nxnwT2aRhmAhRxDbPd1dfnrT/zb/9w5//4rmLhuLxu+2OznN8MBgQBF/jSlFVdXhouC5Jdrf2ve99+7/8x7+aH/cnZz8ENENcl+f46snrncLFV7/6dZqmHcfp6J1QMAgAVFU1EAjQNN1SW7151ekABP0+v2mapmWi/n1dCoVC4UhYkiSWYaPRqKwotm3HYjFN01RVjcVijuPIshSJROKJeyenNZpmCCEQAmxjhibQtXXD4jj67ORVQyoip6FcHuzkl3e2Fhv1ktOVWo3y65M9hoJGp0NTkGcAtk2IkEsIotCl1AiGhq6vr0RR9PaNUCgcDoclqTdPrq+uHccRRVFra22tHYvFbBs3FIVeX18fvXPn2bNnr17tEkKePXt2dHRUrVafPn2qKMrq6ur83DwBZHVtdWpyKpVK7exsY9smLrKxDQEhADLAvbpSHUAjCGcf3f/G155CAAkBEALHdV3HpWkGIug6+Nm7T1S1DQHEDlCuWqOQuC6BAEIA6nVl9p3HkxMTmxsb0Vj02fvPdnd3AQDPnr1fPapWq9XZJ7MQAsM0Jqcm9Y6xsbGRTI0/mZ+n/uRP/oRlGMMwKIr2+L6v/zjYwizDEkBMy2RohkKU2e0yDNtut83OdTaTNE2LE/jz8v7Sztn3Pvo+x1AIUqaJTQtblm1aGGPHcVwLY8uysOVgbNMUDQGIJ5O/WdkdjQgjd8YwtjmOOT2rs2xYEHiIEMex3a5BUTTPcZZlegtnOBI2ut2rRsMfCCAIr5vNoeGhgD+AMpmMIAgHBwfxu/FEInFwsN+7rxdLhmnkJnK12vmFd1839MNi8d69ewhBwcdCCBGFHAsvbVU/+oOPxGgE2zbxnkmEEIIIIgQhBAhCiBCCCEEEAHAxxrGR0A/+4KOFz8s2NhGCrkuiI+HX52dnZ2eZTIbnfQf7B/F4PD6WODg45Hk+lUoRCFRNPT46Ji7heD4YDPIsBwGA29v5oaGhaDR2enoCAEkmU5IktVrNqam3VFU9r73OZnI9Ph5LBPyB169fHx8fMbD5jQ/fNbvd5ysvBZ//g3cfN5saRdE95u3fdAGEgACABj8RSFGEEBtbkXBoZX3bMPQPv/IuyzG/WXjhj4w/mnlYKpXDoUg0Fj09O6EQGhtLIgq5hFQrlWAwKMbE09MTCGEqlb68vLy+vkaEAIQowSd4l2yfz0czNIKIANK/pQMIvRs7QQhZpjkxMXFy3jw8LCFEy0rz0XSmpbYRoojrusSFFDW4uRPgEGgD4gLgAERc19akU6MpQ0BaWvvRzKSitACE5XK1fFR/6623aIaFANAM5ff7aZpBiOZ5HmPc0TuAgL40BAkBtm33RoTjOI5ju4RYlokg5AQ/jRAAYH19XYyJmWxme3sbAPDkyZNqtVq/rL//7P1Wq7W5udm6lrvG9d070a99MGfbjuM4NM3aRqupyKE7466DAaIgogAhhLiAOAhR0sFmJHqHDkWFQMh1HZpmF59vXtQbfGB4aEicn5uLDA11uwZF0wzNAABs21ZVtV6va6r29N2njUbjiy+++OCDD7z14+HDhyMjIxDbdrN1LUvSeDIFADg/fz00NCQIgmF0MbbbbS0cDgEAW61WwO9nWLataYiiBEGgafqv//q/PZ279/SdudXVjY2XB9fN5ne/9ezxZMKmeF/AZ+ua0boCBAjhCOOPtFWVso2D162V9R1Zqv/e9775ztPHn29sbWy//qM/+iPHtg3DcFz33r2xdrutyEoyOe66TqVSCUciHMtpbZVlWYZh9Y4OUU9HMk0T2a5tmlar2fL+IleNRrPZMgwjGo0yDNNoyKFQOBQKKYrCcpw3H1zHjcVijYZyLzkGAdW8vv67n3yq6e7R8eV/+Mu/UTHl9/Nbq6u/+unPlpdfLC2vf/rxL7bWVgIBf5twf/GX/7XbBbtflP/hf39y3WgAxIzdSzQaSjQWsx1bliUIkWXhulS3sOUSoqoqz/HRWFRRFIxtURRVraX1dSFFkakffP/7Pp//4fTDg4OD6+vrufn5lto6f312XqsxLHP/wXTx8ODq6npubu6yflkql955+x3btrd3th9OTwuCv3S4O/Povqa2/+F//qzVar3/bD4c8r94kceA4obimOIAHxKG7nQMa2d3nxCi6d2f/fxXHEt/55vvzb/9cGPz1ez8V9Kp8bW1tURiLJeb+PzzzxmGmZl5VCweXl1dzc/Pe5/79J2ntm1vb2/PzDwaHh7e2Ni4e/fu5OQkHYvGaETJsuRJf7IssTQTi8Z0w+BYlkJIEARCQNfs+gRfLBqzLAtRKDoy4jgOz3MEIOC63/vuVydyKWzhyFD4xcb2t771wfl5/fKifn8yDQkolY9jo9HZ+ZlPP1n5gx/8zrc/fA8hODWZhQQCAgxdb7Vao6OjlmkpihKNRmmaliQpEAgCACRJYhgmFo0pioKxJYpis9kEEAyUPJTJZHie29srJBJjY2Njhb19XhDSmawojvr9AQDA0NBQOBxutdThoeF0Oq3rHYZhxsdTCMLjk6NRcQQQYjvOw7cyT9+e2djIf+db74cDwuFhefpBrnWttlra9P3Jw4OKn+e/++0PNjZ33p6dnpmetG3sOm5y7E4+/7ksS9lszjD0UqmUTqcFQSgUCol4YmxsbH+/4Pd5vkTR6O0t55e9uWQcHBxQv//7v48oampq6vj4+KrRmH44fX19dXp6Op5MdjqdYulwdHSUYZhquRIIBgRBODw8hBANDQ29fn2++WJ1dibFcpxt27zALa28DIeDD97KYozbbePT36z5BKHbxYvLG/ffyo7FxXAw0GxpJ2cXqfG42TUhRBA6TdWanX26u7stiqPj4+N7e18giKampo6Oj64ajenph1dXV6enpw8fPnRdt1Qs5nK5cCS8v78fjUbT6TS6EWpuBCAICLEwdlyHuARj27ZtmqEty9J1naZpAEi327Vtm+eoQMBH00jguUajeXJyPvfkfruju8R99v6Tt+dmzs4vjs9ez89Pf/DeE5c4bd2Ym50+PavJSpMXOIqGgYAfQteyLApR3pJBUVRv/UDQWwwgBAMRyFtSIESDYUn9+Z//uW3b+Xz+0aNH0Wh0bW3t3r2xVDr98uXnHMfdv/9gf3+/2Wo+efJEkqRKpTI/P2/b9vZ2/uHMTL1eu3c3cnpaIwQCAhKJ0XA44Dg2hMjCeGoi1Wy1h4bD3/r6U62tI4QIcVmaHRmOMDRlGN3apSxGR9Ze7PiDQ0+ePL6sX3r4rutu5bceP34yPDy8vr5+714ylUptbGxwHPfgwYO9wl6z1Zx9MitJ0uHhIaxUKp4OYxg6IcDn81mWhbEVDIYwxp2Ody8HWlsTfD6WYdttjaJplmFdl6ytLtyNcSdn0re//lTgeYCAbdsQAtcFFIWCQ5Gf/MMvCAH//F/8s/ZV03YchBBxCU0jAFDXMD/5zWo6lbjWyNP3Pry6Uvz+wI2OxLFGxwCACL1+cDAQwLat651AIAgA1LS+LiT3dSFVVdVWq/90K9FolGUYWZbDEc8HkHmWi0ajsqzY2BkdHe102i6hjK79wXuze4WSz8/btg0hpBAV8AvXV81f/eOCdGXJ19Ynv1i8uroO+AUKIYigbbs+nts/rH71g3eurprxsfTw8JAkyRzLeb4ExliMiZqmtm58Aykai7EsU69LkUgkHA5JUp1hmNu60OHc7ByE6GX+5dTk5MhIdGPjhRgbTaVTu692IYAzMzNH1arcUJ6+87ShNA4PD2bnZhFF/ef/9Bc/+O7TvYMTQuynbz+kEKPr+uf5PQf4p+4/emtqCgBwcFg8PNilQWfuyX2/30cI2Hz5yjKtJ4/e2tw+zk3OuK49M/Po6KiqKMo77zxVFOXw8HB+fg4AuLW15elUG5svxNhoKpXa3d2FEM7MzBwdH9Uv61CWZe+oBINBCIGqaX6/n6EZTdMYlmFZ1tANAIDgE0zTtLEdDAb79QGapmsXl/mtta+9/1ajoV5cXnVN/ex14/u/9y8ncjlPeB3s5uVy5af/+8eJOyGWZZP3xoaHg7/89Ytv/87vCQJvWdiTNC3LCoVCGON2px0KhSCAnoTIsIym9lZcXe8AAH0+wTQty7Kojz76SPD5stlsuVxWVW36wbQsyaenJzMzjzDGhUJheno6GAzmt/JjY2PxeHxnZ4fjOa++2Ww+efzY5wv+8ldLsZHw7OwUS8NhMTs7O+c4Dux/EUIcx4lGo45DkvHwzPRkpXp8Idtf+do3L2oXudxEKBQa4G/v7HAcl8vmSsWypqnT09OyLJ+cnjyaeYQx3tv7Ynr6YTAY3NrKJxKJRCIBdV3XNPX8/DybzQEAPF0oFAoWS6VwKCyK4snJCYQgmRyv1+uapk5MTLZaLU/XB4SUq5XxZDIUinz88c8NvdnWrr/5rY/SmTQgfXXkRpsBp6enf/+jv5p6MDOWzHIs6/f7hodHzk5Pez5Ava5qrYmJSVVVz89r2UyWAHJ0VE3ExwLBQKlUCodDojh6fHyMEPR8g2bzeuAPQEIIulHdIQIQ9rWX3os+9SKECICAEIggQsjGjm3j+/fvR6Oxly9f2g4GNy5ur/Vm89rvC5jd7lBs7MNvfIfnuL29PYEXPD+AkJ7Q0z9xHtuTvkNBBn9M6NkRt02M5eVlz1Tbzue3tl5+ycddXFz0dPrFxcUrT6dfXen7Blv57YHvu0IIaWvaj370N8+fPyeE2LbtaVu2jVW11Ww2LdP69a8/ff369Lx2vrS05JFH3ye+7Suver7ywJeoVMoevqIoi4uLtm1bnq/s+cTeQ+zpQoQQzXuIGUbTVJphOJYzdB14On3Px/VjjHXDCAaDxAXttur3+yma7rQ7NE0jhH71yS//8F/9a57nHcfR9Q6EyLRM4ro0Tf/0Zz999v4zQfCxLKtqfR+g04EQ9n0AO9jzofs6lab6fT6aYduqyrAMy3F6R4ewtw9YloW8e7+nC0UikYEupDQaju2IoqiqrYFPrMhyNBpjWVaq18OhcKSn27CxaEyRZdM04/F4NpP5Hz/6Wy+2EgyGKIoaGR4RBN/HH388+2Su3e70fd+GjbEYE9ua5vnENrYVWYpGoyzHyrLc95VlluVi0aiiKLbtiDFRVVua2hJF0XYcRZbB+osXR8fHPV/2TR9XkZVlz5ft3vJxNza83M7uzs7AV97w6hVleWXZcZxyufRnf/bvP/vsN+VSab+w/+tPP/3R3/7tL3/5y3K53Kvf6PnKK8srfZ941fOVb/Bv+dYbfR96ZWWlaxiGrq+urt74xGzPx4Ucz2NsuYTc9okJIGbXpBmGono6fc/HpTydHhNCvAODbcwyLLZwMBhIJMZarebZ2ZnW1gSfMDs7e+fOHdu2bdsmxOV5oYfPMAQCy7RomqYoyrRMmqJZhjW7XURRHMdalgUAualnWQBI1/OtKarb7YLBw+RdOd4IaVQrhJCtrZf5rV6oY6UfulhY+AxjfPthWllZ8Uy7fH5ra2uLEFKrnXtuXKfTWVxcNE3TwtbC4q2HterV57f6oZGVlZV+P59hbN0Ojays9EIjW1sv+w93ZWlp6ZZPPMjh1CVVU3MTuZ5vkMkCQCqVSiIx9oaPe3oCAEwmk3WprqlaPxd0ns5kIIDVSvXO3TtejigUCo+K4snZCYQoeS8p1SWtrWZzOVVVL2oXmUyGAHJUrcbjb/oSpycAeD5xvaWqE7kJL3eUyWS8vJmXI0IDn/j2nRsAT7L0gjk37/Z1egAhBAQCQHpaPektFYQASAAggACCEKIoCiEKAgggHNgLAIK+JOr5EgRBOBCgBo3Am7hSLyzk2dA3voFnQf8W3w/+xANftnckqrdyRIsLi9j6Uv2tI9E/cqsrK2/mgvBi/0isra5VK56vvDU4Ej18pbG48OV+1m584q03jlClUmZZrp8LAoJPuPGJB3xMgKrd+AY0zXBv5nywjYP+ALZtvdMJhkIAEFXV/D4/wzKqqjIMw3FczycWfBa2bHwrd+TtG6rq8/vfzCl1AIDe/PH6sbHd7nRCIS9H1MsdIVlWbvYBVRVjom3bjUY/FyTL4XA4HAnLiuTd1xWlcau+JYoitrEiK9Fe7kgKhUOhcFiWZYbr+8Serq+2Bnx/kzvyfOVwWJJllruVCxr0I4q2jZWGEo1GGZaR+/UDnxgM+LXH96u/xfe/nSNSFK++28sRKYSQzY1Nr/7Vq3+y3jCMldVVWZYJIZubm/8k3yvyoH7Qz+bGZn9e7QxyROvr69QPf/jv3vSJaZqiu2bX4/tut0shyA18Yv5WjogA0zRphu7PB4ph2W63iyDq1QPA87xjO9jy6slNjsg0KYrq4VMUz3HmDb6Ncb+fbtfLBfXwGaY/HzjLsgggPM+jg4ODvt5Sq/VyPm/oM/GxsUQ8sV/Y9/n96UymVOrnOi/Oaxfnnj5TKhZT6bQgCPv7hXgiEY/HvdxoOp0ulYqGeZMD9XJEfXwvlxq/G4/vFwoe/q3c6Pn5Ra2Pf5jq9bOfiHv4BZ/Pn8lkbvvEWQJItVJNJBKhUKhUup3rBMlksl6/VFVtcnKy1Wqd117nshMAgHK5PDY2FgqFisXDcDgiiqMnJ0cAwPHUeP3SywVNttRW7cv7RqhYLIbDYXFUPDk+BgCkUqnLy0tV0yZ7+8B5NpsFvVxqPBAIlsvlcDgci8VOT08ABMl745IkNVtNus+xHvcPpgEZZHJuLvb99QoiiBDlOXwIIW917F/TCUKI3EwGSACBACKICHH7wVIAAEEUghAAl3hvuS7pxYhu0kHk5p9b68gb/QAIlpaWBjmf7f79fu0mp7k4uDL094F+jmjrZW9/uJ0zXbiV8+nPB4/v89tbW1ufvzEflP97fS9nms/nt/K/tZ8seP0sLi7e5EYd2+4M+FjTvFxQu93u5bkNA/TyHti2sZfr1Dt64Mv1Gk0zLMt2uwYA0HNWbNv2+/y2jXXDCAQChIB2+0v4rGH07vemaQ5yo7que+Lu7X5oxuOVG/x+bpRjLy8vI5GhoaGhy8sLjuOi0Wi9XscYi6LYUlutnl5kSfXLaDTKcdzFxUUkEhkaGrq4vPTmgyTVPf5utQb1WJLq0ViU5biLi9rQ0NDw8NDl5aWHL/XwY2qr1Wq1YrEYxrYk1aPRKMfe4F9eXHr7Q71et/GX8S8uLv8PPrpoFqu+UfUAAAAASUVORK5CYII=";
+function ObiLogo({size=32}){
+  return(
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Circle background */}
+      <circle cx="20" cy="20" r="19" fill="currentColor" fillOpacity="0.08" stroke="currentColor" strokeOpacity="0.2" strokeWidth="1.5"/>
+      {/* Flag pole */}
+      <line x1="13" y1="10" x2="13" y2="31" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      {/* Flag */}
+      <path d="M13 10 L25 14.5 L13 19 Z" fill="var(--primary)"/>
+      {/* Ground / hole */}
+      <ellipse cx="16" cy="31" rx="5" ry="1.5" fill="currentColor" fillOpacity="0.15"/>
+      <ellipse cx="16" cy="31" rx="3" ry="1" fill="currentColor" fillOpacity="0.3"/>
+    </svg>
+  );
+}
+
 
 // ── Accurate hole data for famous courses ──────────────────────────
 const COURSE_DB={
@@ -439,6 +454,10 @@ function ObiGolfApp(){
   const [holeMapLoading,setHoleMapLoading]=useState(false);
   const [showHoleMap,setShowHoleMap]=useState(false);
   const [osmError,setOsmError]=useState(false);
+  // manualPin: player can tap "Drop pin here" to set the green coords from their current GPS
+  // stored per hole: { [holeNum]: {lat,lng} }
+  const [manualPins,setManualPins]=useState({});
+  const [pinDropMode,setPinDropMode]=useState(false);
 
   const fetchHoleMap=useCallback(async(courseName,holeNum)=>{
     if(!courseName||holeMapLoading)return;
@@ -523,12 +542,16 @@ function ObiGolfApp(){
     setHoleMapLoading(false);
   },[holeMapLoading,holePars,yardage]);
 
+  // When course changes, clear manual pins and pre-populate pars
   // When course is set, pre-populate all 18 pars from DB
   useEffect(()=>{
     const db=matchCourse(course);
     if(db?.holes){
       setHolePars(db.holes.map(h=>h.par));
     }
+    setManualPins({});  // clear manual pins when course changes
+    setHoleMap(null);
+    setShowHoleMap(false);
   },[course]);
 
   useEffect(()=>{if(course&&showHoleMap)fetchHoleMap(course,hole);},[hole,course]);
@@ -923,15 +946,32 @@ function ObiGolfApp(){
     if(filled.length===0)return;
     const total=filled.reduce((a,b)=>a+b,0);
     const par=holePars.slice(0,filled.length).reduce((a,b)=>a+b,0);
+    const diff=total-par;
     const {data,error}=await supabase.from("rounds").insert({
       user_id:user.id,course_name:course||"Unknown Course",
       total_score:total,holes_played:filled.length,
-      score_vs_par:total-par,played_at:new Date().toISOString(),
-      scorecard:scorecard,hole_pars:holePars,
+      score_vs_par:diff,played_at:new Date().toISOString(),
+      scorecard,hole_pars:holePars,
+      fairways,gir,putts,
     }).select().single();
     if(!error&&data){
       setRounds(r=>[data,...r]);
-      alert("Round saved! Score: "+total+" ("+( total-par>0?"+":"")+( total-par)+")");
+      const diffStr=diff===0?"Even":diff>0?"+"+diff:""+diff;
+      const fwyCount=fairways.filter(f=>f===true).length;
+      const fwyTotal=fairways.filter(f=>f!==null).length;
+      const girCount=gir.filter(g=>g===true).length;
+      const girTotal=gir.filter(g=>g!==null).length;
+      const puttTotal=putts.filter(p=>p!==null).reduce((a,b)=>a+b,0);
+      let msg="Round saved! "+total+" ("+diffStr+")";
+      if(fwyTotal>0)msg+=" · FWY "+fwyCount+"/"+fwyTotal;
+      if(girTotal>0)msg+=" · GIR "+girCount+"/"+girTotal;
+      if(puttTotal>0)msg+=" · "+puttTotal+" putts";
+      alert(msg);
+      // Reset scorecard for next round
+      setScorecard(Array(18).fill(null));
+      setFairways(Array(18).fill(null));
+      setGir(Array(18).fill(null));
+      setPutts(Array(18).fill(null));
     }
   };
 
@@ -1142,8 +1182,8 @@ function ObiGolfApp(){
   const bestScore = rounds.length > 0 ? Math.min(...rounds.map(r=>r.total_score||99)) : null;
 
   if(authLoading)return(
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-5">
-      <img src={LOGO} alt="Obi" className="h-16 w-16 object-contain animate-pop-in"/>
+    <div className="bg-background flex flex-col items-center justify-center gap-5" style={{minHeight:"100dvh"}}>
+      <ObiLogo size={56}/>
       <p className="display text-3xl text-foreground">Obi Golf</p>
       <div className="flex gap-1.5">
         {[0,1,2].map(i=>(
@@ -1154,12 +1194,12 @@ function ObiGolfApp(){
     </div>
   );
   if(!user||authScreen==="onboard")return(
-    <div className="min-h-screen bg-background">
-      <div className="max-w-md mx-auto px-6 py-10 flex flex-col min-h-screen">
+    <div className="bg-background" style={{minHeight:"100dvh"}}>
+      <div className="px-5 py-10 flex flex-col mx-auto" style={{maxWidth:"480px",minHeight:"100dvh"}}>
         {authScreen!=="onboard"&&(
           <React.Fragment>
             <div className="text-center mb-10 animate-fade-up">
-              <img src={LOGO} alt="Obi" className="h-14 w-14 object-contain mx-auto"/>
+              <ObiLogo size={52}/>
               <h1 className="display text-[28px] text-foreground mt-3.5">Obi Golf</h1>
               <p className="text-[13px] text-muted-foreground mt-1.5">Your AI caddie. Always in the bag.</p>
             </div>
@@ -1196,7 +1236,7 @@ function ObiGolfApp(){
     </div>
   );
   return(
-    <div className="flex flex-col h-screen max-w-md mx-auto bg-background text-foreground overflow-hidden">
+    <div className="flex flex-col bg-background text-foreground overflow-hidden" style={{height:"100dvh",maxWidth:"480px",margin:"0 auto",position:"relative"}}>
       {showCard&&(
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-5" onClick={()=>setShowCard(null)}>
           <div className="bg-card border border-border rounded-2xl w-full max-w-sm max-h-[80vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
@@ -1215,8 +1255,9 @@ function ObiGolfApp(){
         </div>
       )}
       {tab==="profile_panel"&&(
-        <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
-          <div className="px-4 pt-12 pb-8">
+        <div className="fixed inset-0 z-50 flex justify-center bg-black/40" onClick={()=>setTab("home")}>
+          <div className="bg-background w-full overflow-y-auto relative" style={{maxWidth:"480px"}} onClick={e=>e.stopPropagation()}>
+          <div className="px-4 pt-safe pt-10 pb-8">
             <button onClick={()=>setTab("home")} className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 display text-[12px] font-bold uppercase tracking-wider"><ChevronRight className="h-4 w-4 rotate-180" strokeWidth={2.5}/> Back</button>
             <div className="flex items-center gap-3.5 mb-5">
               <div className="relative shrink-0">
@@ -1236,7 +1277,7 @@ function ObiGolfApp(){
             </div>
             <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">Your game</p>
             <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border mb-4">
-              {[{Icon:Briefcase,label:"My Bag",sub:profile.bag.length+" clubs",id:"bag",tone:"bg-primary/15 text-primary"},{Icon:Sparkles,label:"Caddie Style",sub:profile.persona,id:"style",tone:"bg-accent/20 text-accent"},{Icon:BarChart3,label:"Handicap",sub:"HCP "+profile.hcp,id:"hcp",tone:"bg-secondary text-secondary-foreground"}].map(({Icon,label,sub,id,tone})=>(
+              {[{Icon:Briefcase,label:"My Bag",sub:profile.bag.length+" clubs",id:"bag",tone:"bg-primary/15 text-primary"},{Icon:Sparkles,label:"Caddie Style",sub:["pro","coach","oldschool"].includes(profile.persona)?{pro:"Tour Pro",coach:"The Coach",oldschool:"Old School"}[profile.persona]:profile.persona,id:"style",tone:"bg-accent/20 text-accent"}].map(({Icon,label,sub,id,tone})=>(
                 <React.Fragment key={id}>
                   <button onClick={()=>setProfileSection(profileSection===id?null:id)} className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-secondary/40 transition text-left">
                     <div className={"h-9 w-9 rounded-lg flex items-center justify-center shrink-0 "+tone}><Icon className="h-4 w-4" strokeWidth={2.5}/></div>
@@ -1244,57 +1285,78 @@ function ObiGolfApp(){
                     <ChevronRight className={cn("h-4 w-4 text-muted-foreground shrink-0 transition-transform",profileSection===id&&"rotate-90")} strokeWidth={2.5}/>
                   </button>
                   {profileSection===id&&id==="bag"&&(
-                    <div className="divide-y divide-border">
-                      {profile.bag.map((b,i)=>(
-                        <div key={i} className="flex items-center gap-3 px-3.5 py-2.5">
-                          <span className="display text-[13px] font-bold flex-1">{b.club}</span>
-                          <input type="number" value={b.carry} onChange={e=>{const v=parseInt(e.target.value)||0;setProfile(p=>{const bag=[...p.bag];bag[i]={...bag[i],carry:v};return{...p,bag};});}} className="w-16 bg-input border border-border rounded-lg px-2.5 py-1.5 text-center display text-[13px] font-bold text-foreground outline-none"/>
-                          <span className="display text-[11px] font-bold text-muted-foreground">yds</span>
-                        </div>
-                      ))}
-                      <div className="p-3.5"><button onClick={saveProfile} className="w-full bg-primary text-primary-foreground rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider hover:opacity-90 transition">Save Bag</button></div>
-                    </div>
-                  )}
-                  {profileSection===id&&id==="style"&&(
-                    <div className="p-3.5 space-y-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        {[{v:"hype",l:"Hype"},{v:"pro",l:"Tour Pro"},{v:"coach",l:"Coach"},{v:"savage",l:"Savage"},{v:"oldschool",l:"Old School"}].map(o=>(
-                          <button key={o.v} onClick={()=>setProfile(p=>({...p,persona:o.v}))} className={cn("display text-[11px] font-bold rounded-lg border px-3 py-1.5 transition",profile.persona===o.v?"bg-primary text-primary-foreground border-primary":"border-border text-muted-foreground hover:border-foreground/40")}>{o.l}</button>
+                    <div>
+                      {/* Current clubs */}
+                      <div className="divide-y divide-border">
+                        {profile.bag.map((b,i)=>(
+                          <div key={i} className="flex items-center gap-2.5 px-3.5 py-2.5">
+                            <span className="display text-[13px] font-bold flex-1 min-w-0 truncate">{b.club}</span>
+                            <input type="number" placeholder="0" value={b.carry||""} onChange={e=>{
+                              const v=e.target.value===""?0:parseInt(e.target.value)||0;
+                              setProfile(p=>{const bag=[...p.bag];bag[i]={...bag[i],carry:v};return{...p,bag};});
+                            }}
+                              className="w-16 bg-input border border-border rounded-lg px-2 py-1.5 text-center display text-[13px] font-bold text-foreground outline-none focus:border-primary transition"
+                              style={{MozAppearance:"textfield"}}
+                            />
+                            <span className="display text-[10px] font-bold text-muted-foreground w-5">y</span>
+                            <button onClick={()=>setProfile(p=>({...p,bag:p.bag.filter((_,j)=>j!==i)}))}
+                              className="h-6 w-6 rounded-md bg-destructive/10 text-destructive flex items-center justify-center hover:bg-destructive/20 transition shrink-0">
+                              <X className="h-3 w-3" strokeWidth={3}/>
+                            </button>
+                          </div>
                         ))}
                       </div>
-                      <button onClick={saveProfile} className="w-full bg-primary text-primary-foreground rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider hover:opacity-90 transition">Save</button>
-                    </div>
-                  )}
-                  {profileSection===id&&id==="hcp"&&(
-                    <div className="p-3.5 space-y-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        {[{v:"plus",l:"+HCP"},{v:"scratch",l:"Scratch"},{v:"low",l:"Low"},{v:"mid",l:"Mid"},{v:"high",l:"High"}].map(o=>(
-                          <button key={o.v} onClick={()=>setProfile(p=>({...p,handicap:o.v}))} className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg border px-2.5 py-1.5 transition",profile.handicap===o.v?"bg-primary text-primary-foreground border-primary":"border-border text-muted-foreground hover:border-foreground/40")}>{o.l}</button>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-3"><p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">Index</p><input type="number" step="0.1" value={profile.hcp} onChange={e=>setProfile(p=>({...p,hcp:parseFloat(e.target.value)||0}))} className="w-20 bg-input border border-border rounded-xl px-3 py-2 text-center display text-[15px] font-bold text-foreground outline-none"/></div>
-                      <div>
-                        <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Miss tendency</p>
+                      {/* Add club */}
+                      <div className="px-3.5 py-3 border-t border-border">
+                        <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Add a club</p>
                         <div className="flex flex-wrap gap-1.5">
-                          {["straight","slight fade","fade","slice","slight draw","draw","hook"].map(m=>(
-                            <button key={m} onClick={()=>setProfile(p=>({...p,missTend:m}))} className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg border px-2.5 py-1.5 transition",profile.missTend===m?"bg-primary text-primary-foreground border-primary":"border-border text-muted-foreground hover:border-foreground/40")}>{m}</button>
+                          {["Driver","3-wood","5-wood","7-wood","Hybrid","2-iron","3-iron","4-iron","5-iron","6-iron","7-iron","8-iron","9-iron","PW","GW","SW","LW","Putter"].filter(c=>!profile.bag.some(b=>b.club===c)).map(c=>(
+                            <button key={c} onClick={()=>setProfile(p=>({...p,bag:[...p.bag,{club:c,carry:0}]}))}
+                              className="display text-[10px] font-bold uppercase tracking-wider rounded-lg border border-dashed border-border px-2.5 py-1.5 text-muted-foreground hover:border-primary hover:text-primary transition">
+                              + {c}
+                            </button>
                           ))}
                         </div>
                       </div>
-                      <input placeholder="Home course..." value={profile.homeCourse} onChange={e=>setProfile(p=>({...p,homeCourse:e.target.value}))} className="w-full bg-input border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-foreground/40 transition"/>
-                      <button onClick={saveProfile} className="w-full bg-primary text-primary-foreground rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider hover:opacity-90 transition">Save Profile</button>
+                      <div className="px-3.5 pb-3.5">
+                        <button onClick={saveProfile} className="w-full bg-primary text-primary-foreground rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider hover:opacity-90 transition">
+                          Save Bag
+                        </button>
+                      </div>
                     </div>
                   )}
+                  {profileSection===id&&id==="style"&&(
+                    <div className="p-3.5 space-y-2.5">
+                      {[
+                        {v:"pro",    icon:"🎯", label:"Tour Pro",   desc:"Calm, clinical precision. Minimal words, maximum clarity."},
+                        {v:"coach",  icon:"📚", label:"The Coach",  desc:"Warm and encouraging. Builds confidence every hole."},
+                        {v:"oldschool",icon:"🪨",label:"Old School", desc:"Gritty, direct, no-nonsense caddie. Old-fashioned and real."},
+                      ].map(o=>(
+                        <button key={o.v} onClick={()=>setProfile(p=>({...p,persona:o.v}))}
+                          className={cn("w-full flex items-center gap-3 rounded-xl border-2 px-3.5 py-3 text-left transition-all",
+                            profile.persona===o.v?"border-primary bg-primary/10":"border-border hover:border-foreground/30")}>
+                          <span className="text-2xl shrink-0">{o.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="display text-[14px] font-bold tracking-tight">{o.label}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{o.desc}</p>
+                          </div>
+                          {profile.persona===o.v&&(
+                            <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center shrink-0">
+                              <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                      <button onClick={saveProfile} className="w-full bg-primary text-primary-foreground rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider hover:opacity-90 transition mt-1">
+                        Save style
+                      </button>
+                    </div>
+                  )}
+
                 </React.Fragment>
               ))}
             </div>
-            <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border mb-4">
-              <div className="flex items-center gap-3 px-3.5 py-3">
-                <div className="h-9 w-9 rounded-lg bg-secondary text-secondary-foreground flex items-center justify-center shrink-0">{isDark?<Sun className="h-4 w-4" strokeWidth={2.5}/>:<Moon className="h-4 w-4" strokeWidth={2.5}/>}</div>
-                <div className="flex-1"><p className="display text-[13px] font-bold tracking-tight">{isDark?"Light Mode":"Dark Mode"}</p><p className="text-[11px] text-muted-foreground">Currently {isDark?"dark":"light"}</p></div>
-                <button onClick={()=>setIsDark(d=>!d)} className={cn("w-12 h-6 rounded-full transition-colors relative",isDark?"bg-primary":"bg-muted")}><span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all",isDark?"left-[26px]":"left-0.5")}/></button>
-              </div>
-            </div>
+
             <button onClick={handleLogout} className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-3.5 py-3 display text-[12px] font-bold uppercase tracking-wider text-muted-foreground hover:text-destructive hover:border-destructive/40 transition">
               <LogOut className="h-3.5 w-3.5" strokeWidth={2.5}/> Sign out
             </button>
@@ -1304,7 +1366,7 @@ function ObiGolfApp(){
       <header className="shrink-0 sticky top-0 z-30 bg-background/85 backdrop-blur-xl border-b border-border pt-safe">
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2.5">
-            <img src={LOGO} alt="Obi" className="h-9 w-9 object-contain shrink-0 rounded-lg"/>
+            <ObiLogo size={36}/>
             <span className="display font-semibold tracking-tight text-[15px]">Obi Golf</span>
           </div>
           <div className="flex items-center gap-1.5">
@@ -1320,50 +1382,146 @@ function ObiGolfApp(){
       </header>
       <div className="flex-1 overflow-y-auto" style={{WebkitOverflowScrolling:"touch"}}>
         {tab==="home"&&(
-          <div className="pb-8">
-            <section className="px-4 pt-5"><p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Good morning</p><h1 className="display text-[26px] font-bold tracking-tight leading-tight mt-0.5">Your game, by the numbers.</h1></section>
+          <div className="overflow-y-auto pb-8">
+            <section className="px-4 pt-5">
+              <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Dashboard</p>
+              <h1 className="display text-[24px] font-bold tracking-tight leading-tight mt-0.5">Your game, by the numbers.</h1>
+            </section>
+
+            {/* Handicap hero */}
             <section className="px-4 pt-4">
               <div className="rounded-xl bg-foreground text-background p-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] opacity-60">Handicap index</p>
-                    <div className="flex items-end gap-2 mt-1">
-                      <p className="stat text-[44px] leading-none">{profile.hcp}</p>
-                      <span className="display text-[11px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-0.5 pb-2"><TrendingDown className="h-3 w-3" strokeWidth={3}/>{profile.handicap}</span>
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] opacity-50 mb-1">Handicap index</p>
+                    <div className="flex items-end gap-2">
+                      <p className="stat text-[48px] leading-none">{profile.hcp}</p>
+                      <span className="display text-[11px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-0.5 pb-2">
+                        <TrendingDown className="h-3 w-3" strokeWidth={3}/>{profile.handicap}
+                      </span>
                     </div>
-                    <p className="text-[11px] opacity-60 mt-1.5 font-medium">{rounds.length>0?"Updated after "+fmtDateShort(rounds[0]?.played_at)+" · "+(rounds[0]?.course_name||""):"No rounds yet. Start playing!"}</p>
+                    <p className="text-[11px] opacity-50 mt-1.5 font-medium">
+                      {rounds.length>0?"Updated after "+fmtDateShort(rounds[0]?.played_at)+" · "+(rounds[0]?.course_name||""):"No rounds yet — start playing!"}
+                    </p>
                   </div>
-                  <button onClick={()=>{setSocialView("rounds");setTab("social");}} className="display text-[10px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-0.5">History <ChevronRight className="h-3 w-3" strokeWidth={3}/></button>
+                  <button onClick={()=>{setSocialView("rounds");setTab("social");}}
+                    className="display text-[10px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-0.5 mt-1">
+                    History <ChevronRight className="h-3 w-3" strokeWidth={3}/>
+                  </button>
                 </div>
               </div>
             </section>
-            <section className="px-4 pt-3">
-              <div className="grid grid-cols-2 gap-2.5">
-                {[{label:"Avg Score",value:avgScore||"--",trend:"down"},{label:"Rounds",value:rounds.length,trend:"up"},{label:"Best Score",value:bestScore||"--",trend:"down"},{label:"HCP Index",value:profile.hcp,trend:"down"}].map(s=>(
-                  <div key={s.label} className="rounded-xl border border-border bg-card p-3.5">
-                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{s.label}</p>
-                    <div className="flex items-end gap-1 mt-1.5"><p className="stat text-[30px] leading-none">{s.value}</p></div>
-                    <div className="mt-2 inline-flex items-center gap-0.5 text-primary">{s.trend==="down"?<TrendingDown className="h-3 w-3" strokeWidth={3}/>:<TrendingUp className="h-3 w-3" strokeWidth={3}/>}<span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1">vs last 5</span></div>
+
+            {/* Stat grid — derived from saved scorecard data */}
+            {(()=>{
+              // Compute stats from rounds that have scorecard+fairway+GIR+putt data
+              const roundsWithData=rounds.filter(r=>r.scorecard&&Array.isArray(r.scorecard));
+              const n=Math.min(roundsWithData.length,10);
+              const avgScoreVal=n>0?Math.round(roundsWithData.slice(0,n).reduce((a,r)=>a+(r.total_score||0),0)/n):null;
+              const bestScoreVal=rounds.length>0?Math.min(...rounds.map(r=>r.total_score||999)):null;
+
+              // Fairways hit % from stored fairways arrays
+              let fwyHit=0,fwyTotal=0;
+              roundsWithData.slice(0,n).forEach(r=>{
+                if(r.fairways&&Array.isArray(r.fairways)){
+                  r.fairways.forEach(f=>{if(f!==null){fwyTotal++;if(f===true)fwyHit++;}});
+                }
+              });
+              const fwyPct=fwyTotal>0?Math.round(fwyHit/fwyTotal*100):null;
+
+              // GIR % from stored gir arrays
+              let girHit=0,girTotal=0;
+              roundsWithData.slice(0,n).forEach(r=>{
+                if(r.gir&&Array.isArray(r.gir)){
+                  r.gir.forEach(g=>{if(g!==null){girTotal++;if(g===true)girHit++;}});
+                }
+              });
+              const girPct=girTotal>0?Math.round(girHit/girTotal*100):null;
+
+              // Avg putts per round from stored putts arrays
+              let puttTotal=0,puttRounds=0;
+              roundsWithData.slice(0,n).forEach(r=>{
+                if(r.putts&&Array.isArray(r.putts)){
+                  const rPutts=r.putts.filter(p=>p!==null).reduce((a,b)=>a+b,0);
+                  if(rPutts>0){puttTotal+=rPutts;puttRounds++;}
+                }
+              });
+              const avgPutts=puttRounds>0?Math.round(puttTotal/puttRounds):null;
+
+              const stats=[
+                {label:"Avg Score",  value:avgScoreVal||"--",  sub:n>0?"last "+n+" rounds":"no rounds yet", color:"text-foreground"},
+                {label:"Best Score", value:bestScoreVal||"--", sub:rounds.length>0?"all time":"--",          color:"text-primary"},
+                {label:"Rounds",     value:rounds.length,      sub:"total played",                           color:"text-foreground"},
+                {label:"Fairways",   value:fwyPct!==null?fwyPct+"%":"--", sub:fwyTotal>0?fwyTotal+" tracked":"no data yet", color:fwyPct!==null?(fwyPct>=60?"text-primary":"text-foreground"):"text-muted-foreground"},
+                {label:"GIR",        value:girPct!==null?girPct+"%":"--", sub:girTotal>0?girTotal+" tracked":"no data yet", color:girPct!==null?(girPct>=50?"text-primary":"text-foreground"):"text-muted-foreground"},
+                {label:"Putts/Rnd",  value:avgPutts||"--",     sub:puttRounds>0?puttRounds+" rounds":"no data yet", color:avgPutts!==null?(avgPutts<=32?"text-primary":avgPutts>=36?"text-destructive":"text-foreground"):"text-muted-foreground"},
+              ];
+
+              return(
+                <section className="px-4 pt-3">
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {stats.map(s=>(
+                      <div key={s.label} className="rounded-xl border border-border bg-card p-3.5">
+                        <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{s.label}</p>
+                        <p className={"stat text-[32px] leading-none mt-1.5 "+s.color}>{s.value}</p>
+                        <p className="display text-[10px] font-bold text-muted-foreground mt-1.5">{s.sub}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </section>
+                  {rounds.length>0&&fwyTotal===0&&(
+                    <p className="text-[11px] text-muted-foreground mt-2 text-center">
+                      Track Fairways, GIR &amp; Putts in the Caddie scorecard to see detailed stats here
+                    </p>
+                  )}
+                </section>
+              );
+            })()}
+
+            {/* Recent rounds */}
             <section className="px-4 pt-4">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-2.5">
                 <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Recent rounds</p>
-                <button onClick={()=>{setSocialView("rounds");setTab("social");}} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5">All stats <ChevronRight className="h-3 w-3" strokeWidth={3}/></button>
+                <button onClick={()=>{setSocialView("rounds");setTab("social");}}
+                  className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground inline-flex items-center gap-0.5">
+                  All <ChevronRight className="h-3 w-3" strokeWidth={3}/>
+                </button>
               </div>
               {rounds.length===0?(
-                <div className="rounded-xl border border-border bg-card p-6 text-center"><p className="text-2xl mb-2">⛳</p><p className="display text-[13px] font-bold text-foreground">No rounds yet</p><p className="text-[12px] text-muted-foreground mt-1">Save a round from the Caddie tab</p></div>
+                <div className="rounded-xl border border-border bg-card p-8 text-center">
+                  <p className="text-3xl mb-2">⛳</p>
+                  <p className="display text-[14px] font-bold text-foreground">No rounds saved yet</p>
+                  <p className="text-[12px] text-muted-foreground mt-1">Save a round from the Caddie tab to see stats here</p>
+                </div>
               ):(
                 <div className="space-y-2">
-                  {rounds.slice(0,3).map((r,i)=>{
+                  {rounds.slice(0,5).map((r,i)=>{
                     const diff=r.score_vs_par||0;
+                    const fwyPct=r.fairways?Math.round(r.fairways.filter(f=>f===true).length/Math.max(1,r.fairways.filter(f=>f!==null).length)*100):null;
+                    const girPct=r.gir?Math.round(r.gir.filter(g=>g===true).length/Math.max(1,r.gir.filter(g=>g!==null).length)*100):null;
+                    const totalPutts=r.putts?r.putts.filter(p=>p!==null).reduce((a,b)=>a+b,0):null;
                     return(
-                      <button key={r.id||i} onClick={()=>setShowCard(r)} className="w-full flex items-center gap-3 rounded-xl border border-border bg-card px-3.5 py-3 hover:bg-secondary/40 transition text-left">
-                        <div className="h-8 w-8 rounded-lg bg-secondary flex items-center justify-center shrink-0"><MapPin className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={2.5}/></div>
-                        <div className="min-w-0 flex-1"><p className="display text-[13px] font-bold tracking-tight truncate">{r.course_name||"Unknown"}</p><p className="text-[11px] text-muted-foreground">{fmtDateShort(r.played_at)} · {diff===0?"E":diff>0?"+"+diff:""+diff}</p></div>
-                        <div className="text-right"><p className={cn("stat text-lg leading-none",diff<=0?"text-primary":"text-foreground")}>{r.total_score}</p>{i===0&&bestScore===r.total_score&&<p className="display text-[9px] font-bold uppercase tracking-wider text-primary mt-1">Best</p>}</div>
+                      <button key={r.id||i} onClick={()=>setShowCard(r)}
+                        className="w-full rounded-xl border border-border bg-card p-3.5 hover:bg-secondary/30 transition text-left">
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                            <MapPin className="h-4 w-4 text-muted-foreground" strokeWidth={2.5}/>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="display text-[14px] font-bold tracking-tight truncate">{r.course_name||"Unknown"}</p>
+                            <p className="text-[11px] text-muted-foreground">{fmtDateShort(r.played_at)}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className={cn("stat text-[22px] leading-none",diff<=0?"text-primary":"text-foreground")}>{r.total_score}</p>
+                            <p className="display text-[10px] font-bold text-muted-foreground">{diff===0?"E":diff>0?"+"+diff:""+diff}</p>
+                          </div>
+                        </div>
+                        {(fwyPct!==null||girPct!==null||totalPutts!==null)&&(
+                          <div className="flex gap-3 mt-2.5 pt-2.5 border-t border-border">
+                            {fwyPct!==null&&<span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">FWY <span className="text-foreground">{fwyPct}%</span></span>}
+                            {girPct!==null&&<span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">GIR <span className="text-foreground">{girPct}%</span></span>}
+                            {totalPutts!==null&&<span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Putts <span className="text-foreground">{totalPutts}</span></span>}
+                          </div>
+                        )}
                       </button>
                     );
                   })}
@@ -1372,537 +1530,297 @@ function ObiGolfApp(){
             </section>
           </div>
         )}
+
         {tab==="practice"&&(
-          <div className="px-4 pt-5 pb-8 space-y-5">
-            <div><p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Practice</p><h1 className="display text-[26px] font-bold tracking-tight leading-tight mt-0.5">Sharpen your game.</h1></div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2"><div className="h-5 w-5 rounded-md bg-foreground text-primary flex items-center justify-center"><Video className="h-3 w-3" strokeWidth={3}/></div><p className="display text-[11px] font-bold uppercase tracking-[0.18em]">Swing Lab</p></div>
-                <span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Video analysis</span>
-              </div>
-              <button onClick={()=>swingInputRef.current?.click()} className="w-full rounded-xl bg-foreground text-background p-4 flex items-center gap-3 hover:opacity-95 transition mb-2">
-                <div className="h-10 w-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0"><Video className="h-4 w-4" strokeWidth={2.75}/></div>
-                <div className="text-left flex-1"><p className="display text-[15px] font-bold tracking-tight">Record a swing</p><p className="text-[11px] opacity-70 font-medium">AI breakdown · plane, tempo, face</p></div>
-                <ChevronRight className="h-4 w-4" strokeWidth={3}/>
-              </button>
-              <input ref={swingInputRef} type="file" accept="video/*,image/*" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)setSwingFile(f);}}/>
-              {swingFile&&!swingAnalysis&&!swingLoading&&(
-                <div className="rounded-xl border border-border bg-card p-4 space-y-3 mb-2">
-                  <p className="text-[13px] text-muted-foreground">File: <span className="text-foreground font-semibold">{swingFile.name}</span></p>
-                  <textarea placeholder="Notes (optional)..." value={swingNotes} onChange={e=>setSwingNotes(e.target.value)} rows={2} className="w-full bg-input border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none focus:border-foreground/40 transition"/>
-                  <button onClick={handleSwingAnalyze} className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 display text-[13px] font-bold uppercase tracking-wider hover:opacity-90 transition">Analyze with Obi</button>
-                </div>
-              )}
-              {swingLoading&&(<div className="rounded-xl border border-border bg-card p-8 text-center mb-2"><div className="text-3xl mb-3" style={{animation:"spin 1s linear infinite",display:"inline-block"}}>⚙️</div><p className="display text-[15px] font-bold text-foreground">Analyzing your swing...</p></div>)}
-              {swingAnalysis&&(
-                <div className="mb-2">
-                  <div className="rounded-xl border border-border bg-card p-4 mb-2">
-                    <div className="flex items-center justify-between mb-3"><p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Last swing · {swingNotes||"Unknown"}</p><span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Just now</span></div>
-                    <p className="text-sm text-muted-foreground leading-relaxed mb-3">{swingAnalysis.slice(0,150)}...</p>
-                    <button onClick={()=>speakText(swingAnalysis)} className="display text-[10px] font-bold uppercase tracking-wider border-b-2 border-foreground pb-0.5">See full breakdown</button>
-                  </div>
-                  <div className="rounded-xl border border-primary/40 bg-primary/10 p-4">
-                    <div className="flex items-center gap-1.5 mb-1"><Sparkles className="h-3 w-3" strokeWidth={2.5}/><p className="display text-[10px] font-bold uppercase tracking-[0.18em]">Obi&apos;s read</p></div>
-                    <p className="display text-[15px] font-bold tracking-tight leading-snug">{swingAnalysis.split(".").slice(0,2).join(".")+"."}</p>
-                    <button onClick={()=>{setSwingAnalysis("");setSwingFile(null);setSwingNotes("");}} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground pb-0.5 mt-2">New analysis</button>
-                  </div>
-                </div>
-              )}
-              {swingHistory.length>0&&!swingAnalysis&&(
-                <div className="rounded-xl border border-border bg-card p-4 mb-2">
-                  <div className="flex items-center justify-between mb-2"><p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Last swing · {swingHistory[0].club_used||"Unknown"}</p><span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{fmtDateShort(swingHistory[0].created_at)}</span></div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{swingHistory[0].analysis?.slice(0,120)}...</p>
-                  <button onClick={()=>speakText(swingHistory[0].analysis||"")} className="display text-[10px] font-bold uppercase tracking-wider border-b-2 border-foreground pb-0.5 mt-2">See full breakdown</button>
-                </div>
-              )}
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2"><div className="h-5 w-5 rounded-md bg-primary text-primary-foreground flex items-center justify-center"><Target className="h-3 w-3" strokeWidth={3}/></div><p className="display text-[11px] font-bold uppercase tracking-[0.18em]">Range Mode</p></div>
-                <span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Live shot tracking</span>
-              </div>
-              {!cameraActive&&!rangeLoading&&!rangeShotResult&&(
-                <button onClick={startCamera} className="w-full rounded-xl bg-primary text-primary-foreground p-4 flex items-center gap-3 hover:opacity-95 transition mb-2">
-                  <div className="h-10 w-10 rounded-lg bg-foreground/10 flex items-center justify-center shrink-0"><Play className="h-4 w-4" strokeWidth={3} fill="currentColor"/></div>
-                  <div className="text-left flex-1"><p className="display text-[15px] font-bold tracking-tight">Start range session</p><p className="text-[11px] opacity-70 font-medium">Track every shot · Obi coaches live</p></div>
-                  <ChevronRight className="h-4 w-4" strokeWidth={3}/>
-                </button>
-              )}
-              {cameraActive&&(
-                <div className="rounded-xl border border-border bg-card overflow-hidden mb-2">
-                  <video ref={videoRef} muted playsInline className="w-full aspect-video object-cover bg-black"/>
-                  <div className="p-3.5 flex gap-2">
-                    {!recording?(<button onClick={startRecording} className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider">Record</button>):(<button onClick={()=>mediaRecorderRef.current?.stop()} className="flex-1 flex items-center justify-center gap-2 bg-destructive/20 text-destructive rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider border border-destructive/30">Stop</button>)}
-                    <button onClick={stopCamera} className="rounded-xl border border-border bg-secondary px-4 py-3 display text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Cancel</button>
-                  </div>
-                </div>
-              )}
-              {rangeLoading&&(<div className="rounded-xl border border-border bg-card p-6 text-center mb-2"><p className="display text-[15px] font-bold text-foreground">Analyzing shot...</p></div>)}
-              {rangeShotResult&&!rangeShotResult.error&&(
-                <div className="mb-2">
-                  <ShotShapeDiagram result={rangeShotResult} club={rangeClub} dexterity={profile.dexterity}/>
-                  <div className="rounded-xl border border-primary/40 bg-primary/10 p-4 mt-2">
-                    <div className="grid grid-cols-3 gap-3 mb-3">{[["Shape",rangeShotResult.shape||"straight"],["Carry",(rangeShotResult.carry||0)+"y"],["Dir",rangeShotResult.direction||"center"]].map(([l,v])=>(<div key={l} className="text-center"><p className="display text-[9px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">{l}</p><p className="stat text-xl leading-none text-primary">{v}</p></div>))}</div>
-                    {rangeShotResult.coaching&&<p className="text-sm text-foreground leading-relaxed pt-3 border-t border-border/50">{rangeShotResult.coaching}</p>}
-                    <button onClick={()=>setRangeShotResult(null)} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground pb-0.5 mt-2">Next shot</button>
-                  </div>
-                </div>
-              )}
-              {rangeHistory.length>0&&(
-                <div className="rounded-xl border border-border bg-card p-4 mb-2">
-                  <div className="flex items-center justify-between mb-3"><p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Last session</p><span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{fmtDateShort(rangeHistory[0]?.created_at)}</span></div>
-                  <div className="grid grid-cols-3 gap-3">{[["Shots",rangeHistory.length],["Shape",clubStats[rangeClub]?.typicalShape||"--"],["Stars","⭐".repeat(Math.min(3,clubStats[rangeClub]?.consistencyStars||3))]].map(([l,v])=>(<div key={l}><div className="flex items-center gap-1 text-muted-foreground mb-1"><Target className="h-3 w-3" strokeWidth={2.5}/><p className="display text-[10px] font-bold uppercase tracking-wider">{l}</p></div><p className="stat text-[26px] leading-none">{v}</p></div>))}</div>
-                </div>
-              )}
-              <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mt-3 mb-2">Recommended drills</p>
-              <div className="space-y-2">
-                {[{Icon:Activity,label:"100yd ladder",reps:"10 shots",color:"bg-primary/15 text-primary"},{Icon:Target,label:"Center strike",reps:"20 shots",color:"bg-accent/30 text-accent-foreground"},{Icon:Activity,label:"Tempo drill",reps:"15 shots",color:"bg-secondary text-secondary-foreground"}].map(d=>(
-                  <button key={d.label} className="w-full flex items-center gap-3 rounded-xl border border-border bg-card px-3.5 py-3 hover:border-foreground/40 transition text-left">
-                    <div className={"h-9 w-9 rounded-lg flex items-center justify-center shrink-0 "+d.color}><d.Icon className="h-4 w-4" strokeWidth={2.5}/></div>
-                    <div className="min-w-0 flex-1"><p className="display text-[13px] font-bold tracking-tight">{d.label}</p><p className="text-[11px] text-muted-foreground">{d.reps}</p></div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" strokeWidth={2.5}/>
+          <div className="flex flex-col h-full min-h-0">
+            {/* Practice header + sub-tab switcher */}
+            <div className="px-4 pt-5 pb-3 shrink-0">
+              <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Practice</p>
+              <h1 className="display text-[24px] font-bold tracking-tight leading-tight mt-0.5 mb-4">Sharpen your game.</h1>
+              <div className="flex gap-1 bg-secondary rounded-xl p-1">
+                {[["swing","🎬 Swing Lab"],["range","🎯 Range Mode"]].map(([id,label])=>(
+                  <button key={id} onClick={()=>setPracticeSubTab(id)}
+                    className={cn("flex-1 py-2.5 rounded-[10px] display text-[12px] font-bold uppercase tracking-wider transition-all",
+                      practiceSubTab===id?"nav-pill-active":"text-muted-foreground hover:text-foreground")}>
+                    {label}
                   </button>
                 ))}
               </div>
             </div>
-          </div>
-        )}
-        {tab==="caddie"&&(
-          <div className="flex flex-col h-full">
 
-            {/* ── Hole + Yardage bar ───────────────────────── */}
-            <div className="px-4 pt-3 shrink-0">
-              <div className="rounded-xl bg-foreground text-background p-3.5 mb-3">
-                <div className="flex items-center gap-3">
-                  <MapPin className="h-4 w-4 shrink-0 opacity-60" strokeWidth={2.5}/>
-                  <div className="min-w-0 flex-1">
-                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] opacity-60">Live round</p>
-                    <input
-                      value={courseInput}
-                      onChange={e=>setCourseInput(e.target.value)}
-                      onBlur={()=>{if(courseInput)setCourse(courseInput);}}
-                      onKeyDown={e=>{if(e.key==="Enter"&&courseInput)setCourse(courseInput);}}
-                      placeholder="Set course name..."
-                      className="display text-[15px] font-bold tracking-tight bg-transparent outline-none placeholder:opacity-40 w-full"
-                    />
-                  </div>
-                  <span className="display text-xs font-bold tracking-wider text-primary shrink-0">{course?"ON":"--"}</span>
-                </div>
-              </div>
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-y-auto px-4 pb-8 space-y-4">
 
-              {/* Hole + Yardage row */}
-              <div className="rounded-xl border border-border bg-card p-4 mb-3">
-                <div className="grid grid-cols-3 gap-4 items-end">
-                  {/* Hole dropdown */}
-                  <div>
-                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Hole</p>
-                    <div className="relative">
-                      <select value={hole} onChange={e=>setHole(Number(e.target.value))}
-                        className="w-full appearance-none stat text-[28px] leading-none bg-transparent outline-none cursor-pointer pr-5 text-foreground">
-                        {Array.from({length:18},(_,i)=>i+1).map(n=>(
-                          <option key={n} value={n}>{n}</option>
+              {/* ══ SWING LAB ══════════════════════════════════════ */}
+              {practiceSubTab==="swing"&&(
+                <React.Fragment>
+                  {/* Upload CTA */}
+                  <button onClick={()=>swingInputRef.current?.click()}
+                    className="w-full rounded-xl bg-foreground text-background p-4 flex items-center gap-3 hover:opacity-95 transition">
+                    <div className="h-11 w-11 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0">
+                      <Video className="h-5 w-5" strokeWidth={2.5}/>
+                    </div>
+                    <div className="text-left flex-1">
+                      <p className="display text-[16px] font-bold tracking-tight">Record or upload a swing</p>
+                      <p className="text-[12px] opacity-60 font-medium mt-0.5">Video or photo · AI breakdown · plane, tempo, face angle</p>
+                    </div>
+                    <ChevronRight className="h-5 w-5 shrink-0 opacity-60" strokeWidth={2.5}/>
+                  </button>
+                  <input ref={swingInputRef} type="file" accept="video/*,image/*" className="hidden"
+                    onChange={e=>{const f=e.target.files?.[0];if(f)setSwingFile(f);}}/>
+
+                  {/* File selected — notes + analyze */}
+                  {swingFile&&!swingAnalysis&&!swingLoading&&(
+                    <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                          <Video className="h-4 w-4" strokeWidth={2.5}/>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="display text-[13px] font-bold truncate">{swingFile.name}</p>
+                          <p className="text-[11px] text-muted-foreground">{swingFile.type.startsWith("video")?"Video":"Photo"} · {Math.round(swingFile.size/1024)}KB</p>
+                        </div>
+                        <button onClick={()=>setSwingFile(null)} className="text-muted-foreground hover:text-foreground">
+                          <X className="h-4 w-4" strokeWidth={2.5}/>
+                        </button>
+                      </div>
+                      <textarea placeholder="Notes (optional) — club, what to improve, feel..." value={swingNotes}
+                        onChange={e=>setSwingNotes(e.target.value)} rows={2}
+                        className="w-full bg-input border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none focus:border-foreground/40 transition"/>
+                      <button onClick={handleSwingAnalyze}
+                        className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 display text-[13px] font-bold uppercase tracking-wider hover:opacity-90 transition">
+                        Analyze with Obi
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Analyzing */}
+                  {swingLoading&&(
+                    <div className="rounded-xl border border-border bg-card p-8 text-center">
+                      <div className="h-12 w-12 rounded-full border-2 border-primary border-t-transparent mx-auto mb-4"
+                        style={{animation:"spin 0.8s linear infinite"}}/>
+                      <p className="display text-[15px] font-bold">Analyzing your swing...</p>
+                      <p className="text-[12px] text-muted-foreground mt-1">Obi is reviewing your footage</p>
+                    </div>
+                  )}
+
+                  {/* Analysis result */}
+                  {swingAnalysis&&(
+                    <React.Fragment>
+                      <div className="rounded-xl border border-primary/40 bg-primary/10 p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="h-6 w-6 rounded-md bg-foreground text-primary flex items-center justify-center">
+                            <Sparkles className="h-3.5 w-3.5" strokeWidth={2.5}/>
+                          </div>
+                          <p className="display text-[11px] font-bold uppercase tracking-[0.18em]">Obi&apos;s analysis</p>
+                          <span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-auto">{swingNotes||"Swing"}</span>
+                        </div>
+                        <p className="display text-[16px] font-bold tracking-tight leading-snug mb-2">{swingAnalysis.split(".")[0]}.</p>
+                        <p className="text-[13px] text-foreground/80 leading-relaxed">{swingAnalysis.split(".").slice(1).join(".").trim()}</p>
+                        <div className="flex gap-3 mt-3 pt-3 border-t border-primary/20">
+                          <button onClick={()=>speakText(swingAnalysis)}
+                            className={cn("display text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border transition",
+                              speaking?"bg-primary/20 border-primary/40 text-primary":"border-border text-muted-foreground hover:text-foreground")}>
+                            {speaking?"⏹ Stop":"🔊 Read aloud"}
+                          </button>
+                          <button onClick={()=>{setSwingAnalysis("");setSwingFile(null);setSwingNotes("");}}
+                            className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition ml-auto">
+                            New analysis →
+                          </button>
+                        </div>
+                      </div>
+                    </React.Fragment>
+                  )}
+
+                  {/* Past analyses */}
+                  {swingHistory.length>0&&(
+                    <div>
+                      <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">Past analyses</p>
+                      <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
+                        {swingHistory.slice(0,5).map((s,i)=>(
+                          <div key={i} className="p-3.5">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <p className="display text-[13px] font-bold">{s.club_used||"Swing"}</p>
+                              <span className="display text-[10px] font-bold text-muted-foreground">{fmtDateShort(s.created_at)}</span>
+                            </div>
+                            <p className="text-[12px] text-muted-foreground leading-relaxed line-clamp-2">{s.analysis?.slice(0,140)}...</p>
+                            <button onClick={()=>speakText(s.analysis||"")}
+                              className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground mt-2">
+                              🔊 Read
+                            </button>
+                          </div>
                         ))}
-                      </select>
-                      <ChevronDown className="h-3.5 w-3.5 absolute right-0 bottom-1 pointer-events-none text-muted-foreground" strokeWidth={2.5}/>
+                      </div>
                     </div>
-                    <p className="display text-[10px] text-muted-foreground font-bold">/18 · Par {holePars[hole-1]}</p>
-                  </div>
-                  {/* Yardage */}
-                  <div>
-                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">To pin</p>
-                    <div className="flex items-end gap-1">
-                      <input type="number" placeholder="---" value={yardage} onChange={e=>setYardage(e.target.value)}
-                        className="stat text-[28px] leading-none text-primary bg-transparent border-b-2 border-primary/40 focus:border-primary w-20 outline-none transition-colors"/>
-                      <span className="display text-[11px] text-muted-foreground font-bold pb-1">YDS</span>
-                    </div>
-                  </div>
-                  {/* Score */}
-                  <div>
-                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Score</p>
-                    <div className="flex gap-1.5 flex-wrap">
-                      {[holePars[hole-1]-1,holePars[hole-1],holePars[hole-1]+1,holePars[hole-1]+2].map(v=>(
-                        <button key={v} onClick={()=>setScorecard(s=>{const n=[...s];n[hole-1]=v;return n;})}
-                          className={cn("h-8 w-8 rounded-lg display text-[13px] font-bold transition border",
-                            scorecard[hole-1]===v?"bg-primary text-primary-foreground border-primary":"border-border text-muted-foreground hover:border-foreground/40")}>
-                          {v}
+                  )}
+                </React.Fragment>
+              )}
+
+              {/* ══ RANGE MODE ═════════════════════════════════════ */}
+              {practiceSubTab==="range"&&(
+                <React.Fragment>
+                  {/* Club selector */}
+                  <div className="rounded-xl border border-border bg-card p-4">
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2.5">Select club</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {profile.bag.map(b=>(
+                        <button key={b.club} onClick={()=>setRangeClub(b.club)}
+                          className={cn("display text-[11px] font-bold uppercase tracking-wider rounded-lg border px-2.5 py-1.5 transition",
+                            rangeClub===b.club?"bg-primary text-primary-foreground border-primary":"border-border text-muted-foreground hover:border-foreground/40")}>
+                          {b.club}
                         </button>
                       ))}
                     </div>
                   </div>
-                </div>
-              </div>
 
-              {/* ── Hole Map ───────────────────────────────── */}
-              {course&&(
-                <div className="mb-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <button onClick={()=>{
-                      if(showHoleMap){setShowHoleMap(false);}
-                      else{setShowHoleMap(true);if(!holeMap)fetchHoleMap(course,hole);}
-                    }}
-                      className={cn("display text-[11px] font-bold uppercase tracking-wider inline-flex items-center gap-1.5 transition",
-                        showHoleMap?"text-foreground":"text-muted-foreground hover:text-foreground")}>
-                      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
-                      Hole map
-                      {holeMapLoading&&<span className="text-muted-foreground">(loading...)</span>}
+                  {/* Record CTA */}
+                  {!cameraActive&&!rangeLoading&&!rangeShotResult&&(
+                    <button onClick={startCamera}
+                      className="w-full rounded-xl bg-primary text-primary-foreground p-4 flex items-center gap-3 hover:opacity-95 transition">
+                      <div className="h-11 w-11 rounded-lg bg-foreground/10 flex items-center justify-center shrink-0">
+                        <Play className="h-5 w-5" strokeWidth={2.5} fill="currentColor"/>
+                      </div>
+                      <div className="text-left flex-1">
+                        <p className="display text-[16px] font-bold tracking-tight">Record a range shot</p>
+                        <p className="text-[12px] opacity-70 font-medium mt-0.5">4 sec clip · shape, carry, coaching</p>
+                      </div>
+                      <ChevronRight className="h-5 w-5 shrink-0 opacity-70" strokeWidth={2.5}/>
                     </button>
-                    {showHoleMap&&(
-                      <div className="flex items-center gap-2">
-                        {gpsWatcher==null?(
-                          <button onClick={startGPS}
-                            className="display text-[10px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-1.5 border border-primary/30 rounded-lg px-2 py-1 bg-primary/10 hover:bg-primary/20 transition">
-                            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-                            Enable GPS rangefinder
+                  )}
+
+                  {/* Camera view */}
+                  {cameraActive&&(
+                    <div className="rounded-xl border border-border bg-card overflow-hidden">
+                      <div className="relative">
+                        <video ref={videoRef} muted playsInline className="w-full aspect-video object-cover bg-black"/>
+                        {recording&&(
+                          <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-black/60 rounded-lg px-2.5 py-1.5">
+                            <span className="h-2 w-2 rounded-full bg-red-500" style={{animation:"pulse-dot 0.8s infinite"}}/>
+                            <span className="display text-[10px] font-bold text-white uppercase tracking-wider">REC</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3.5 flex gap-2">
+                        {!recording?(
+                          <button onClick={startRecording}
+                            className="flex-1 bg-primary text-primary-foreground rounded-xl py-3 display text-[13px] font-bold uppercase tracking-wider">
+                            Start recording
                           </button>
                         ):(
-                          <button onClick={stopGPS}
-                            className="display text-[10px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-1.5 border border-primary/30 rounded-lg px-2 py-1 bg-primary/10">
-                            <span className="h-2 w-2 rounded-full bg-primary inline-block" style={{animation:"pulse-dot 1s infinite"}}/>
-                            GPS live
+                          <button onClick={()=>mediaRecorderRef.current?.stop()}
+                            className="flex-1 bg-red-500/20 text-red-500 border border-red-500/30 rounded-xl py-3 display text-[13px] font-bold uppercase tracking-wider">
+                            Stop
                           </button>
                         )}
-                        <button onClick={()=>fetchHoleMap(course,hole)}
-                          className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition">
-                          ↺ Refresh
+                        <button onClick={stopCamera}
+                          className="rounded-xl border border-border bg-secondary px-4 py-3 display text-[12px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Cancel
                         </button>
                       </div>
-                    )}
-                  </div>
-
-                  {showHoleMap&&(
-                    <div className="rounded-xl border border-border bg-card overflow-hidden">
-                      {holeMapLoading&&(
-                        <div className="flex items-center justify-center gap-3 p-8">
-                          <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent" style={{animation:"spin 0.8s linear infinite"}}/>
-                          <p className="display text-[12px] font-bold uppercase tracking-wider text-muted-foreground">Generating hole map...</p>
-                        </div>
-                      )}
-                      {holeMap&&!holeMapLoading&&(
-                        <React.Fragment>
-                          {/* Header */}
-                          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border bg-foreground text-background">
-                            <div>
-                              <p className="display text-[13px] font-bold tracking-tight truncate">{course}</p>
-                              <p className="display text-[10px] font-bold opacity-60">Hole {hole} · Par {holeMap.par} · {holeMap.yards}yds{holeMap.strokeIndex?" · Hdcp "+holeMap.strokeIndex:""}</p>
-                            </div>
-                            <div className="text-right shrink-0 ml-2">
-                              {holeMap.osmFeatures?(
-                                <span className="display text-[9px] font-bold uppercase tracking-wider bg-primary/20 text-primary rounded px-1.5 py-0.5">Real map</span>
-                              ):(
-                                <span className="display text-[9px] font-bold uppercase tracking-wider opacity-50 rounded px-1.5 py-0.5 border border-white/20 capitalize">{holeMap.shape||"straight"}</span>
-                              )}
-                              {gpsPos&&holeMap.green_lat&&(
-                                <p className="stat text-[16px] font-bold text-primary mt-0.5">{haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)}y</p>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Map canvas */}
-                          <div className="bg-emerald-950/20 p-2">
-                            <HoleMapCanvas map={holeMap} gps={gpsPos} W={260} H={400}/>
-                          </div>
-
-                          {/* GPS rangefinder bar */}
-                          {gpsPos&&(
-                            <div className="border-t border-border">
-                              {holeMap.green_lat?(
-                                <div className="grid grid-cols-3 gap-px bg-border">
-                                  {[
-                                    ["To pin",haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)+"y"],
-                                    ["From tee",holeMap.tee_lat?haversineYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng)+"y":"--"],
-                                    ["GPS acc",gpsPos.acc?"±"+gpsPos.acc+"m":"--"],
-                                  ].map(([l,v])=>(
-                                    <div key={l} className="bg-card px-2 py-2.5 text-center">
-                                      <p className="display text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-0.5">{l}</p>
-                                      <p className="stat text-[22px] leading-none text-primary">{v}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              ):(
-                                <div className="bg-card px-3 py-2.5 text-center">
-                                  <p className="display text-[11px] font-bold text-muted-foreground">GPS active — waiting for hole coordinates</p>
-                                  <p className="text-[11px] text-muted-foreground mt-0.5">Tap Refresh to load hole map with GPS data</p>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          {!gpsPos&&(
-                            <div className="border-t border-border bg-primary/5 px-3 py-2.5">
-                              <p className="display text-[10px] font-bold uppercase tracking-wider text-primary/80">
-                                📍 Enable GPS to use as rangefinder — live distances update as you walk
-                              </p>
-                            </div>
-                          )}
-
-                          {/* Hazards + tip */}
-                          {(holeMap.hazards?.length>0||holeMap.tips)&&(
-                            <div className="px-3.5 py-2.5 space-y-2 border-t border-border">
-                              {holeMap.hazards?.length>0&&(
-                                <div className="flex flex-wrap gap-1">
-                                  {holeMap.hazards.map((h,i)=>(
-                                    <span key={i} className="display text-[9px] font-bold uppercase tracking-wider bg-destructive/10 text-destructive rounded px-1.5 py-0.5">{h}</span>
-                                  ))}
-                                </div>
-                              )}
-                              {holeMap.tips&&(
-                                <div className="rounded-lg bg-primary/10 border border-primary/30 px-2.5 py-2">
-                                  <p className="display text-[9px] font-bold uppercase tracking-wider text-primary mb-0.5">Obi&apos;s tip</p>
-                                  <p className="text-[12px] text-foreground leading-snug">{holeMap.tips}</p>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </React.Fragment>
-                      )}
                     </div>
                   )}
-                </div>
-              )}
 
-{/* Scorecard toggle */}
-              <div className="flex items-center justify-between mb-3">
-                <button onClick={()=>setScorecardOpen(o=>!o)}
-                  className="display text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition">
-                  <BarChart3 className="h-3.5 w-3.5" strokeWidth={2.5}/>
-                  Scorecard
-                  <ChevronDown className={cn("h-3.5 w-3.5 transition-transform",scorecardOpen&&"rotate-180")} strokeWidth={2.5}/>
-                </button>
-                {scorecard.some(Boolean)&&(
-                  <button onClick={saveRound}
-                    className="display text-[11px] font-bold uppercase tracking-wider bg-foreground text-background rounded-lg px-3 py-1.5 hover:opacity-90 transition">
-                    Save Round
-                  </button>
-                )}
-              </div>
+                  {/* Analyzing */}
+                  {rangeLoading&&(
+                    <div className="rounded-xl border border-border bg-card p-8 text-center">
+                      <div className="h-12 w-12 rounded-full border-2 border-primary border-t-transparent mx-auto mb-4"
+                        style={{animation:"spin 0.8s linear infinite"}}/>
+                      <p className="display text-[15px] font-bold">Analyzing shot...</p>
+                    </div>
+                  )}
 
-              {/* Full scorecard panel */}
-              {scorecardOpen&&(
-                <div className="rounded-xl border border-border bg-card overflow-hidden mb-3">
-                  {/* Header row */}
-                  <div className="grid text-center bg-secondary/50 border-b border-border" style={{gridTemplateColumns:"2rem repeat(18,1fr)"}}>
-                    <div/>
-                    {Array.from({length:18},(_,i)=>i+1).map(n=>(
-                      <div key={n} className={cn("py-1.5 display text-[9px] font-bold uppercase",n===hole&&"text-primary")}>{n}</div>
-                    ))}
-                  </div>
-                  {/* Score row */}
-                  <div className="grid items-center border-b border-border" style={{gridTemplateColumns:"2rem repeat(18,1fr)"}}>
-                    <div className="display text-[9px] font-bold uppercase text-muted-foreground text-center py-2">SCR</div>
-                    {scorecard.map((s,i)=>(
-                      <button key={i} onClick={()=>{setHole(i+1);}} className="text-center py-2">
-                        <span className={cn("display text-[12px] font-bold",
-                          s===null?"text-muted-foreground/40":
-                          s<holePars[i]?"text-primary":
-                          s>holePars[i]+1?"text-destructive":"text-foreground")}>
-                          {s||"·"}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  {/* Fairways row */}
-                  <div className="grid items-center border-b border-border" style={{gridTemplateColumns:"2rem repeat(18,1fr)"}}>
-                    <div className="display text-[9px] font-bold uppercase text-muted-foreground text-center py-2">FWY</div>
-                    {fairways.map((f,i)=>(
-                      <button key={i} onClick={()=>{
-                        setFairways(prev=>{const n=[...prev];n[i]=f===null?true:f===true?false:null;return n;});
-                      }} className="text-center py-2">
-                        <span className={cn("display text-[12px] font-bold",
-                          f===null?"text-muted-foreground/40":f?"text-primary":"text-destructive")}>
-                          {f===null?"·":f?"✓":"✗"}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  {/* GIR row */}
-                  <div className="grid items-center border-b border-border" style={{gridTemplateColumns:"2rem repeat(18,1fr)"}}>
-                    <div className="display text-[9px] font-bold uppercase text-muted-foreground text-center py-2">GIR</div>
-                    {gir.map((g,i)=>(
-                      <button key={i} onClick={()=>{
-                        setGir(prev=>{const n=[...prev];n[i]=g===null?true:g===true?false:null;return n;});
-                      }} className="text-center py-2">
-                        <span className={cn("display text-[12px] font-bold",
-                          g===null?"text-muted-foreground/40":g?"text-primary":"text-destructive")}>
-                          {g===null?"·":g?"✓":"✗"}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  {/* Putts row */}
-                  <div className="grid items-center" style={{gridTemplateColumns:"2rem repeat(18,1fr)"}}>
-                    <div className="display text-[9px] font-bold uppercase text-muted-foreground text-center py-2">PUT</div>
-                    {putts.map((p,i)=>(
-                      <button key={i} onClick={()=>{
-                        setPutts(prev=>{const n=[...prev];n[i]=p===null?1:p<4?p+1:null;return n;});
-                      }} className="text-center py-2">
-                        <span className={cn("display text-[12px] font-bold",
-                          p===null?"text-muted-foreground/40":
-                          p<=1?"text-primary":p>=3?"text-destructive":"text-foreground")}>
-                          {p===null?"·":p}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  {/* Totals */}
-                  {scorecard.some(Boolean)&&(
-                    <div className="flex items-center justify-between px-3 py-2.5 bg-secondary/50 border-t border-border">
-                      <div className="flex gap-4">
-                        <div><span className="display text-[9px] font-bold uppercase text-muted-foreground">Total </span><span className="display text-[13px] font-bold">{scorecard.filter(Boolean).reduce((a,b)=>a+b,0)}</span></div>
-                        <div><span className="display text-[9px] font-bold uppercase text-muted-foreground">vs Par </span><span className={cn("display text-[13px] font-bold",scorecard.filter(Boolean).reduce((a,b)=>a+b,0)-holePars.slice(0,scorecard.filter(Boolean).length).reduce((a,b)=>a+b,0)<=0?"text-primary":"text-destructive")}>{(()=>{const t=scorecard.filter(Boolean).reduce((a,b)=>a+b,0);const p=holePars.slice(0,scorecard.filter(Boolean).length).reduce((a,b)=>a+b,0);const d=t-p;return d===0?"E":d>0?"+"+d:""+d;})()}</span></div>
-                        {fairways.some(f=>f!==null)&&<div><span className="display text-[9px] font-bold uppercase text-muted-foreground">FWY </span><span className="display text-[13px] font-bold">{fairways.filter(f=>f===true).length}/{fairways.filter(f=>f!==null).length}</span></div>}
-                        {putts.some(p=>p!==null)&&<div><span className="display text-[9px] font-bold uppercase text-muted-foreground">Putts </span><span className="display text-[13px] font-bold">{putts.filter(p=>p!==null).reduce((a,b)=>a+b,0)}</span></div>}
+                  {/* Shot result */}
+                  {rangeShotResult&&!rangeShotResult.error&&(
+                    <React.Fragment>
+                      <ShotShapeDiagram result={rangeShotResult} club={rangeClub} dexterity={profile.dexterity}/>
+                      <div className="rounded-xl border border-primary/40 bg-primary/10 p-4">
+                        <div className="grid grid-cols-3 gap-3 mb-3">
+                          {[["Shape",rangeShotResult.shape||"straight"],["Carry",(rangeShotResult.carry||0)+"y"],["Direction",rangeShotResult.direction||"center"]].map(([l,v])=>(
+                            <div key={l} className="text-center">
+                              <p className="display text-[9px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">{l}</p>
+                              <p className="stat text-[20px] leading-none text-primary">{v}</p>
+                            </div>
+                          ))}
+                        </div>
+                        {rangeShotResult.coaching&&(
+                          <p className="text-[13px] text-foreground leading-relaxed pt-3 border-t border-primary/20">{rangeShotResult.coaching}</p>
+                        )}
+                        <div className="flex gap-3 mt-3">
+                          <button onClick={()=>speakText(rangeShotResult.coaching||"")}
+                            className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 text-muted-foreground hover:text-foreground transition">🔊 Read</button>
+                          <button onClick={()=>setRangeShotResult(null)}
+                            className="display text-[10px] font-bold uppercase tracking-wider ml-auto text-muted-foreground hover:text-foreground transition">Next shot →</button>
+                        </div>
+                      </div>
+                    </React.Fragment>
+                  )}
+
+                  {/* Club stats */}
+                  {clubStats[rangeClub]?.count>0&&(
+                    <div className="rounded-xl border border-border bg-card p-4">
+                      <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-3">{rangeClub} · session stats</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        {[["Shots",clubStats[rangeClub].count],["Typical",clubStats[rangeClub].typicalShape||"--"],["Streak","⭐".repeat(Math.min(3,clubStats[rangeClub].consistencyStars||3))]].map(([l,v])=>(
+                          <div key={l} className="text-center">
+                            <p className="display text-[9px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">{l}</p>
+                            <p className="stat text-[22px] leading-none">{v}</p>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
-                </div>
-              )}
-            </div>
 
-            {/* ── Obi's call ───────────────────────────────── */}
-            {messages.length>0&&messages[messages.length-1].role==="assistant"&&(
-              <div className="px-4 shrink-0">
-                <div className="rounded-xl border border-primary/40 bg-primary/10 p-4 mb-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-6 w-6 rounded-md bg-foreground text-primary flex items-center justify-center"><Zap className="h-3.5 w-3.5" strokeWidth={2.75}/></div>
-                    <p className="display text-[11px] font-bold uppercase tracking-[0.18em]">Obi&apos;s call</p>
-                    <span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-auto">{profile.persona==="pro"?"Tour pro":profile.persona}</span>
+                  {/* Recommended drills */}
+                  <div>
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">Recommended drills</p>
+                    <div className="space-y-2">
+                      {[{Icon:Activity,label:"100yd ladder",reps:"10 shots",desc:"Build distance control from 100y",color:"bg-primary/15 text-primary"},
+                        {Icon:Target,label:"Center strike",reps:"20 shots",desc:"Focus on pure contact every time",color:"bg-amber-500/20 text-amber-600 dark:text-amber-400"},
+                        {Icon:Activity,label:"Tempo drill",reps:"15 shots",desc:"Metronome rhythm for consistency",color:"bg-secondary text-secondary-foreground"}].map(d=>(
+                        <button key={d.label}
+                          className="w-full flex items-center gap-3 rounded-xl border border-border bg-card px-3.5 py-3 hover:border-foreground/30 hover:bg-secondary/30 transition text-left">
+                          <div className={"h-10 w-10 rounded-lg flex items-center justify-center shrink-0 "+d.color}>
+                            <d.Icon className="h-5 w-5" strokeWidth={2.5}/>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="display text-[14px] font-bold tracking-tight">{d.label}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">{d.desc} · {d.reps}</p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" strokeWidth={2.5}/>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <p className="display text-xl font-bold tracking-tight leading-tight mb-1">{messages[messages.length-1].content.split(".")[0]}.</p>
-                  <p className="text-sm text-muted-foreground leading-snug">{messages[messages.length-1].content.split(".").slice(1).join(".").trim()}</p>
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <button onClick={()=>sendMessage("Why do you recommend that?")}
-                      className="display text-[10px] font-bold uppercase tracking-wider bg-foreground text-background rounded-lg px-2.5 py-1.5 hover:opacity-80 transition">Why?</button>
-                    <button onClick={()=>sendMessage("What are my alternatives?")}
-                      className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 hover:border-foreground/50 transition text-foreground">Alternatives</button>
-                    <button onClick={()=>sendMessage("What\'s my biggest risk on this hole?")}
-                      className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 hover:border-foreground/50 transition text-foreground">Risk?</button>
-                    <button onClick={()=>{speaking?stopSpeak():speakText(messages[messages.length-1].content);}}
-                      className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 transition ml-auto",speaking?"bg-primary/20 text-primary border border-primary/40":"border border-border text-muted-foreground hover:text-foreground")}>
-                      {speaking?"⏹ Stop":"🔊 Read"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {/* ── Quick ask ────────────────────────────────── */}
-            <div className="px-4 shrink-0">
-              {messages.length===0&&(
-                <div className="text-center py-6">
-                  <img src={LOGO} alt="Obi" className="h-12 w-12 object-contain mx-auto mb-3 opacity-60"/>
-                  <p className="display text-lg text-foreground mb-1">Ready to caddie</p>
-                  <p className="text-sm text-muted-foreground">Set your yardage and ask anything</p>
-                </div>
-              )}
-              <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">Quick ask</p>
-              <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-2" style={{scrollbarWidth:"none"}}>
-                {QUICK_PROMPTS.map(a=>(
-                  <button key={a.label} onClick={()=>sendMessage(a.prompt)}
-                    className="shrink-0 inline-flex items-center gap-1.5 display rounded-lg border border-border bg-card px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-foreground hover:border-foreground/40 transition">
-                    {a.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* ── Chat history (flex-1 scroll) ─────────────── */}
-            <div className="flex-1 px-4 pt-2 overflow-y-auto space-y-2" style={{scrollbarWidth:"none",minHeight:0}}>
-              {messages.slice(0,-1).map((m,i)=>(
-                <div key={i} className={cn("flex",m.role==="user"?"justify-end":"justify-start gap-2 items-end")}>
-                  {m.role==="assistant"&&<img src={LOGO} alt="" className="h-5 w-5 object-contain rounded shrink-0"/>}
-                  <div className={m.role==="user"?"bubble-user text-[13px]":"bubble-ai text-[13px]"}>{m.content}</div>
-                </div>
-              ))}
-              <div ref={chatEndRef}/>
-            </div>
-
-            {/* ── Input bar ────────────────────────────────── */}
-            <div className="px-3 shrink-0 border-t border-border bg-background/95 backdrop-blur-xl"
-              style={{paddingBottom:"calc(0.5rem + env(safe-area-inset-bottom))",paddingTop:"8px"}}>
-
-              {/* Obi speaking indicator */}
-              {speaking&&(
-                <div className="flex items-center gap-2 mb-2 px-1">
-                  <div className="flex gap-0.5 items-end h-4">
-                    {[0,1,2,3,4].map(i=>(
-                      <div key={i} className="w-1 rounded-full bg-primary"
-                        style={{height:(4+i%3*4)+"px",animation:"pulse-dot 0.8s "+(i*0.12)+"s infinite"}}/>
-                    ))}
-                  </div>
-                  <span className="display text-[11px] font-bold text-primary uppercase tracking-wider">Obi speaking</span>
-                  <button onClick={stopSpeak} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground ml-auto">Stop ✕</button>
-                </div>
-              )}
-
-              {/* Typing indicator */}
-              {loading&&!speaking&&(
-                <div className="flex items-end gap-2 mb-2">
-                  <img src={LOGO} alt="" className="h-5 w-5 object-contain rounded shrink-0"/>
-                  <div className="bubble-ai flex gap-1.5 items-center px-4 py-2.5">
-                    {[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 rounded-full bg-muted-foreground" style={{animation:"pulse-dot 1s "+(i*0.18)+"s infinite"}}/>)}
-                  </div>
-                </div>
-              )}
-
-              {/* Auto-speak + input row */}
-              <div className="flex items-center gap-2">
-                {/* Auto-speak toggle */}
-                <button onClick={()=>{
-                  const next=!autoSpeak;
-                  setAutoSpeak(next);
-                  try{localStorage.setItem("obi_autospeak",String(next));}catch{}
-                  if(!next)stopSpeak();
-                }}
-                  title={autoSpeak?"Obi speaks automatically (tap to mute)":"Obi is muted (tap to unmute)"}
-                  className={cn("h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition border",
-                    autoSpeak?"bg-primary/15 border-primary/40 text-primary":"bg-secondary border-border text-muted-foreground hover:text-foreground")}>
-                  {autoSpeak?(
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-                    </svg>
-                  ):(
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-                      <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
-                    </svg>
-                  )}
-                </button>
-
-                {/* Text input */}
-                <div className="flex-1 flex items-center gap-2 rounded-xl border border-border bg-card pl-3 pr-1.5 py-1.5 shadow-sm">
-                  <input value={input} onChange={e=>setInput(e.target.value)}
-                    onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()}
-                    placeholder={micActive?"Listening...":"Ask Obi anything..."}
-                    className={cn("flex-1 bg-transparent text-[14px] outline-none",
-                      micActive?"text-primary placeholder:text-primary font-medium":"text-foreground placeholder:text-muted-foreground")}
-                  />
-                  {/* Mic button */}
-                  {micSupported&&(
-                    <button onClick={startMic}
-                      className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition",
-                        micActive?"bg-primary text-primary-foreground":"bg-secondary text-muted-foreground hover:text-foreground hover:bg-muted")}>
-                      {micActive?(
-                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
-                          <rect x="9" y="9" width="6" height="6" rx="1"/>
-                          <path fill="none" stroke="currentColor" strokeWidth="2" d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                          <path fill="none" stroke="currentColor" strokeWidth="2" d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
-                        </svg>
-                      ):(
-                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                          <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
-                        </svg>
+                  {/* Shot history */}
+                  {rangeHistory.length>0&&(
+                    <div>
+                      <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">Shot history</p>
+                      <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
+                        {(showAllShots?rangeHistory:rangeHistory.slice(0,5)).map((s,i)=>(
+                          <div key={i} className="flex items-center gap-3 px-3.5 py-3">
+                            <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 display text-[11px] font-bold">
+                              {s.club?.split("-")[0]||"?"}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="display text-[13px] font-bold">{s.club||"Shot"}</p>
+                              <p className="text-[11px] text-muted-foreground">{s.shape||"straight"} · {s.carry||0}y</p>
+                            </div>
+                            <span className="text-[11px] text-muted-foreground">{fmtDateShort(s.created_at)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {rangeHistory.length>5&&(
+                        <button onClick={()=>setShowAllShots(s=>!s)}
+                          className="w-full text-center py-2.5 display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                          {showAllShots?"Show less":"View all "+rangeHistory.length+" shots"}
+                        </button>
                       )}
-                    </button>
+                    </div>
                   )}
-                  {/* Send */}
-                  <button onClick={()=>sendMessage()} disabled={!input.trim()||loading}
-                    className={cn("h-8 w-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0 transition",
-                      (!input.trim()||loading)?"opacity-35 cursor-not-allowed":"hover:opacity-85 active:scale-95")}>
-                    <ArrowUp className="h-4 w-4" strokeWidth={3}/>
-                  </button>
-                </div>
-              </div>
+                </React.Fragment>
+              )}
+
             </div>
           </div>
         )}
