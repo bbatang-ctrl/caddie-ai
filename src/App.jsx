@@ -545,18 +545,7 @@ function ObiGolfApp(){
     prevHoleRef.current=hole;
   },[hole]);
 
-  // Auto-brief from Obi when hole changes (if course is set and player is in a round)
-  const prevHoleRef=useRef(hole);
-  useEffect(()=>{
-    if(prevHoleRef.current!==hole&&course){
-      prevHoleRef.current=hole;
-      // Brief auto-message: ask for the hole briefing
-      const par=holePars[hole-1]||4;
-      const yards=yardage||"unknown";
-      const autoMsg="We\'re on hole "+hole+", par "+par+(yardage?", "+yards+" yards":"")+". Give me a quick briefing.";
-      sendMessage(autoMsg);
-    }
-  },[hole]);
+
 
   // ── Parse OSM data into renderable features ───────────────────────
   const parseOSMHole=(osmData,holeNum)=>{
