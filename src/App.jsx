@@ -1361,6 +1361,7 @@ function ObiGolfApp(){
               <LogOut className="h-3.5 w-3.5" strokeWidth={2.5}/> Sign out
             </button>
           </div>
+          </div>
         </div>
       )}
       <header className="shrink-0 sticky top-0 z-30 bg-background/85 backdrop-blur-xl border-b border-border pt-safe">
