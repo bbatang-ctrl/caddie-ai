@@ -245,7 +245,7 @@ function ObiGolfApp(){
     if(data){
       setUserProfile(data);
       setAvatarUrl(data.avatar_url||null);
-      if(data.onboarded){
+      if(data.onboarded||(data.full_name&&data.handicap_category)){
         setAuthScreen("app");
         if(data.bag&&data.bag.length>0){
           setProfile(p=>({...p,
@@ -270,16 +270,19 @@ function ObiGolfApp(){
     }
   };
 
-  const saveProfile=async()=>{
+  const saveProfile=async(overrideName)=>{
     if(!user)return;
-    await supabase.from("profiles").upsert({
-      id:user.id,full_name:userProfile?.full_name||authName,
+    const fullName=overrideName||authName||userProfile?.full_name||"";
+    const{error}=await supabase.from("profiles").upsert({
+      id:user.id,full_name:fullName,
       handicap_category:profile.handicap,handicap_index:profile.hcp,
       caddie_persona:profile.persona,miss_tendency:profile.missTend,
       bag:profile.bag,dexterity:profile.dexterity,
       home_course:profile.homeCourse,practice_goal:profile.practiceGoal,
       onboarded:true,updated_at:new Date().toISOString(),
     });
+    if(!error&&fullName)setUserProfile(p=>({...(p||{}),full_name:fullName,onboarded:true}));
+    return !error;
   };
 
   const loadRounds=async(uid)=>{
@@ -711,7 +714,13 @@ function ObiGolfApp(){
           </React.Fragment>
         )}
         {authScreen==="onboard"&&(
-          <OnboardingFlow D={isDark?DARK_THEME:LIGHT_THEME} S={{btnPrimary:{},btnGhost:{}}} authName={authName} setAuthName={setAuthName} step={onboardStep} setStep={setOnboardStep} profile={profile} setProfile={setProfile} onComplete={async()=>{await saveProfile();setAuthScreen("app");}}/>
+          <OnboardingFlow
+            authName={authName} setAuthName={setAuthName}
+            profile={profile} setProfile={setProfile}
+            onComplete={async()=>{
+              const ok=await saveProfile(authName);
+              if(ok!==false)setAuthScreen("app");
+            }}/>
         )}
       </div>
     </div>
