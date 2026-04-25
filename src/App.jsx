@@ -5,6 +5,9 @@ import {DARK_THEME,LIGHT_THEME,DEFAULT_BAG,Ball,ScoreBadge,Avatar,
   fmtDate,fmtDateShort,windDir,wxIcon,playingYards,firstName,randJab,
   JABS,QUICK_PROMPTS,analyzeSwing,analyzeSwingVideo,
   ErrorBoundary,ShotShapeDiagram,OnboardingFlow} from "./AppPart1.jsx";
+import { MessageCircle, Target, Users, User, Sun, Moon, Settings, Cloud, ChevronRight, ChevronDown, MapPin, Zap, ArrowUp, Video, Sparkles, Activity, Play, LogOut, Briefcase, BarChart3, Bell, X } from "lucide-react";
+function cn(...c){return c.filter(Boolean).join(" ");}
+const NAV=[{id:"caddie",label:"Caddie",Icon:MessageCircle},{id:"practice",label:"Practice",Icon:Target},{id:"social",label:"Social",Icon:Users},{id:"profile",label:"Profile",Icon:User}];
 
 // ── CSS injected into <head> ───────────────────────────────────────
 const CSS=`
@@ -606,388 +609,379 @@ function ObiGolfApp(){
   };
 
   // ── Loading screen ───────────────────────────────────────────────
+  const name = firstName(userProfile?.full_name) || "Golfer";
+
+  // ── LOADING ───────────────────────────────────────────────────
   if(authLoading)return(
-    <div style={{minHeight:"100vh",background:T.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"20px"}}>
-      <div className="pop-in"><Ball size={64}/></div>
-      <div style={{fontFamily:"var(--font-display)",fontSize:"28px",fontWeight:"700",color:T.fg,letterSpacing:"-0.02em"}}>Obi Golf</div>
-      <div style={{display:"flex",gap:"6px"}}>
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-5">
+      <div className="animate-pop-in"><Ball size={64}/></div>
+      <p className="display text-3xl text-foreground">Obi Golf</p>
+      <div className="flex gap-1.5">
         {[0,1,2].map(i=>(
-          <div key={i} style={{width:"6px",height:"6px",borderRadius:"99px",background:T.primary,animation:"pulse 1.2s "+(i*0.2)+"s infinite"}}/>
+          <div key={i} className="w-1.5 h-1.5 rounded-full bg-primary" style={{animation:"pulse-dot 1.2s "+(i*0.2)+"s infinite"}}/>
         ))}
       </div>
     </div>
   );
 
-  // ── Auth / Onboarding ────────────────────────────────────────────
+  // ── AUTH ──────────────────────────────────────────────────────
   if(!user||authScreen==="onboard")return(
-    <div style={{minHeight:"100vh",background:T.bg,fontFamily:"var(--font-sans)"}}>
-      <div style={{maxWidth:"420px",margin:"0 auto",padding:"40px 24px",display:"flex",flexDirection:"column",minHeight:"100vh"}}>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-md mx-auto px-6 py-10 flex flex-col min-h-screen">
         {authScreen!=="onboard"&&(
           <React.Fragment>
-            <div style={{textAlign:"center",marginBottom:"40px"}} className="fade-up">
+            <div className="text-center mb-10 animate-fade-up">
               <Ball size={52}/>
-              <div style={{fontFamily:"var(--font-display)",fontSize:"28px",fontWeight:"700",color:T.fg,marginTop:"14px",letterSpacing:"-0.02em"}}>Obi Golf</div>
-              <div style={{fontSize:"13px",color:T.mutedFg,marginTop:"6px"}}>Your AI caddie. Always in the bag.</div>
+              <h1 className="display text-[28px] text-foreground mt-3.5">Obi Golf</h1>
+              <p className="text-[13px] text-muted-foreground mt-1.5">Your AI caddie. Always in the bag.</p>
             </div>
-            <div style={{display:"flex",gap:"4px",background:T.surface,borderRadius:"12px",padding:"4px",marginBottom:"28px"}} className="fade-up">
+            <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-7">
               {["login","signup"].map(s=>(
-                <button key={s} onClick={()=>setAuthScreen(s)} style={{flex:1,padding:"10px",borderRadius:"9px",border:"none",background:authScreen===s?T.card:"transparent",color:authScreen===s?T.fg:T.mutedFg,fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em",transition:"all 0.15s",boxShadow:authScreen===s?"0 1px 4px rgba(0,0,0,0.3)":"none"}}>
+                <button key={s} onClick={()=>setAuthScreen(s)}
+                  className={cn("flex-1 py-2.5 rounded-[10px] display text-[12px] uppercase tracking-wider transition-all",
+                    authScreen===s?"nav-pill-active":"text-muted-foreground hover:text-foreground")}>
                   {s==="login"?"Sign In":"Sign Up"}
                 </button>
               ))}
             </div>
-            <div className="fade-up" style={{animationDelay:"0.05s"}}>
-              <button onClick={handleGoogleAuth} style={{...S.btnSecondary,width:"100%",marginBottom:"16px",padding:"13px"}}>
-                <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
-                Continue with Google
-              </button>
-              <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"16px"}}>
-                <div style={{flex:1,height:"1px",background:T.border}}/>
-                <span style={{fontSize:"11px",color:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.08em"}}>or</span>
-                <div style={{flex:1,height:"1px",background:T.border}}/>
-              </div>
-              {authScreen==="signup"&&(
-                <input style={{...S.input,marginBottom:"10px"}} placeholder="Full name" value={authName} onChange={e=>setAuthName(e.target.value)}/>
-              )}
-              <input style={{...S.input,marginBottom:"10px"}} placeholder="Email" type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)}/>
-              <input style={{...S.input,marginBottom:"16px"}} placeholder="Password" type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)}
-                onKeyDown={e=>e.key==="Enter"&&(authScreen==="login"?handleLogin():handleSignup())}/>
-              {authError&&<div style={{color:T.red,fontSize:"13px",marginBottom:"12px",textAlign:"center"}}>{authError}</div>}
-              <button onClick={authScreen==="login"?handleLogin:handleSignup} style={{...S.btnPrimary,width:"100%",padding:"14px"}}>
-                {authScreen==="login"?"Sign In":"Create Account"}
-              </button>
+            <button onClick={handleGoogleAuth}
+              className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-border bg-card py-3.5 display text-[13px] font-bold uppercase tracking-wider text-foreground hover:bg-secondary transition mb-4">
+              <svg width="18" height="18" viewBox="0 0 18 18">
+                <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/>
+                <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/>
+                <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
+                <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/>
+              </svg>
+              Continue with Google
+            </button>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 h-px bg-border"/>
+              <span className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">or</span>
+              <div className="flex-1 h-px bg-border"/>
             </div>
+            {authScreen==="signup"&&(
+              <input className="w-full bg-input border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-foreground/40 transition mb-2.5"
+                placeholder="Full name" value={authName} onChange={e=>setAuthName(e.target.value)}/>
+            )}
+            <input className="w-full bg-input border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-foreground/40 transition mb-2.5"
+              placeholder="Email" type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)}/>
+            <input className="w-full bg-input border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-foreground/40 transition mb-4"
+              placeholder="Password" type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&(authScreen==="login"?handleLogin():handleSignup())}/>
+            {authError&&<p className="text-destructive text-[13px] text-center mb-3">{authError}</p>}
+            <button onClick={authScreen==="login"?handleLogin:handleSignup}
+              className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 display text-[13px] font-bold uppercase tracking-wider hover:opacity-90 transition">
+              {authScreen==="login"?"Sign In":"Create Account"}
+            </button>
           </React.Fragment>
         )}
         {authScreen==="onboard"&&(
           <OnboardingFlow
             D={isDark?DARK_THEME:LIGHT_THEME}
-            S={S}
-            authName={authName}
-            setAuthName={setAuthName}
-            step={onboardStep}
-            setStep={setOnboardStep}
-            profile={profile}
-            setProfile={setProfile}
-            onComplete={async()=>{
-              await saveProfile();
-              setAuthScreen("app");
-            }}
+            S={{btnPrimary:{},btnGhost:{}}}
+            authName={authName} setAuthName={setAuthName}
+            step={onboardStep} setStep={setOnboardStep}
+            profile={profile} setProfile={setProfile}
+            onComplete={async()=>{await saveProfile();setAuthScreen("app");}}
           />
         )}
       </div>
     </div>
   );
 
-  // ── MAIN APP ─────────────────────────────────────────────────────
-  const name=firstName(userProfile?.full_name)||"Golfer";
-
+  // ── MAIN APP ──────────────────────────────────────────────────
   return(
-    <div style={{display:"flex",flexDirection:"column",height:"100vh",maxWidth:"480px",margin:"0 auto",background:T.bg,color:T.fg,fontFamily:"var(--font-sans)",position:"relative",overflow:"hidden"}}>
+    <div className="flex flex-col h-screen max-w-md mx-auto bg-background text-foreground overflow-hidden">
 
-      {/* Modals */}
-      {showCard&&<SummaryModal round={showCard}/>}
-
-      {showAvatarZoom&&(
-        <div onClick={()=>setShowAvatarZoom(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
-          <div onClick={e=>e.stopPropagation()} style={{textAlign:"center"}}>
-            <img src={showAvatarZoom} alt="Profile" style={{width:"280px",height:"280px",borderRadius:"50%",objectFit:"cover"}}/>
-            <div style={{marginTop:"16px",color:T.mutedFg,fontSize:"13px"}}>Tap anywhere to close</div>
-          </div>
-        </div>
-      )}
-
-      {jabPost&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
-          <div onClick={e=>e.stopPropagation()} style={{...S.card,maxWidth:"320px",width:"100%",textAlign:"center"}}>
-            <div style={{fontSize:"40px",marginBottom:"12px"}}>😂</div>
-            <div style={{fontFamily:"var(--font-display)",fontSize:"17px",color:T.fg,marginBottom:"8px",fontWeight:"700"}}>Send a jab?</div>
-            <div style={{fontSize:"14px",color:T.mutedFg,marginBottom:"20px",fontStyle:"italic"}}>"{jabPost}"</div>
-            <div style={{display:"flex",gap:"10px"}}>
-              <button onClick={()=>setJabPost(null)} style={{...S.btnGhost,flex:1}}>Cancel</button>
-              <button onClick={()=>setJabPost(null)} style={{...S.btnPrimary,flex:1}}>Send 🏌️</button>
+      {/* Round summary modal */}
+      {showCard&&(
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-5" onClick={()=>setShowCard(null)}>
+          <div className="bg-card border border-border rounded-2xl w-full max-w-sm max-h-[80vh] overflow-y-auto p-5" onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5"><Ball size={28}/><span className="display text-[17px] text-foreground">Round Summary</span></div>
+              <button onClick={()=>setShowCard(null)} className="text-muted-foreground hover:text-foreground"><X className="h-5 w-5"/></button>
+            </div>
+            <p className="display text-[15px] font-bold text-foreground">{showCard.course_name}</p>
+            <p className="text-[11px] text-muted-foreground mb-4">{fmtDate(showCard.played_at)}</p>
+            <div className="grid grid-cols-3 gap-2.5">
+              {[["SCORE",showCard.total_score,"text-foreground"],["vs PAR",(showCard.score_vs_par>0?"+":"")+showCard.score_vs_par,showCard.score_vs_par<=0?"text-primary":"text-destructive"],["HOLES",(showCard.holes_played||18)+"/18","text-foreground"]].map(([l,v,c])=>(
+                <div key={l} className="bg-secondary rounded-xl p-3 text-center">
+                  <p className="display text-[9px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">{l}</p>
+                  <p className={"stat text-[26px] leading-none "+c}>{v}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* ── HEADER ───────────────────────────────────────────────── */}
-      <header style={{flexShrink:0,padding:"12px 16px",background:T.bg,borderBottom:"1px solid "+T.border,display:"flex",alignItems:"center",justifyContent:"space-between",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",zIndex:20,paddingTop:"calc(12px + env(safe-area-inset-top))"}}>
-        <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
-          <Ball size={28}/>
-          <span style={{fontFamily:"var(--font-display)",fontSize:"16px",fontWeight:"700",color:T.fg,letterSpacing:"-0.01em"}}>
-            Obi Golf
-            {speaking&&<span style={{display:"inline-block",width:"5px",height:"5px",borderRadius:"99px",background:T.primary,marginLeft:"8px",animation:"pulse 1s infinite"}}/>}
-          </span>
-        </div>
-        <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
-          {tab==="caddie"&&weather&&(
-            <div className="chip">
-              <span>{wxIcon(weather.code)}</span>
-              <span>{weather.temp}°</span>
-              <span style={{color:T.mutedFg}}>·</span>
-              <span>{weather.wind}mph {windDir(weather.windDeg)}</span>
-            </div>
-          )}
-          <button onClick={()=>setIsDark(d=>!d)} style={{...S.btnGhost,padding:"7px",borderRadius:"10px",border:"1px solid "+T.border,background:T.surface}}>
-            {isDark?"☀️":"🌙"}
-          </button>
+      {/* ── HEADER ─────────────────────────────────────────────── */}
+      <header className="shrink-0 sticky top-0 z-30 bg-background/90 backdrop-blur-xl border-b border-border pt-safe">
+        <div className="flex items-center justify-between px-4 h-14">
+          <div className="flex items-center gap-2.5">
+            <Ball size={28}/>
+            <span className="display text-[15px] text-foreground">
+              Obi Golf
+              {speaking&&<span className="inline-block w-1.5 h-1.5 rounded-full bg-primary ml-2 align-middle" style={{animation:"pulse-dot 1s infinite"}}/>}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {tab==="caddie"&&weather&&(
+              <div className="flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 tabular text-[11px] text-muted-foreground">
+                <Cloud className="h-3 w-3"/>
+                <span className="font-medium text-foreground">{weather.temp}°</span>
+                <span>·</span>
+                <span>{weather.wind}mph {windDir(weather.windDeg)}</span>
+              </div>
+            )}
+            <button onClick={()=>setIsDark(d=>!d)}
+              className="h-8 w-8 rounded-full flex items-center justify-center bg-secondary text-secondary-foreground hover:bg-muted transition">
+              {isDark?<Sun className="h-3.5 w-3.5"/>:<Moon className="h-3.5 w-3.5"/>}
+            </button>
+            <button onClick={()=>changeTab("profile")}
+              className="h-8 w-8 rounded-full flex items-center justify-center bg-secondary text-secondary-foreground hover:bg-muted transition">
+              <Settings className="h-3.5 w-3.5"/>
+            </button>
+          </div>
         </div>
       </header>
 
-      {/* ── CONTENT ──────────────────────────────────────────────── */}
-      <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+      {/* ── SCROLL CONTENT ─────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto" style={{WebkitOverflowScrolling:"touch"}}>
 
-        {/* ══ CADDIE TAB ══════════════════════════════════════════ */}
+        {/* CADDIE TAB */}
         {tab==="caddie"&&(
-          <div style={{display:"flex",flexDirection:"column",height:"100%",minHeight:"calc(100vh - 130px)"}}>
-
-            {/* Hole setup bar */}
-            <div style={{padding:"10px 16px",background:T.card,borderBottom:"1px solid "+T.border,position:"sticky",top:0,zIndex:10}}>
-              <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-                {/* Hole stepper */}
-                <div style={{display:"flex",alignItems:"center",gap:"4px",flexShrink:0}}>
-                  <button onClick={()=>setHole(h=>Math.max(1,h-1))} style={{background:T.surface,border:"1px solid "+T.border,borderRadius:"8px",color:T.mutedFg,padding:"4px 8px",cursor:"pointer",fontSize:"14px",lineHeight:1}}>-</button>
-                  <div style={{textAlign:"center",minWidth:"40px"}}>
-                    <div style={{fontSize:"8px",color:T.mutedFg,letterSpacing:"1.5px",textTransform:"uppercase",fontFamily:"var(--font-display)"}}>HOLE</div>
-                    <div style={{fontFamily:"var(--font-display)",fontSize:"20px",fontWeight:"700",color:T.fg,lineHeight:1}}>{hole}</div>
+          <div className="flex flex-col min-h-full">
+            <div className="px-4 pt-3">
+              <div className="rounded-xl bg-foreground text-background p-3.5">
+                <div className="flex items-center gap-3">
+                  <MapPin className="h-4 w-4 shrink-0" strokeWidth={2.5}/>
+                  <div className="min-w-0 flex-1">
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] opacity-60">Live round</p>
+                    <p className="display text-[15px] font-bold tracking-tight truncate">{course?course.toUpperCase():"SET COURSE BELOW"}</p>
                   </div>
-                  <button onClick={()=>setHole(h=>Math.min(18,h+1))} style={{background:T.surface,border:"1px solid "+T.border,borderRadius:"8px",color:T.mutedFg,padding:"4px 8px",cursor:"pointer",fontSize:"14px",lineHeight:1}}>+</button>
+                  <span className="display text-xs font-bold tracking-wider text-primary">{course?"ON":"--"}</span>
                 </div>
-                {/* Par */}
-                <div style={{textAlign:"center",minWidth:"32px"}}>
-                  <div style={{fontSize:"8px",color:T.mutedFg,letterSpacing:"1.5px",textTransform:"uppercase",fontFamily:"var(--font-display)"}}>PAR</div>
-                  <div style={{fontFamily:"var(--font-display)",fontSize:"18px",fontWeight:"700",color:T.fg,lineHeight:1}}>{holePars[hole-1]}</div>
-                </div>
-                {/* Yardage */}
-                <input
-                  type="number"
-                  placeholder="Yds"
-                  value={yardage}
-                  onChange={e=>setYardage(e.target.value)}
-                  style={{...S.input,width:"70px",padding:"7px 10px",fontSize:"14px",textAlign:"center",fontFamily:"var(--font-display)",fontWeight:"700"}}
-                />
-                {/* Lie selector */}
-                <select value={lie} onChange={e=>setLie(e.target.value)} style={{...S.input,padding:"7px 10px",fontSize:"12px",flex:1,minWidth:"0",fontFamily:"var(--font-display)"}}>
-                  {["tee","fairway","rough","deep rough","bunker","fringe","green"].map(l=>(
-                    <option key={l} value={l}>{l.charAt(0).toUpperCase()+l.slice(1)}</option>
-                  ))}
-                </select>
-                {/* Expand */}
-                <button onClick={()=>setHoleOpen(o=>!o)} style={{...S.btnGhost,padding:"6px",flexShrink:0}}>
-                  {holeOpen?"▲":"▼"}
-                </button>
               </div>
+            </div>
 
-              {/* Expanded: course + elevation + score input */}
-              {holeOpen&&(
-                <div style={{marginTop:"10px",display:"flex",flexDirection:"column",gap:"8px"}}>
-                  <input
-                    placeholder="Course name"
-                    value={courseInput}
-                    onChange={e=>setCourseInput(e.target.value)}
-                    onBlur={()=>{if(courseInput&&courseInput!==course){setCourse(courseInput);}}}
-                    onKeyDown={e=>{if(e.key==="Enter"&&courseInput&&courseInput!==course){setCourse(courseInput);}}}
-                    style={{...S.input,fontSize:"13px"}}
-                  />
-                  <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-                    <label style={{fontSize:"11px",color:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em",flexShrink:0}}>Elevation</label>
-                    <input type="range" min="-100" max="100" value={elevation} onChange={e=>setElevation(Number(e.target.value))} style={{flex:1}}/>
-                    <span style={{fontSize:"13px",fontFamily:"var(--font-display)",fontWeight:"700",color:T.fg,minWidth:"50px",textAlign:"right"}}>{elevation>0?"+":""}{elevation}ft</span>
-                  </div>
-                  {/* Scorecard entry */}
-                  <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
-                    <span style={{fontSize:"11px",color:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em",flexShrink:0,alignSelf:"center"}}>Score H{hole}:</span>
-                    {[holePars[hole-1]-1,holePars[hole-1],holePars[hole-1]+1,holePars[hole-1]+2,holePars[hole-1]+3].map(v=>(
-                      <button key={v} onClick={()=>setScorecard(s=>{const n=[...s];n[hole-1]=v;return n;})}
-                        style={{...S.pill,padding:"5px 10px",background:scorecard[hole-1]===v?T.primary:T.surface,color:scorecard[hole-1]===v?"#000":T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700",fontSize:"12px"}}>
-                        {v}
-                      </button>
-                    ))}
-                    {scorecard.some(Boolean)&&(
-                      <button onClick={saveRound} style={{...S.btnPrimary,padding:"5px 12px",fontSize:"11px"}}>Save Round</button>
-                    )}
-                  </div>
+            <div className="px-4 pt-3">
+              <div className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Current hole</p>
+                  <button onClick={()=>setHoleOpen(o=>!o)} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground flex items-center gap-1">
+                    Setup <ChevronDown className={cn("h-3.5 w-3.5 transition-transform",holeOpen&&"rotate-180")} strokeWidth={2.5}/>
+                  </button>
                 </div>
-              )}
-
-              {/* Scorecard strip */}
-              {scorecard.some(Boolean)&&!holeOpen&&(
-                <div style={{display:"flex",gap:"3px",marginTop:"8px",overflowX:"auto",paddingBottom:"2px"}}>
-                  {scorecard.map((s,i)=>(
-                    <div key={i} style={{textAlign:"center",flexShrink:0,width:"24px"}}>
-                      <div style={{fontSize:"8px",color:i===hole-1?T.primary:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700"}}>{i+1}</div>
-                      <div style={{borderRadius:"5px",padding:"2px",background:s===null?"transparent":s<holePars[i]?T.primaryDim:s>holePars[i]?"rgba(248,113,113,0.15)":T.surface,fontFamily:"var(--font-display)",fontSize:"11px",fontWeight:"700",color:s===null?T.muted:s<holePars[i]?T.primary:s>holePars[i]?T.red:T.fg}}>{s||"·"}</div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">Hole</p>
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={()=>setHole(h=>Math.max(1,h-1))} className="h-7 w-7 rounded-md bg-secondary text-muted-foreground hover:text-foreground font-bold text-sm flex items-center justify-center">-</button>
+                      <span className="stat text-[30px] leading-none text-foreground">{hole}</span>
+                      <button onClick={()=>setHole(h=>Math.min(18,h+1))} className="h-7 w-7 rounded-md bg-secondary text-muted-foreground hover:text-foreground font-bold text-sm flex items-center justify-center">+</button>
                     </div>
-                  ))}
+                  </div>
+                  <div>
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">Par</p>
+                    <span className="stat text-[30px] leading-none text-foreground">{holePars[hole-1]}</span>
+                  </div>
+                  <div>
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">To pin</p>
+                    <div className="flex items-end gap-1">
+                      <input type="number" placeholder="0" value={yardage} onChange={e=>setYardage(e.target.value)}
+                        className="stat text-[30px] leading-none text-primary bg-transparent border-b border-border w-16 outline-none"/>
+                      <span className="text-xs text-muted-foreground pb-1 font-bold">YDS</span>
+                    </div>
+                  </div>
                 </div>
-              )}
+                {holeOpen&&(
+                  <div className="mt-4 pt-4 border-t border-border space-y-3">
+                    <input placeholder="Course name..." value={courseInput}
+                      onChange={e=>setCourseInput(e.target.value)}
+                      onBlur={()=>{if(courseInput)setCourse(courseInput);}}
+                      onKeyDown={e=>{if(e.key==="Enter"&&courseInput)setCourse(courseInput);}}
+                      className="w-full bg-input border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-foreground/40 transition"/>
+                    <div>
+                      <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">Lie</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {["tee","fairway","rough","deep rough","bunker","fringe","green"].map(l=>(
+                          <button key={l} onClick={()=>setLie(l)}
+                            className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg border px-2.5 py-1.5 transition",
+                              lie===l?"bg-foreground text-background border-foreground":"border-border text-muted-foreground hover:border-foreground/40")}>
+                            {l}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">Elev</p>
+                      <input type="range" min="-100" max="100" value={elevation} onChange={e=>setElevation(Number(e.target.value))} className="flex-1"/>
+                      <span className="display text-[12px] font-bold text-foreground w-12 text-right">{elevation>0?"+":""}{elevation}ft</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">Score H{hole}:</p>
+                      {[holePars[hole-1]-1,holePars[hole-1],holePars[hole-1]+1,holePars[hole-1]+2].map(v=>(
+                        <button key={v} onClick={()=>setScorecard(s=>{const n=[...s];n[hole-1]=v;return n;})}
+                          className={cn("display text-[11px] font-bold rounded-lg border px-2.5 py-1.5 transition",
+                            scorecard[hole-1]===v?"bg-primary text-primary-foreground border-primary":"border-border text-muted-foreground hover:border-foreground/40")}>
+                          {v}
+                        </button>
+                      ))}
+                      {scorecard.some(Boolean)&&(
+                        <button onClick={saveRound} className="display text-[10px] font-bold uppercase tracking-wider bg-foreground text-background rounded-lg px-2.5 py-1.5">Save Round</button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Chat messages */}
-            <div style={{flex:1,padding:"16px",display:"flex",flexDirection:"column",gap:"10px",overflowY:"auto"}}>
+            {messages.length>0&&messages[messages.length-1].role==="assistant"&&(
+              <div className="px-4 pt-3">
+                <div className="rounded-xl border border-primary/40 bg-primary/10 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-6 w-6 rounded-md bg-foreground text-primary flex items-center justify-center"><Zap className="h-3.5 w-3.5" strokeWidth={2.75}/></div>
+                    <p className="display text-[11px] font-bold uppercase tracking-[0.18em]">Obi&apos;s call</p>
+                  </div>
+                  <p className="display text-xl font-bold tracking-tight leading-tight mb-1">{messages[messages.length-1].content.split(".")[0]}.</p>
+                  <p className="text-sm text-muted-foreground leading-snug">{messages[messages.length-1].content.split(".").slice(1).join(".").trim()}</p>
+                  <button onClick={()=>speak(messages[messages.length-1].content)} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground mt-2.5">
+                    {speaking?"Stop":"Read aloud"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="px-4 pt-4 flex-1">
               {messages.length===0&&(
-                <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flex:1,gap:"16px",padding:"40px 0"}}>
-                  <Ball size={52}/>
-                  <div style={{textAlign:"center"}}>
-                    <div style={{fontFamily:"var(--font-display)",fontSize:"20px",fontWeight:"700",color:T.fg,letterSpacing:"-0.02em"}}>Ready to caddie</div>
-                    <div style={{fontSize:"13px",color:T.mutedFg,marginTop:"6px"}}>Set your yardage and ask anything</div>
-                  </div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:"6px",justifyContent:"center",maxWidth:"340px"}}>
-                    {QUICK_PROMPTS.map(p=>(
-                      <button key={p.label} onClick={()=>sendMessage(p.prompt)} className="chip" style={{cursor:"pointer"}}>
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
+                <div className="text-center py-8">
+                  <Ball size={48}/>
+                  <p className="display text-xl text-foreground mt-3 mb-1">Ready to caddie</p>
+                  <p className="text-sm text-muted-foreground">Set your yardage and ask anything</p>
                 </div>
               )}
-              {messages.map((m,i)=>(
-                <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",gap:"8px",alignItems:"flex-end"}}>
-                  {m.role==="assistant"&&<Ball size={22}/>}
-                  <div className={m.role==="user"?"bubble-user":"bubble-ai"}>
-                    {m.content}
-                    {m.role==="assistant"&&(
-                      <button onClick={()=>speak(m.content)} style={{display:"block",marginTop:"6px",background:"none",border:"none",color:T.mutedFg,fontSize:"11px",cursor:"pointer",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>
-                        {speaking?"⏹ Stop":"🔊 Read"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {loading&&(
-                <div style={{display:"flex",justifyContent:"flex-start",gap:"8px",alignItems:"flex-end"}}>
-                  <Ball size={22}/>
-                  <div className="bubble-ai" style={{display:"flex",gap:"4px",alignItems:"center"}}>
-                    {[0,1,2].map(i=>(
-                      <div key={i} style={{width:"5px",height:"5px",borderRadius:"99px",background:T.mutedFg,animation:"pulse 1.2s "+(i*0.15)+"s infinite"}}/>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div ref={chatEndRef}/>
+              <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">Quick ask</p>
+              <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-2" style={{scrollbarWidth:"none"}}>
+                {QUICK_PROMPTS.map(a=>(
+                  <button key={a.label} onClick={()=>sendMessage(a.prompt)}
+                    className="shrink-0 inline-flex items-center gap-1.5 display rounded-lg border border-border bg-card px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-foreground hover:border-foreground/40 transition">
+                    {a.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Input bar */}
-            <div style={{padding:"10px 16px",background:T.card,borderTop:"1px solid "+T.border,paddingBottom:"calc(10px + env(safe-area-inset-bottom))",flexShrink:0}}>
-              <div style={{display:"flex",gap:"8px",alignItems:"center",background:T.surface,border:"1px solid "+T.border,borderRadius:"14px",padding:"6px 6px 6px 12px"}}>
-                <input
-                  value={input}
-                  onChange={e=>setInput(e.target.value)}
-                  onKeyDown={e=>e.key==="Enter"&&sendMessage()}
-                  placeholder="Ask Obi anything..."
-                  style={{flex:1,background:"transparent",border:"none",outline:"none",fontSize:"14px",color:T.fg,fontFamily:"var(--font-sans)"}}
-                />
+            {messages.length>1&&(
+              <div className="px-4 pt-2 space-y-2 max-h-48 overflow-y-auto" style={{scrollbarWidth:"none"}}>
+                {messages.slice(0,-1).map((m,i)=>(
+                  <div key={i} className={cn("flex",m.role==="user"?"justify-end":"justify-start gap-2 items-end")}>
+                    {m.role==="assistant"&&<Ball size={18}/>}
+                    <div className={m.role==="user"?"bubble-user text-[13px]":"bubble-ai text-[13px]"}>{m.content}</div>
+                  </div>
+                ))}
+                <div ref={chatEndRef}/>
+              </div>
+            )}
+
+            <div className="px-4 pb-3 pt-2 shrink-0 bg-background border-t border-border" style={{paddingBottom:"calc(0.75rem + env(safe-area-inset-bottom))"}}>
+              {loading&&(
+                <div className="flex items-end gap-2 mb-2">
+                  <Ball size={18}/>
+                  <div className="bubble-ai flex gap-1.5 items-center py-3">
+                    {[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 rounded-full bg-muted-foreground" style={{animation:"pulse-dot 1.2s "+(i*0.15)+"s infinite"}}/>)}
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-1.5 pl-3 shadow-sm">
+                <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendMessage()}
+                  placeholder="ASK OBI ANYTHING..."
+                  className="flex-1 bg-transparent text-sm font-medium placeholder:text-muted-foreground placeholder:uppercase placeholder:tracking-wider placeholder:text-[11px] placeholder:font-bold outline-none"/>
                 <button onClick={()=>sendMessage()} disabled={!input.trim()||loading}
-                  style={{...S.btnPrimary,padding:"9px",borderRadius:"10px",flexShrink:0,opacity:input.trim()&&!loading?1:0.4}}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                  className={cn("h-9 w-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center transition",(!input.trim()||loading)?"opacity-40":"hover:opacity-90")}>
+                  <ArrowUp className="h-4 w-4" strokeWidth={3}/>
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ══ PRACTICE TAB ════════════════════════════════════════ */}
+        {/* PRACTICE TAB */}
         {tab==="practice"&&(
-          <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:"16px",paddingBottom:"24px"}}>
-
-            {/* Header */}
+          <div className="px-4 pt-5 pb-8 space-y-5">
             <div>
-              <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg}}>Practice</div>
-              <div style={{fontFamily:"var(--font-display)",fontSize:"26px",fontWeight:"700",color:T.fg,letterSpacing:"-0.02em",marginTop:"2px"}}>Sharpen your game.</div>
+              <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Practice</p>
+              <h1 className="display text-[26px] font-bold tracking-tight leading-tight mt-0.5">Sharpen your game.</h1>
+            </div>
+            <div className="flex gap-1 bg-secondary rounded-xl p-1">
+              {[["swing","Swing Lab"],["range","Range Mode"]].map(([id,label])=>(
+                <button key={id} onClick={()=>setPracticeSubTab(id)}
+                  className={cn("flex-1 py-2 rounded-[10px] display text-[11px] font-bold uppercase tracking-wider transition-all",
+                    practiceSubTab===id?"nav-pill-active":"text-muted-foreground hover:text-foreground")}>
+                  {label}
+                </button>
+              ))}
             </div>
 
-            {/* Sub-tabs */}
-            <div className="tab-pill">
-              <button className={practiceSubTab==="swing"?"active":""} onClick={()=>setPracticeSubTab("swing")}>Swing Lab</button>
-              <button className={practiceSubTab==="range"?"active":""} onClick={()=>setPracticeSubTab("range")}>Range Mode</button>
-            </div>
-
-            {/* ── Swing Lab ─────────────────────────────────────── */}
             {practiceSubTab==="swing"&&(
               <React.Fragment>
-                {/* Upload / record */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-5 rounded-md bg-foreground text-primary flex items-center justify-center"><Video className="h-3 w-3" strokeWidth={3}/></div>
+                    <p className="display text-[11px] font-bold uppercase tracking-[0.18em]">Swing Lab</p>
+                  </div>
+                  <span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Video analysis</span>
+                </div>
                 {!swingAnalysis&&!swingLoading&&(
-                  <div style={{...S.card,background:"var(--fg)",color:T.bg}}>
-                    <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
-                      <div style={{width:"44px",height:"44px",borderRadius:"12px",background:T.primary,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                        <span style={{fontSize:"22px"}}>🎬</span>
-                      </div>
-                      <div style={{flex:1}}>
-                        <div style={{fontFamily:"var(--font-display)",fontSize:"15px",fontWeight:"700",letterSpacing:"-0.01em"}}>Analyze a swing</div>
-                        <div style={{fontSize:"11px",opacity:0.6,fontWeight:"500",marginTop:"2px"}}>Video or photo · AI breakdown</div>
-                      </div>
-                      <button onClick={()=>swingInputRef.current?.click()}
-                        style={{...S.btnPrimary,background:T.primary,padding:"9px 14px",fontSize:"12px",flexShrink:0}}>
-                        Upload
-                      </button>
+                  <button onClick={()=>swingInputRef.current?.click()}
+                    className="w-full rounded-xl bg-foreground text-background p-4 flex items-center gap-3 hover:opacity-95 transition">
+                    <div className="h-10 w-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0"><Video className="h-4 w-4" strokeWidth={2.75}/></div>
+                    <div className="text-left flex-1">
+                      <p className="display text-[15px] font-bold tracking-tight">Record a swing</p>
+                      <p className="text-[11px] opacity-70 font-medium">AI breakdown · plane, tempo, face</p>
                     </div>
-                    <input ref={swingInputRef} type="file" accept="video/*,image/*" style={{display:"none"}}
-                      onChange={e=>{const f=e.target.files?.[0];if(f)setSwingFile(f);}}/>
+                    <ChevronRight className="h-4 w-4" strokeWidth={3}/>
+                  </button>
+                )}
+                <input ref={swingInputRef} type="file" accept="video/*,image/*" className="hidden"
+                  onChange={e=>{const f=e.target.files?.[0];if(f)setSwingFile(f);}}/>
+                {swingFile&&!swingAnalysis&&!swingLoading&&(
+                  <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+                    <p className="text-[13px] text-muted-foreground">File: <span className="text-foreground font-semibold">{swingFile.name}</span></p>
+                    <textarea placeholder="Notes (optional)..." value={swingNotes} onChange={e=>setSwingNotes(e.target.value)} rows={2}
+                      className="w-full bg-input border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none focus:border-foreground/40 transition"/>
+                    <button onClick={handleSwingAnalyze} className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 display text-[13px] font-bold uppercase tracking-wider hover:opacity-90 transition">Analyze with Obi</button>
                   </div>
                 )}
-
-                {swingFile&&!swingAnalysis&&(
-                  <div style={S.card}>
-                    <div style={{fontSize:"13px",color:T.mutedFg,marginBottom:"10px"}}>
-                      Selected: <span style={{color:T.fg,fontWeight:"600"}}>{swingFile.name}</span>
-                    </div>
-                    <textarea
-                      placeholder="Notes (optional) - club, feel, what to improve..."
-                      value={swingNotes}
-                      onChange={e=>setSwingNotes(e.target.value)}
-                      rows={2}
-                      style={{...S.input,resize:"none",marginBottom:"10px"}}
-                    />
-                    <button onClick={handleSwingAnalyze} disabled={swingLoading}
-                      style={{...S.btnPrimary,width:"100%",padding:"13px",opacity:swingLoading?0.5:1}}>
-                      {swingLoading?"Analyzing...":"Analyze with Obi"}
-                    </button>
-                  </div>
-                )}
-
                 {swingLoading&&(
-                  <div style={{...S.card,textAlign:"center",padding:"32px"}}>
-                    <div style={{fontSize:"32px",marginBottom:"12px",animation:"spin 1s linear infinite",display:"inline-block"}}>⚙️</div>
-                    <div style={{fontFamily:"var(--font-display)",fontSize:"15px",fontWeight:"700",color:T.fg}}>Analyzing your swing...</div>
-                    <div style={{fontSize:"12px",color:T.mutedFg,marginTop:"6px"}}>Obi is reviewing your footage</div>
+                  <div className="rounded-xl border border-border bg-card p-8 text-center">
+                    <div className="text-3xl mb-3" style={{animation:"spin 1s linear infinite",display:"inline-block"}}>⚙️</div>
+                    <p className="display text-[15px] font-bold text-foreground">Analyzing your swing...</p>
                   </div>
                 )}
-
                 {swingAnalysis&&(
-                  <div>
-                    <div style={{...S.card,borderColor:T.primary+"66",background:T.primaryDim}}>
-                      <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px"}}>
-                        <div style={{width:"26px",height:"26px",borderRadius:"8px",background:T.fg,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                          <span style={{color:T.primary,fontSize:"13px"}}>✦</span>
-                        </div>
-                        <span style={{fontFamily:"var(--font-display)",fontSize:"11px",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.fg}}>Obi&apos;s Analysis</span>
-                      </div>
-                      <div style={{fontSize:"14px",color:T.fg,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{swingAnalysis}</div>
-                      <div style={{display:"flex",gap:"8px",marginTop:"14px"}}>
-                        <button onClick={()=>speak(swingAnalysis)} style={S.pill}>🔊 Read aloud</button>
-                        <button onClick={()=>{setSwingAnalysis("");setSwingFile(null);setSwingNotes("");}} style={S.pill}>🔄 New</button>
-                      </div>
+                  <div className="rounded-xl border border-primary/40 bg-primary/10 p-4">
+                    <div className="flex items-center gap-1.5 mb-2"><Sparkles className="h-3 w-3 text-primary" strokeWidth={2.5}/><p className="display text-[10px] font-bold uppercase tracking-[0.18em]">Obi&apos;s read</p></div>
+                    <p className="display text-[15px] font-bold tracking-tight leading-snug">{swingAnalysis.split(".")[0]}.</p>
+                    <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{swingAnalysis.split(".").slice(1).join(".").trim()}</p>
+                    <div className="flex gap-3 mt-2.5">
+                      <button onClick={()=>speak(swingAnalysis)} className="display text-[10px] font-bold uppercase tracking-wider border-b-2 border-foreground pb-0.5">{speaking?"Stop":"Read"}</button>
+                      <button onClick={()=>{setSwingAnalysis("");setSwingFile(null);setSwingNotes("");}} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground pb-0.5">New</button>
                     </div>
                   </div>
                 )}
-
-                {/* Swing history */}
                 {swingHistory.length>0&&(
                   <div>
-                    <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg,marginBottom:"10px"}}>Recent analyses</div>
-                    <div className="row-list">
-                      {swingHistory.slice(0,5).map((s,i)=>(
-                        <div key={i} style={{padding:"12px 14px"}}>
-                          <div style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
-                            <span style={{fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>{s.club_used||"Swing"}</span>
-                            <span style={{fontSize:"11px",color:T.mutedFg}}>{fmtDateShort(s.created_at)}</span>
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">Recent analyses</p>
+                    <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
+                      {swingHistory.slice(0,4).map((s,i)=>(
+                        <div key={i} className="flex items-center gap-3 px-3.5 py-3">
+                          <div className="h-9 w-9 rounded-lg bg-secondary flex items-center justify-center shrink-0"><Activity className="h-4 w-4 text-muted-foreground" strokeWidth={2.5}/></div>
+                          <div className="min-w-0 flex-1">
+                            <p className="display text-[13px] font-bold tracking-tight">{s.club_used||"Swing"}</p>
+                            <p className="text-[11px] text-muted-foreground truncate">{s.analysis?.slice(0,60)}...</p>
                           </div>
-                          <div style={{fontSize:"13px",color:T.mutedFg,lineHeight:1.5}}>{s.analysis?.slice(0,120)}...</div>
-                          <div style={{display:"flex",gap:"6px",marginTop:"8px"}}>
-                            <button onClick={()=>speak(s.analysis)} style={S.pill}>🔊 Read</button>
-                            <button onClick={async()=>{await supabase.from("swing_analyses").delete().eq("id",s.id);setSwingHistory(h=>h.filter(x=>x.id!==s.id));}} style={{...S.pill,color:T.red}}>Delete</button>
-                          </div>
+                          <span className="text-[11px] text-muted-foreground shrink-0">{fmtDateShort(s.created_at)}</span>
                         </div>
                       ))}
                     </div>
@@ -996,127 +990,91 @@ function ObiGolfApp(){
               </React.Fragment>
             )}
 
-            {/* ── Range Mode ────────────────────────────────────── */}
             {practiceSubTab==="range"&&(
               <React.Fragment>
-                {/* Club select */}
-                <div style={S.card}>
-                  <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg,marginBottom:"10px"}}>Select club</div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
-                    {profile.bag.map(b=>(
-                      <button key={b.club} onClick={()=>setRangeClub(b.club)}
-                        style={{...S.pill,background:rangeClub===b.club?T.primary:T.surface,color:rangeClub===b.club?"#000":T.mutedFg,borderColor:rangeClub===b.club?T.primary:T.border}}>
-                        {b.club}
-                      </button>
-                    ))}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-5 rounded-md bg-primary text-primary-foreground flex items-center justify-center"><Target className="h-3 w-3" strokeWidth={3}/></div>
+                    <p className="display text-[11px] font-bold uppercase tracking-[0.18em]">Range Mode</p>
                   </div>
+                  <span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Live shot tracking</span>
                 </div>
-
-                {/* Camera / record */}
+                <div className="flex flex-wrap gap-1.5">
+                  {profile.bag.map(b=>(
+                    <button key={b.club} onClick={()=>setRangeClub(b.club)}
+                      className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg border px-2.5 py-1.5 transition",
+                        rangeClub===b.club?"bg-primary text-primary-foreground border-primary":"border-border text-muted-foreground hover:border-foreground/40")}>
+                      {b.club}
+                    </button>
+                  ))}
+                </div>
                 {!cameraActive&&!rangeLoading&&!rangeShotResult&&(
                   <button onClick={startCamera}
-                    style={{...S.card,background:T.primary,color:"#000",display:"flex",alignItems:"center",gap:"12px",width:"100%",textAlign:"left",border:"none",cursor:"pointer",padding:"16px"}}>
-                    <div style={{width:"44px",height:"44px",borderRadius:"12px",background:"rgba(0,0,0,0.1)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                      <span style={{fontSize:"22px"}}>📹</span>
+                    className="w-full rounded-xl bg-primary text-primary-foreground p-4 flex items-center gap-3 hover:opacity-95 transition">
+                    <div className="h-10 w-10 rounded-lg bg-foreground/10 flex items-center justify-center shrink-0"><Play className="h-4 w-4" strokeWidth={3} fill="currentColor"/></div>
+                    <div className="text-left flex-1">
+                      <p className="display text-[15px] font-bold tracking-tight">Start range session</p>
+                      <p className="text-[11px] opacity-70 font-medium">Track every shot</p>
                     </div>
-                    <div style={{flex:1}}>
-                      <div style={{fontFamily:"var(--font-display)",fontSize:"15px",fontWeight:"700",letterSpacing:"-0.01em"}}>Record a shot</div>
-                      <div style={{fontSize:"11px",opacity:0.7,fontWeight:"500",marginTop:"2px"}}>4-second clip · AI analysis</div>
-                    </div>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M9 18l6-6-6-6"/></svg>
+                    <ChevronRight className="h-4 w-4" strokeWidth={3}/>
                   </button>
                 )}
-
                 {cameraActive&&(
-                  <div style={S.card}>
-                    <video ref={videoRef} muted playsInline style={{width:"100%",borderRadius:"10px",background:"#000",aspectRatio:"4/3",objectFit:"cover"}}/>
-                    <div style={{display:"flex",gap:"10px",marginTop:"12px"}}>
+                  <div className="rounded-xl border border-border bg-card overflow-hidden">
+                    <video ref={videoRef} muted playsInline className="w-full aspect-video object-cover bg-black"/>
+                    <div className="p-3.5 flex gap-2">
                       {!recording?(
-                        <button onClick={startRecording} style={{...S.btnPrimary,flex:1,padding:"13px"}}>
-                          <span style={{width:"10px",height:"10px",borderRadius:"99px",background:"#fff",display:"inline-block"}}/>
-                          Record
-                        </button>
+                        <button onClick={startRecording} className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider">Record</button>
                       ):(
-                        <button onClick={stopRecording} style={{...S.btnSecondary,flex:1,padding:"13px"}}>
-                          <span style={{width:"10px",height:"10px",borderRadius:"3px",background:T.red,display:"inline-block"}}/>
-                          Stop ({recording?"●":""})
-                        </button>
+                        <button onClick={()=>mediaRecorderRef.current?.stop()} className="flex-1 flex items-center justify-center gap-2 bg-destructive/20 text-destructive rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider border border-destructive/30">Stop</button>
                       )}
-                      <button onClick={stopCamera} style={{...S.btnGhost,padding:"13px 16px",border:"1px solid "+T.border,borderRadius:"12px"}}>Cancel</button>
+                      <button onClick={stopCamera} className="rounded-xl border border-border bg-secondary px-4 py-3 display text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Cancel</button>
                     </div>
                   </div>
                 )}
-
                 {rangeLoading&&(
-                  <div style={{...S.card,textAlign:"center",padding:"32px"}}>
-                    <div style={{fontSize:"32px",marginBottom:"12px",animation:"spin 1s linear infinite",display:"inline-block"}}>⚙️</div>
-                    <div style={{fontFamily:"var(--font-display)",fontSize:"15px",fontWeight:"700",color:T.fg}}>Analyzing shot...</div>
+                  <div className="rounded-xl border border-border bg-card p-8 text-center">
+                    <p className="display text-[15px] font-bold text-foreground">Analyzing shot...</p>
                   </div>
                 )}
-
                 {rangeShotResult&&!rangeShotResult.error&&(
-                  <div>
+                  <div className="space-y-3">
                     <ShotShapeDiagram result={rangeShotResult} club={rangeClub} dexterity={profile.dexterity}/>
-                    <div style={{...S.card,marginTop:"10px",borderColor:T.primary+"66",background:T.primaryDim}}>
-                      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px",marginBottom:"14px"}}>
-                        {[["Shape",rangeShotResult.shape||"straight"],["Carry",(rangeShotResult.carry||0)+"y"],["Direction",rangeShotResult.direction||"center"]].map(([l,v])=>(
-                          <div key={l} style={{textAlign:"center"}}>
-                            <div style={{fontSize:"9px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"1.5px",color:T.mutedFg,marginBottom:"4px"}}>{l}</div>
-                            <div style={{fontFamily:"var(--font-display)",fontSize:"18px",fontWeight:"700",color:T.primary,lineHeight:1}}>{v}</div>
+                    <div className="rounded-xl border border-primary/40 bg-primary/10 p-4">
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        {[["Shape",rangeShotResult.shape||"straight"],["Carry",(rangeShotResult.carry||0)+"y"],["Dir",rangeShotResult.direction||"center"]].map(([l,v])=>(
+                          <div key={l} className="text-center">
+                            <p className="display text-[9px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">{l}</p>
+                            <p className="stat text-xl leading-none text-primary">{v}</p>
                           </div>
                         ))}
                       </div>
-                      {rangeShotResult.coaching&&(
-                        <div style={{fontSize:"14px",color:T.fg,lineHeight:1.6,paddingTop:"12px",borderTop:"1px solid "+T.border+"44"}}>{rangeShotResult.coaching}</div>
-                      )}
-                      <div style={{display:"flex",gap:"8px",marginTop:"12px"}}>
-                        <button onClick={()=>speak(rangeShotResult.coaching||"")} style={S.pill}>🔊 Read</button>
-                        <button onClick={()=>setRangeShotResult(null)} style={S.pill}>🔄 Next shot</button>
+                      {rangeShotResult.coaching&&<p className="text-sm text-foreground leading-relaxed pt-3 border-t border-border/50">{rangeShotResult.coaching}</p>}
+                      <div className="flex gap-3 mt-2.5">
+                        <button onClick={()=>speak(rangeShotResult.coaching||"")} className="display text-[10px] font-bold uppercase tracking-wider border-b-2 border-foreground pb-0.5">Read</button>
+                        <button onClick={()=>setRangeShotResult(null)} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground pb-0.5">Next shot</button>
                       </div>
                     </div>
                   </div>
                 )}
-
-                {/* Club stats */}
-                {clubStats[rangeClub]?.count>=3&&(
-                  <div style={S.card}>
-                    <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg,marginBottom:"12px"}}>{rangeClub} stats</div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px"}}>
-                      {[
-                        ["Shots",clubStats[rangeClub].count],
-                        ["Shape",clubStats[rangeClub].typicalShape],
-                        ["Consist",("⭐").repeat(Math.max(0,clubStats[rangeClub].consistencyStars))],
-                      ].map(([l,v])=>(
-                        <div key={l} style={{textAlign:"center"}}>
-                          <div style={{fontSize:"9px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"1.5px",color:T.mutedFg,marginBottom:"4px"}}>{l}</div>
-                          <div style={{fontFamily:"var(--font-display)",fontSize:"18px",fontWeight:"700",color:T.fg,lineHeight:1}}>{v}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Shot history */}
                 {rangeHistory.length>0&&(
                   <div>
-                    <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg,marginBottom:"10px"}}>Shot history</div>
-                    <div className="row-list">
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">Shot history</p>
+                    <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
                       {(showAllShots?rangeHistory:rangeHistory.slice(0,5)).map((s,i)=>(
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:"12px",padding:"11px 14px"}}>
-                          <div style={{width:"36px",height:"36px",borderRadius:"10px",background:T.primaryDim,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                            <span style={{fontFamily:"var(--font-display)",fontSize:"11px",fontWeight:"700",color:T.primary}}>{s.club?.split("-")[0]||"?"}</span>
+                        <div key={i} className="flex items-center gap-3 px-3.5 py-3">
+                          <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 display text-[11px] font-bold">{s.club?.split("-")[0]||"?"}</div>
+                          <div className="min-w-0 flex-1">
+                            <p className="display text-[13px] font-bold tracking-tight">{s.club||"Shot"}</p>
+                            <p className="text-[11px] text-muted-foreground">{s.shape||"straight"} · {s.carry||0}y</p>
                           </div>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>{s.club||"Shot"}</div>
-                            <div style={{fontSize:"11px",color:T.mutedFg,marginTop:"2px"}}>{s.shape||"straight"} · {s.carry||0}y</div>
-                          </div>
-                          <span style={{fontSize:"11px",color:T.mutedFg,flexShrink:0}}>{fmtDateShort(s.created_at)}</span>
+                          <span className="text-[11px] text-muted-foreground">{fmtDateShort(s.created_at)}</span>
                         </div>
                       ))}
                     </div>
                     {rangeHistory.length>5&&(
-                      <button onClick={()=>setShowAllShots(s=>!s)} style={{...S.btnGhost,width:"100%",marginTop:"8px",padding:"10px",border:"1px solid "+T.border,borderRadius:"12px"}}>
-                        {showAllShots?"Show less ^":"Show all "+rangeHistory.length+" shots v"}
+                      <button onClick={()=>setShowAllShots(s=>!s)} className="w-full text-center py-2.5 display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                        {showAllShots?"Show less":"View all "+rangeHistory.length+" shots"}
                       </button>
                     )}
                   </div>
@@ -1126,165 +1084,113 @@ function ObiGolfApp(){
           </div>
         )}
 
-        {/* ══ SOCIAL TAB ══════════════════════════════════════════ */}
+        {/* SOCIAL TAB */}
         {tab==="social"&&(
-          <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:"16px",paddingBottom:"24px"}}>
-
-            {/* Header */}
+          <div className="px-4 pt-5 pb-8 space-y-4">
             <div>
-              <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg}}>Social</div>
-              <div style={{fontFamily:"var(--font-display)",fontSize:"26px",fontWeight:"700",color:T.fg,letterSpacing:"-0.02em",marginTop:"2px"}}>Your crew.</div>
+              <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Social</p>
+              <h1 className="display text-[26px] font-bold tracking-tight leading-tight mt-0.5">Your crew.</h1>
             </div>
-
-            {/* Sub-tabs */}
-            <div className="tab-pill">
-              <button className={socialView==="feed"?"active":""} onClick={()=>setSocialView("feed")}>Feed</button>
-              <button className={socialView==="rounds"?"active":""} onClick={()=>setSocialView("rounds")}>My Rounds</button>
-              <button className={socialView==="friends"?"active":""} onClick={()=>setSocialView("friends")}>
-                Friends{friendReqs.length>0&&<span style={{marginLeft:"4px",background:T.red,color:"#fff",borderRadius:"99px",padding:"1px 5px",fontSize:"9px"}}>{friendReqs.length}</span>}
-              </button>
+            <div className="flex gap-1 bg-secondary rounded-xl p-1">
+              {[["feed","Feed"],["rounds","My Rounds"],["friends","Friends"+(friendReqs.length>0?" ("+friendReqs.length+")":"")]].map(([id,label])=>(
+                <button key={id} onClick={()=>setSocialView(id)}
+                  className={cn("flex-1 py-2 rounded-[10px] display text-[10px] font-bold uppercase tracking-wider transition-all",
+                    socialView===id?"nav-pill-active":"text-muted-foreground hover:text-foreground")}>
+                  {label}
+                </button>
+              ))}
             </div>
-
-            {/* Feed */}
             {socialView==="feed"&&(
-              <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
-                {feed.length===0&&(
-                  <div style={{...S.card,textAlign:"center",padding:"40px 20px"}}>
-                    <div style={{fontSize:"32px",marginBottom:"12px"}}>👥</div>
-                    <div style={{fontFamily:"var(--font-display)",fontSize:"15px",fontWeight:"700",color:T.fg}}>No rounds yet</div>
-                    <div style={{fontSize:"13px",color:T.mutedFg,marginTop:"6px"}}>Add friends to see their activity</div>
-                  </div>
-                )}
+              <div className="space-y-2.5">
+                {feed.length===0&&(<div className="rounded-xl border border-border bg-card p-10 text-center"><p className="text-3xl mb-2">👥</p><p className="display text-[15px] font-bold text-foreground">No rounds yet</p></div>)}
                 {(showAllFeed?feed:feed.slice(0,5)).map((r,i)=>{
                   const isYou=r.user_id===user?.id;
                   const pname=isYou?name:(r.profiles?.full_name||"Golfer");
-                  const initials=pname.split(" ").map(x=>x[0]).join("").toUpperCase().slice(0,2);
                   const diff=r.score_vs_par||0;
                   return(
-                    <article key={r.id||i} style={S.card}>
-                      <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px"}}>
-                        <Avatar url={isYou?avatarUrl:r.profiles?.avatar_url} name={pname} size={38}/>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>{pname}{isYou&&<span style={{fontSize:"10px",color:T.primary,marginLeft:"6px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>you</span>}</div>
-                          <div style={{fontSize:"11px",color:T.mutedFg,marginTop:"2px",display:"flex",alignItems:"center",gap:"4px"}}>
-                            <span>📍</span>{r.course_name||"Unknown"} · {fmtDateShort(r.played_at)}
-                          </div>
+                    <article key={r.id||i} className="rounded-xl border border-border bg-card p-3.5">
+                      <div className="flex items-center gap-2.5 mb-2.5">
+                        <Avatar url={isYou?avatarUrl:r.profiles?.avatar_url} name={pname} size={36}/>
+                        <div className="min-w-0 flex-1">
+                          <p className="display text-[13px] font-bold tracking-tight">{pname}{isYou&&<span className="ml-1.5 display text-[9px] uppercase tracking-wider text-primary">you</span>}</p>
+                          <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" strokeWidth={2.5}/>{r.course_name||"Unknown"} · {fmtDateShort(r.played_at)}</p>
                         </div>
-                        <div style={{textAlign:"right"}}>
-                          <div style={{fontFamily:"var(--font-display)",fontSize:"22px",fontWeight:"700",color:diff<=0?T.primary:T.red,lineHeight:1}}>{r.total_score}</div>
-                          <div style={{fontSize:"10px",color:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700",marginTop:"2px"}}>{diff===0?"E":diff>0?"+"+diff:""+diff}</div>
+                        <div className="text-right">
+                          <p className={cn("stat text-xl leading-none",diff<=0?"text-primary":"text-destructive")}>{r.total_score}</p>
+                          <p className="display text-[9px] font-bold uppercase tracking-wider text-muted-foreground mt-1">{diff===0?"E":diff>0?"+"+diff:""+diff}</p>
                         </div>
                       </div>
-                      <div style={{display:"flex",gap:"8px",paddingTop:"10px",borderTop:"1px solid "+T.border}}>
-                        <button onClick={()=>setShowCard(r)} style={S.pill}>📊 View</button>
-                        {isYou&&(
-                          <button onClick={()=>{const j=randJab();setJabPost(j);}} style={S.pill}>😂 Jab</button>
-                        )}
+                      <div className="flex items-center gap-4 pt-2.5 border-t border-border">
+                        <button onClick={()=>setShowCard(r)} className="display text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition">View scorecard</button>
                       </div>
                     </article>
                   );
                 })}
-                {feed.length>5&&(
-                  <button onClick={()=>setShowAllFeed(s=>!s)} style={{...S.btnGhost,width:"100%",padding:"10px",border:"1px solid "+T.border,borderRadius:"12px"}}>
-                    {showAllFeed?"Show less ^":"View more v"}
-                  </button>
-                )}
+                {feed.length>5&&(<button onClick={()=>setShowAllFeed(s=>!s)} className="w-full text-center py-2.5 display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">{showAllFeed?"Show less":"View more"}</button>)}
               </div>
             )}
-
-            {/* My Rounds */}
             {socialView==="rounds"&&(
-              <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
-                {rounds.length===0&&(
-                  <div style={{...S.card,textAlign:"center",padding:"40px 20px"}}>
-                    <div style={{fontSize:"32px",marginBottom:"12px"}}>⛳</div>
-                    <div style={{fontFamily:"var(--font-display)",fontSize:"15px",fontWeight:"700",color:T.fg}}>No rounds saved yet</div>
-                    <div style={{fontSize:"13px",color:T.mutedFg,marginTop:"6px"}}>Save a round from the Caddie tab</div>
-                  </div>
-                )}
+              <div className="space-y-2">
+                {rounds.length===0&&(<div className="rounded-xl border border-border bg-card p-10 text-center"><p className="text-3xl mb-2">⛳</p><p className="display text-[15px] font-bold text-foreground">No rounds saved</p></div>)}
                 {rounds.map((r,i)=>{
                   const diff=r.score_vs_par||0;
                   return(
                     <button key={r.id||i} onClick={()=>setShowCard(r)}
-                      style={{...S.card,display:"flex",alignItems:"center",gap:"12px",width:"100%",textAlign:"left",cursor:"pointer"}}>
-                      <div style={{width:"40px",height:"40px",borderRadius:"10px",background:T.surface,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                        <span style={{fontSize:"18px"}}>⛳</span>
+                      className="w-full flex items-center gap-3 rounded-xl border border-border bg-card px-3.5 py-3 hover:bg-secondary/40 transition text-left">
+                      <div className="h-9 w-9 rounded-lg bg-secondary flex items-center justify-center shrink-0"><MapPin className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={2.5}/></div>
+                      <div className="min-w-0 flex-1">
+                        <p className="display text-[13px] font-bold tracking-tight truncate">{r.course_name||"Unknown"}</p>
+                        <p className="text-[11px] text-muted-foreground">{fmtDate(r.played_at)} · {diff===0?"E":diff>0?"+"+diff:""+diff}</p>
                       </div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontFamily:"var(--font-display)",fontSize:"14px",fontWeight:"700",color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.course_name||"Unknown"}</div>
-                        <div style={{fontSize:"11px",color:T.mutedFg,marginTop:"2px"}}>{fmtDate(r.played_at)} · {r.holes_played||18} holes</div>
-                      </div>
-                      <div style={{textAlign:"right",flexShrink:0}}>
-                        <div style={{fontFamily:"var(--font-display)",fontSize:"22px",fontWeight:"700",color:diff<=0?T.primary:diff>4?T.red:T.fg,lineHeight:1}}>{r.total_score}</div>
-                        <div style={{fontSize:"10px",color:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700",marginTop:"2px"}}>{diff===0?"E":diff>0?"+"+diff:""+diff}</div>
-                      </div>
+                      <p className={cn("stat text-lg leading-none",diff<=0?"text-primary":"text-foreground")}>{r.total_score}</p>
                     </button>
                   );
                 })}
               </div>
             )}
-
-            {/* Friends */}
             {socialView==="friends"&&(
-              <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
-                {/* Search */}
-                <div style={{display:"flex",gap:"8px"}}>
+              <div className="space-y-4">
+                <div className="flex gap-2">
                   <input placeholder="Search players..." value={friendSearch} onChange={e=>setFriendSearch(e.target.value)}
                     onKeyDown={e=>e.key==="Enter"&&searchFriends()}
-                    style={{...S.input,flex:1}}/>
-                  <button onClick={searchFriends} style={{...S.btnPrimary,padding:"11px 16px",flexShrink:0}}>Search</button>
+                    className="flex-1 bg-input border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-foreground/40 transition"/>
+                  <button onClick={searchFriends} className="bg-foreground text-background rounded-xl px-4 display text-[12px] font-bold uppercase tracking-wider hover:opacity-90 transition">Find</button>
                 </div>
                 {friendResults.length>0&&(
-                  <div className="row-list">
+                  <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
                     {friendResults.map(u=>(
-                      <div key={u.id} style={{display:"flex",alignItems:"center",gap:"10px",padding:"12px 14px"}}>
-                        <Avatar url={u.avatar_url} name={u.full_name} size={36}/>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>{u.full_name}</div>
-                          <div style={{fontSize:"11px",color:T.mutedFg}}>HCP {u.handicap_index||"--"}</div>
-                        </div>
-                        <button onClick={()=>sendFriendReq(u.id)} style={{...S.btnPrimary,padding:"7px 14px",fontSize:"12px"}}>Add</button>
+                      <div key={u.id} className="flex items-center gap-3 px-3.5 py-3">
+                        <Avatar url={u.avatar_url} name={u.full_name} size={34}/>
+                        <div className="flex-1 min-w-0"><p className="display text-[13px] font-bold">{u.full_name}</p><p className="text-[11px] text-muted-foreground">HCP {u.handicap_index||"--"}</p></div>
+                        <button onClick={()=>sendFriendReq(u.id)} className="bg-primary text-primary-foreground rounded-lg px-3 py-1.5 display text-[11px] font-bold uppercase tracking-wider">Add</button>
                       </div>
                     ))}
                   </div>
                 )}
-                {/* Pending requests */}
                 {friendReqs.length>0&&(
                   <div>
-                    <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg,marginBottom:"10px"}}>Pending requests</div>
-                    <div className="row-list">
-                      {friendReqs.map(f=>{
-                        const other=f.requester_id===user?.id?f.addressee:f.requester;
-                        return(
-                          <div key={f.id} style={{display:"flex",alignItems:"center",gap:"10px",padding:"12px 14px"}}>
-                            <Avatar url={other?.avatar_url} name={other?.full_name} size={36}/>
-                            <div style={{flex:1}}>
-                              <div style={{fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>{other?.full_name||"Player"}</div>
-                            </div>
-                            <button onClick={()=>acceptFriend(f.id)} style={{...S.btnPrimary,padding:"7px 14px",fontSize:"12px"}}>Accept</button>
-                          </div>
-                        );
-                      })}
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">Requests</p>
+                    <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
+                      {friendReqs.map(f=>{const other=f.requester_id===user?.id?f.addressee:f.requester;return(
+                        <div key={f.id} className="flex items-center gap-3 px-3.5 py-3">
+                          <Avatar url={other?.avatar_url} name={other?.full_name} size={34}/>
+                          <div className="flex-1"><p className="display text-[13px] font-bold">{other?.full_name||"Player"}</p></div>
+                          <button onClick={()=>acceptFriend(f.id)} className="bg-primary text-primary-foreground rounded-lg px-3 py-1.5 display text-[11px] font-bold uppercase tracking-wider">Accept</button>
+                        </div>
+                      );})}
                     </div>
                   </div>
                 )}
-                {/* Friends list */}
                 {friends.length>0&&(
                   <div>
-                    <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg,marginBottom:"10px"}}>Friends ({friends.length})</div>
-                    <div className="row-list">
-                      {friends.map(f=>{
-                        const other=f.requester_id===user?.id?f.addressee:f.requester;
-                        return(
-                          <div key={f.id} style={{display:"flex",alignItems:"center",gap:"10px",padding:"12px 14px"}}>
-                            <Avatar url={other?.avatar_url} name={other?.full_name} size={36}/>
-                            <div style={{flex:1}}>
-                              <div style={{fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>{other?.full_name||"Player"}</div>
-                              <div style={{fontSize:"11px",color:T.mutedFg}}>HCP {other?.handicap_index||"--"}</div>
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">Friends ({friends.length})</p>
+                    <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
+                      {friends.map(f=>{const other=f.requester_id===user?.id?f.addressee:f.requester;return(
+                        <div key={f.id} className="flex items-center gap-3 px-3.5 py-3">
+                          <Avatar url={other?.avatar_url} name={other?.full_name} size={34}/>
+                          <div className="flex-1"><p className="display text-[13px] font-bold">{other?.full_name||"Player"}</p><p className="text-[11px] text-muted-foreground">HCP {other?.handicap_index||"--"}</p></div>
+                        </div>
+                      );})}
                     </div>
                   </div>
                 )}
@@ -1293,217 +1199,150 @@ function ObiGolfApp(){
           </div>
         )}
 
-        {/* ══ PROFILE TAB ═════════════════════════════════════════ */}
+        {/* PROFILE TAB */}
         {tab==="profile"&&(
-          <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:"16px",paddingBottom:"24px"}}>
-
-            {/* Profile hero */}
-            <div style={{...S.card,display:"flex",alignItems:"center",gap:"14px"}}>
-              <div style={{position:"relative",flexShrink:0}} onClick={()=>setShowAvatarZoom(avatarUrl)}>
+          <div className="px-4 pt-5 pb-8 space-y-5">
+            <div className="flex items-center gap-3.5">
+              <div className="relative shrink-0">
                 <Avatar url={avatarUrl} name={userProfile?.full_name||name} size={56}/>
-                <button onClick={e=>{e.stopPropagation();avatarInputRef.current?.click();}}
-                  style={{position:"absolute",bottom:"-2px",right:"-2px",width:"20px",height:"20px",borderRadius:"99px",background:T.primary,color:"#000",border:"none",fontSize:"10px",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontWeight:"700"}}>
-                  {uploadingAvatar?"⏳":"+"}
+                <button onClick={()=>avatarInputRef.current?.click()}
+                  className="absolute -bottom-0.5 -right-0.5 h-5 w-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[11px] font-bold border-2 border-background">
+                  {uploadingAvatar?"...":"+"}
                 </button>
-                <input ref={avatarInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleAvatarUpload}/>
+                <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload}/>
               </div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontFamily:"var(--font-display)",fontSize:"19px",fontWeight:"700",color:T.fg,letterSpacing:"-0.02em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                  {userProfile?.full_name||name}
-                </div>
-                <div style={{fontSize:"12px",color:T.mutedFg,marginTop:"4px",display:"flex",alignItems:"center",gap:"6px"}}>
-                  <span style={{width:"6px",height:"6px",borderRadius:"99px",background:T.primary,display:"inline-block",flexShrink:0}}/>
-                  HCP {profile.hcp} · {profile.homeCourse||"No home course"}
-                </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="display text-[20px] font-bold tracking-tight leading-tight">{userProfile?.full_name||name}</h1>
+                <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5 mt-0.5">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary"/>
+                  Handicap {profile.hcp} · {profile.homeCourse||"No home course"}
+                </p>
               </div>
+              <button className="display text-[10px] font-bold uppercase tracking-wider rounded-lg border border-border bg-card px-2.5 py-1.5 hover:border-foreground/40 transition">Edit</button>
             </div>
-
-            {/* Quick stats */}
-            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
-              {[
-                ["Rounds",rounds.length],
-                ["Avg",rounds.length>0?Math.round(rounds.slice(0,10).reduce((a,r)=>a+(r.total_score||0),0)/Math.min(rounds.length,10)):"--"],
-                ["Best",rounds.length>0?Math.min(...rounds.map(r=>r.total_score||99)):"--"],
-              ].map(([l,v])=>(
-                <div key={l} className="stat-card" style={{textAlign:"center"}}>
-                  <div style={{fontSize:"9px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"1.5px",color:T.mutedFg,marginBottom:"6px"}}>{l}</div>
-                  <div style={{fontFamily:"var(--font-display)",fontSize:"24px",fontWeight:"700",color:T.fg,lineHeight:1}}>{v}</div>
+            <div className="grid grid-cols-3 gap-2">
+              {[["Rounds",rounds.length],["Avg",rounds.length>0?Math.round(rounds.slice(0,10).reduce((a,r)=>a+(r.total_score||0),0)/Math.min(rounds.length,10)):"--"],["Best",rounds.length>0?Math.min(...rounds.map(r=>r.total_score||99)):"--"]].map(([l,v])=>(
+                <div key={l} className="rounded-xl border border-border bg-card p-3">
+                  <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">{l}</p>
+                  <p className="stat text-2xl leading-none">{v}</p>
                 </div>
               ))}
             </div>
-
-            {/* My Game section */}
             <div>
-              <button onClick={()=>setProfileSection(profileSection==="game"?null:"game")}
-                style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"0 0 10px",background:"none",border:"none",cursor:"pointer"}}>
-                <span style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg}}>My Game</span>
-                <span style={{color:T.mutedFg,fontSize:"12px"}}>{profileSection==="game"?"▲":"▼"}</span>
-              </button>
-              {profileSection==="game"&&(
-                <div className="row-list">
-                  {/* Handicap */}
-                  <div style={{padding:"14px"}}>
-                    <div style={{fontSize:"11px",color:T.mutedFg,marginBottom:"8px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>Handicap</div>
-                    <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
-                      {[{v:"plus",l:"+HCP"},{v:"scratch",l:"Scratch"},{v:"low",l:"Low (1-9)"},{v:"mid",l:"Mid (10-18)"},{v:"high",l:"High (19+)"}].map(o=>(
-                        <button key={o.v} onClick={()=>setProfile(p=>({...p,handicap:o.v}))}
-                          style={{...S.pill,background:profile.handicap===o.v?T.primary:T.surface,color:profile.handicap===o.v?"#000":T.mutedFg,borderColor:profile.handicap===o.v?T.primary:T.border}}>
-                          {o.l}
-                        </button>
-                      ))}
-                    </div>
-                    <div style={{marginTop:"12px",display:"flex",alignItems:"center",gap:"12px"}}>
-                      <label style={{fontSize:"11px",color:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",flexShrink:0}}>Index</label>
-                      <input type="number" step="0.1" value={profile.hcp} onChange={e=>setProfile(p=>({...p,hcp:parseFloat(e.target.value)||0}))}
-                        style={{...S.input,width:"80px",textAlign:"center",fontFamily:"var(--font-display)",fontWeight:"700"}}/>
-                    </div>
-                  </div>
-                  {/* Miss tendency */}
-                  <div style={{padding:"14px"}}>
-                    <div style={{fontSize:"11px",color:T.mutedFg,marginBottom:"8px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>Miss tendency</div>
-                    <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
-                      {["straight","slight fade","fade","slice","slight draw","draw","hook"].map(m=>(
-                        <button key={m} onClick={()=>setProfile(p=>({...p,missTend:m}))}
-                          style={{...S.pill,background:profile.missTend===m?T.primary:T.surface,color:profile.missTend===m?"#000":T.mutedFg,borderColor:profile.missTend===m?T.primary:T.border}}>
-                          {m}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Caddie persona */}
-                  <div style={{padding:"14px"}}>
-                    <div style={{fontSize:"11px",color:T.mutedFg,marginBottom:"8px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>Caddie persona</div>
-                    <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
-                      {[{v:"hype",l:"🔥 Hype"},{v:"pro",l:"🎯 Tour Pro"},{v:"coach",l:"📚 Coach"},{v:"savage",l:"💀 Savage"},{v:"oldschool",l:"🪨 Old School"}].map(o=>(
-                        <button key={o.v} onClick={()=>setProfile(p=>({...p,persona:o.v}))}
-                          style={{...S.pill,background:profile.persona===o.v?T.primary:T.surface,color:profile.persona===o.v?"#000":T.mutedFg,borderColor:profile.persona===o.v?T.primary:T.border}}>
-                          {o.l}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Dexterity */}
-                  <div style={{padding:"14px"}}>
-                    <div style={{fontSize:"11px",color:T.mutedFg,marginBottom:"8px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>Dexterity</div>
-                    <div style={{display:"flex",gap:"6px"}}>
-                      {["right","left"].map(d=>(
-                        <button key={d} onClick={()=>setProfile(p=>({...p,dexterity:d}))}
-                          style={{...S.pill,background:profile.dexterity===d?T.primary:T.surface,color:profile.dexterity===d?"#000":T.mutedFg,borderColor:profile.dexterity===d?T.primary:T.border}}>
-                          {d.charAt(0).toUpperCase()+d.slice(1)}-handed
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {/* Home course */}
-                  <div style={{padding:"14px"}}>
-                    <div style={{fontSize:"11px",color:T.mutedFg,marginBottom:"8px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>Home course</div>
-                    <input placeholder="e.g. Pebble Beach Golf Links" value={profile.homeCourse}
-                      onChange={e=>setProfile(p=>({...p,homeCourse:e.target.value}))} style={S.input}/>
-                  </div>
-                  <div style={{padding:"14px"}}>
-                    <button onClick={saveProfile} style={{...S.btnPrimary,width:"100%",padding:"13px"}}>Save Game Profile</button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* My Bag section */}
-            <div>
-              <button onClick={()=>setProfileSection(profileSection==="bag"?null:"bag")}
-                style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"0 0 10px",background:"none",border:"none",cursor:"pointer"}}>
-                <span style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg}}>My Bag ({profile.bag.length} clubs)</span>
-                <span style={{color:T.mutedFg,fontSize:"12px"}}>{profileSection==="bag"?"▲":"▼"}</span>
-              </button>
-              {profileSection==="bag"&&(
-                <div className="row-list">
-                  {profile.bag.map(function(b,i){return(
-                    <div key={i} style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px"}}>
-                      <div style={{flex:1,fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>{b.club}</div>
-                      <input type="number" value={b.carry}
-                        onChange={e=>{const v=parseInt(e.target.value)||0;setProfile(p=>{const bag=[...p.bag];bag[i]={...bag[i],carry:v};return{...p,bag};});}}
-                        style={{...S.input,width:"72px",textAlign:"center",padding:"7px",fontFamily:"var(--font-display)",fontWeight:"700"}}/>
-                      <span style={{fontSize:"11px",color:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700"}}>yds</span>
-                    </div>
-                  );})}
-                  <div style={{padding:"14px"}}>
-                    <button onClick={saveProfile} style={{...S.btnPrimary,width:"100%",padding:"13px"}}>Save Bag</button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* App Settings section */}
-            <div>
-              <button onClick={()=>setProfileSection(profileSection==="app"?null:"app")}
-                style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"0 0 10px",background:"none",border:"none",cursor:"pointer"}}>
-                <span style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg}}>App Settings</span>
-                <span style={{color:T.mutedFg,fontSize:"12px"}}>{profileSection==="app"?"▲":"▼"}</span>
-              </button>
-              {profileSection==="app"&&(
-                <div className="row-list">
-                  <div style={{padding:"14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <div>
-                      <div style={{fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>Dark Mode</div>
-                      <div style={{fontSize:"11px",color:T.mutedFg,marginTop:"2px"}}>Currently {isDark?"dark":"light"}</div>
-                    </div>
-                    <button onClick={()=>setIsDark(d=>!d)}
-                      style={{width:"48px",height:"26px",borderRadius:"99px",border:"none",background:isDark?T.primary:T.muted,cursor:"pointer",position:"relative",transition:"background 0.2s"}}>
-                      <div style={{position:"absolute",top:"3px",left:isDark?"24px":"3px",width:"20px",height:"20px",borderRadius:"99px",background:"#fff",transition:"left 0.2s"}}/>
+              <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">Your game</p>
+              <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
+                {[{Icon:Briefcase,label:"My Bag",sub:profile.bag.length+" clubs",id:"bag",tone:"bg-primary/15 text-primary"},{Icon:Sparkles,label:"Caddie Style",sub:profile.persona,id:"style",tone:"bg-accent/20 text-accent"},{Icon:BarChart3,label:"Handicap",sub:"HCP "+profile.hcp,id:"hcp",tone:"bg-secondary text-secondary-foreground"}].map(({Icon,label,sub,id,tone})=>(
+                  <React.Fragment key={id}>
+                    <button onClick={()=>setProfileSection(profileSection===id?null:id)}
+                      className="w-full flex items-center gap-3 px-3.5 py-3 hover:bg-secondary/40 transition text-left">
+                      <div className={"h-9 w-9 rounded-lg flex items-center justify-center shrink-0 "+tone}><Icon className="h-4 w-4" strokeWidth={2.5}/></div>
+                      <div className="min-w-0 flex-1"><p className="display text-[13px] font-bold tracking-tight">{label}</p><p className="text-[11px] text-muted-foreground truncate">{sub}</p></div>
+                      <ChevronRight className={cn("h-4 w-4 text-muted-foreground shrink-0 transition-transform",profileSection===id&&"rotate-90")} strokeWidth={2.5}/>
                     </button>
-                  </div>
-                  <div style={{padding:"14px"}}>
-                    <div style={{fontSize:"11px",color:T.mutedFg,marginBottom:"8px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>Practice goal</div>
-                    <textarea placeholder="e.g. Reduce over-the-top swing path..." value={profile.practiceGoal}
-                      onChange={e=>setProfile(p=>({...p,practiceGoal:e.target.value}))}
-                      rows={2} style={{...S.input,resize:"none"}}/>
-                  </div>
-                  <div style={{padding:"14px"}}>
-                    <button onClick={handleLogout}
-                      style={{...S.btnSecondary,width:"100%",padding:"13px",color:T.red,borderColor:T.red+"44"}}>
-                      Sign Out
-                    </button>
-                  </div>
-                </div>
-              )}
+                    {profileSection===id&&id==="bag"&&(
+                      <div className="divide-y divide-border">
+                        {profile.bag.map((b,i)=>(
+                          <div key={i} className="flex items-center gap-3 px-3.5 py-2.5">
+                            <span className="display text-[13px] font-bold flex-1">{b.club}</span>
+                            <input type="number" value={b.carry}
+                              onChange={e=>{const v=parseInt(e.target.value)||0;setProfile(p=>{const bag=[...p.bag];bag[i]={...bag[i],carry:v};return{...p,bag};});}}
+                              className="w-16 bg-input border border-border rounded-lg px-2.5 py-1.5 text-center display text-[13px] font-bold text-foreground outline-none"/>
+                            <span className="display text-[11px] font-bold text-muted-foreground">yds</span>
+                          </div>
+                        ))}
+                        <div className="p-3.5"><button onClick={saveProfile} className="w-full bg-primary text-primary-foreground rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider hover:opacity-90 transition">Save Bag</button></div>
+                      </div>
+                    )}
+                    {profileSection===id&&id==="style"&&(
+                      <div className="p-3.5 space-y-3">
+                        <div className="flex flex-wrap gap-1.5">
+                          {[{v:"hype",l:"🔥 Hype"},{v:"pro",l:"🎯 Tour Pro"},{v:"coach",l:"📚 Coach"},{v:"savage",l:"💀 Savage"},{v:"oldschool",l:"🪨 Old School"}].map(o=>(
+                            <button key={o.v} onClick={()=>setProfile(p=>({...p,persona:o.v}))}
+                              className={cn("display text-[11px] font-bold rounded-lg border px-3 py-1.5 transition",profile.persona===o.v?"bg-primary text-primary-foreground border-primary":"border-border text-muted-foreground hover:border-foreground/40")}>
+                              {o.l}
+                            </button>
+                          ))}
+                        </div>
+                        <button onClick={saveProfile} className="w-full bg-primary text-primary-foreground rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider hover:opacity-90 transition">Save Style</button>
+                      </div>
+                    )}
+                    {profileSection===id&&id==="hcp"&&(
+                      <div className="p-3.5 space-y-3">
+                        <div className="flex flex-wrap gap-1.5">
+                          {[{v:"plus",l:"+HCP"},{v:"scratch",l:"Scratch"},{v:"low",l:"Low 1-9"},{v:"mid",l:"Mid 10-18"},{v:"high",l:"High 19+"}].map(o=>(
+                            <button key={o.v} onClick={()=>setProfile(p=>({...p,handicap:o.v}))}
+                              className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg border px-2.5 py-1.5 transition",profile.handicap===o.v?"bg-primary text-primary-foreground border-primary":"border-border text-muted-foreground hover:border-foreground/40")}>
+                              {o.l}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground shrink-0">Index</p>
+                          <input type="number" step="0.1" value={profile.hcp} onChange={e=>setProfile(p=>({...p,hcp:parseFloat(e.target.value)||0}))}
+                            className="w-20 bg-input border border-border rounded-xl px-3 py-2 text-center display text-[15px] font-bold text-foreground outline-none"/>
+                        </div>
+                        <div>
+                          <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Miss tendency</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {["straight","slight fade","fade","slice","slight draw","draw","hook"].map(m=>(
+                              <button key={m} onClick={()=>setProfile(p=>({...p,missTend:m}))}
+                                className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg border px-2.5 py-1.5 transition",profile.missTend===m?"bg-primary text-primary-foreground border-primary":"border-border text-muted-foreground hover:border-foreground/40")}>
+                                {m}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <input placeholder="Home course..." value={profile.homeCourse} onChange={e=>setProfile(p=>({...p,homeCourse:e.target.value}))}
+                          className="w-full bg-input border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-foreground/40 transition"/>
+                        <button onClick={saveProfile} className="w-full bg-primary text-primary-foreground rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider hover:opacity-90 transition">Save Profile</button>
+                      </div>
+                    )}
+                  </React.Fragment>
+                ))}
+              </div>
             </div>
+            <div>
+              <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">App</p>
+              <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
+                <div className="flex items-center gap-3 px-3.5 py-3">
+                  <div className="h-9 w-9 rounded-lg bg-secondary text-secondary-foreground flex items-center justify-center shrink-0">{isDark?<Sun className="h-4 w-4" strokeWidth={2.5}/>:<Moon className="h-4 w-4" strokeWidth={2.5}/>}</div>
+                  <div className="flex-1"><p className="display text-[13px] font-bold tracking-tight">{isDark?"Light Mode":"Dark Mode"}</p><p className="text-[11px] text-muted-foreground">Currently {isDark?"dark":"light"}</p></div>
+                  <button onClick={()=>setIsDark(d=>!d)}
+                    className={cn("w-12 h-6 rounded-full transition-colors relative",isDark?"bg-primary":"bg-muted")}>
+                    <span className={cn("absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all",isDark?"left-[26px]":"left-0.5")}/>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <button onClick={handleLogout}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-3.5 py-3 display text-[12px] font-bold uppercase tracking-wider text-muted-foreground hover:text-destructive hover:border-destructive/40 transition">
+              <LogOut className="h-3.5 w-3.5" strokeWidth={2.5}/> Sign out
+            </button>
           </div>
         )}
-
       </div>
 
-      {/* ── BOTTOM NAV ───────────────────────────────────────────── */}
-      <nav style={{flexShrink:0,background:T.bg,borderTop:"1px solid "+T.border,paddingBottom:"env(safe-area-inset-bottom)",zIndex:20}}>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",padding:"6px 8px 8px"}}>
-          {[
-            {id:"caddie",   label:"Caddie",   emoji:"💬"},
-            {id:"practice", label:"Practice", emoji:"🎯"},
-            {id:"social",   label:"Social",   emoji:"👥", badge:friendReqs.length},
-            {id:"profile",  label:"Profile",  emoji:"👤"},
-          ].map(t=>{
-            const isActive=tab===t.id;
+      {/* BOTTOM NAV */}
+      <nav className="shrink-0 sticky bottom-0 z-30 bg-background/90 backdrop-blur-xl border-t border-border pb-safe">
+        <div className="grid grid-cols-4 px-2 pt-1.5 pb-1.5">
+          {NAV.map(({id,label,Icon})=>{
+            const isActive=tab===id;
+            const badge=id==="social"&&friendReqs.length>0;
             return(
-              <button key={t.id} onClick={()=>changeTab(t.id)}
-                style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",padding:"6px 4px",background:"transparent",border:"none",cursor:"pointer",position:"relative"}}>
-                <div style={{width:"44px",height:"28px",borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"center",background:isActive?T.primaryDim:"transparent",color:isActive?T.primary:T.mutedFg,transition:"all 0.15s"}}>
-                  {t.emoji}
+              <button key={id} onClick={()=>changeTab(id)}
+                className={cn("flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg transition",isActive?"text-foreground":"text-muted-foreground hover:text-foreground")}>
+                <div className={cn("h-7 w-12 flex items-center justify-center rounded-lg transition",isActive&&"bg-primary text-primary-foreground")}>
+                  <Icon className="h-[18px] w-[18px]" strokeWidth={isActive?2.25:1.75}/>
                 </div>
-                {isActive&&<div className="nav-pip"/>}
-                <span style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em",color:isActive?T.fg:T.mutedFg,lineHeight:1}}>
-                  {t.label}
-                </span>
-                {t.badge>0&&(
-                  <div style={{position:"absolute",top:"4px",right:"calc(50% - 20px)",width:"7px",height:"7px",borderRadius:"99px",background:T.red}}/>
-                )}
+                <span className="display text-[10px] font-bold uppercase tracking-wider">{label}</span>
+                {badge&&<span className="absolute top-1 right-3 h-2 w-2 rounded-full bg-destructive"/>}
               </button>
             );
           })}
         </div>
       </nav>
-
     </div>
   );
 }
 
-export default function ObiGolf(){
-  return <ErrorBoundary><ObiGolfApp/></ErrorBoundary>;
-}
+export default function ObiGolf(){ return <ErrorBoundary><ObiGolfApp/></ErrorBoundary>; }
