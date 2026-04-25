@@ -1583,14 +1583,20 @@ function ObiGolfApp(){
                   </div>
                   <div>
                     <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">Score</p>
-                    <div className="flex gap-1 flex-wrap">
-                      {[holePars[hole-1]-1,holePars[hole-1],holePars[hole-1]+1,holePars[hole-1]+2].map(v=>(
-                        <button key={v} onClick={()=>setScorecard(s=>{const n=[...s];n[hole-1]=v;return n;})}
-                          className={cn("h-8 w-8 rounded-lg display text-[13px] font-bold transition border",
-                            scorecard[hole-1]===v?"bg-primary text-primary-foreground border-primary":"border-border text-muted-foreground hover:border-foreground/40")}>
-                          {v}
-                        </button>
-                      ))}
+                    <div className="relative">
+                      <select
+                        value={scorecard[hole-1]||""}
+                        onChange={e=>setScorecard(s=>{const n=[...s];n[hole-1]=e.target.value?Number(e.target.value):null;return n;})}
+                        className={cn("w-full appearance-none rounded-lg border px-2.5 py-1.5 display text-[13px] font-bold cursor-pointer outline-none transition pr-7",
+                          scorecard[hole-1]?"border-primary bg-primary/10 text-primary":"border-border bg-input text-muted-foreground")}>
+                        <option value="">--</option>
+                        {[1,2,3,4,5,6,7,8,9,10].map(v=>(
+                          <option key={v} value={v}>
+                            {v} {v===holePars[hole-1]-2?"(Eagle)":v===holePars[hole-1]-1?"(Birdie)":v===holePars[hole-1]?"(Par)":v===holePars[hole-1]+1?"(Bogey)":v===holePars[hole-1]+2?"(Dbl)":""}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="h-3.5 w-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" strokeWidth={2.5}/>
                     </div>
                   </div>
                 </div>
@@ -1797,32 +1803,7 @@ function ObiGolfApp(){
               )}
             </div>
 
-            {/* ── Obi's call ───────────────────────────────── */}
-            {messages.length>0&&messages[messages.length-1].role==="assistant"&&(
-              <div className="px-4 shrink-0 pb-2">
-                <div className="rounded-xl border border-primary/40 bg-primary/10 p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-6 w-6 rounded-md bg-foreground text-primary flex items-center justify-center"><Zap className="h-3.5 w-3.5" strokeWidth={2.75}/></div>
-                    <p className="display text-[11px] font-bold uppercase tracking-[0.18em]">Obi&apos;s call</p>
-                    <span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-auto">{profile.persona==="pro"?"Tour pro":profile.persona==="coach"?"Coach":"Old School"}</span>
-                  </div>
-                  <p className="display text-xl font-bold tracking-tight leading-tight mb-1">{messages[messages.length-1].content.split(".")[0]}.</p>
-                  <p className="text-sm text-muted-foreground leading-snug">{messages[messages.length-1].content.split(".").slice(1).join(".").trim()}</p>
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <button onClick={()=>sendMessage("Why do you recommend that?")}
-                      className="display text-[10px] font-bold uppercase tracking-wider bg-foreground text-background rounded-lg px-2.5 py-1.5 hover:opacity-80 transition">Why?</button>
-                    <button onClick={()=>sendMessage("What are my alternatives?")}
-                      className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 hover:border-foreground/50 transition text-foreground">Alternatives</button>
-                    <button onClick={()=>sendMessage("What\'s my biggest risk here?")}
-                      className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 hover:border-foreground/50 transition text-foreground">Risk?</button>
-                    <button onClick={()=>{speaking?stopSpeak():speakText(messages[messages.length-1].content);}}
-                      className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 transition ml-auto border",speaking?"bg-primary/20 text-primary border-primary/40":"border-border text-muted-foreground hover:text-foreground")}>
-                      {speaking?"⏹ Stop":"🔊 Read"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+
 
             {/* Empty state */}
             {messages.length===0&&(
@@ -1833,13 +1814,43 @@ function ObiGolfApp(){
             )}
 
             {/* ── Chat history ─────────────────────────────── */}
-            <div className="flex-1 px-4 pt-2 overflow-y-auto space-y-2 min-h-0" style={{scrollbarWidth:"none"}}>
-              {messages.slice(0,-1).map((m,i)=>(
-                <div key={i} className={cn("flex",m.role==="user"?"justify-end":"justify-start gap-2 items-end")}>
-                  {m.role==="assistant"&&<ObiLogo size={18}/>}
-                  <div className={m.role==="user"?"bubble-user text-[13px]":"bubble-ai text-[13px]"}>{m.content}</div>
-                </div>
-              ))}
+            <div className="flex-1 px-4 pt-2 overflow-y-auto space-y-3 min-h-0 pb-2" style={{scrollbarWidth:"none"}}>
+              {messages.map((m,i)=>{
+                const isLast=i===messages.length-1;
+                const isAI=m.role==="assistant";
+                return(
+                  <div key={i} className={cn("flex",!isAI?"justify-end":"justify-start gap-2 items-end")}>
+                    {isAI&&<ObiLogo size={18}/>}
+                    <div className={cn("flex flex-col",isAI?"items-start max-w-[88%]":"items-end max-w-[82%]")}>
+                      <div className={isAI?"bubble-ai text-[14px]":"bubble-user text-[14px]"}>
+                        {m.content}
+                      </div>
+                      {/* Action buttons on latest AI message only */}
+                      {isAI&&isLast&&(
+                        <div className="flex flex-wrap gap-1.5 mt-2 ml-1">
+                          <button onClick={()=>sendMessage("Why do you recommend that?")}
+                            className="display text-[10px] font-bold uppercase tracking-wider bg-foreground text-background rounded-lg px-2.5 py-1.5 hover:opacity-80 transition">
+                            Why?
+                          </button>
+                          <button onClick={()=>sendMessage("What are my alternatives?")}
+                            className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 hover:border-foreground/50 transition text-foreground">
+                            Alternatives
+                          </button>
+                          <button onClick={()=>sendMessage("Biggest risk?")}
+                            className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 hover:border-foreground/50 transition text-foreground">
+                            Risk?
+                          </button>
+                          <button onClick={()=>{speaking?stopSpeak():speakText(m.content);}}
+                            className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 border transition",
+                              speaking?"bg-primary/20 text-primary border-primary/40":"border-border text-muted-foreground hover:text-foreground")}>
+                            {speaking?"⏹":"🔊"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
               <div ref={chatEndRef}/>
             </div>
 
