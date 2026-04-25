@@ -369,50 +369,273 @@ function ObiGolfApp(){
       +"\nRULES: Only clubs from bag. No markdown. No bullets. Always finish sentences. Tailor to "+handed+" player.";
   };
 
+  // ── GPS tracking ─────────────────────────────────────────────────
+  const [gpsPos,setGpsPos]=useState(null);      // {lat,lng,accuracy}
+  const [gpsWatcher,setGpsWatcher]=useState(null);
+
+  const startGPS=useCallback(()=>{
+    if(!navigator.geolocation)return;
+    const id=navigator.geolocation.watchPosition(
+      pos=>setGpsPos({lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy}),
+      err=>console.warn("GPS error",err),
+      {enableHighAccuracy:true,maximumAge:3000,timeout:10000}
+    );
+    setGpsWatcher(id);
+  },[]);
+
+  const stopGPS=useCallback(()=>{
+    if(gpsWatcher!=null)navigator.geolocation.clearWatch(gpsWatcher);
+    setGpsWatcher(null);
+  },[gpsWatcher]);
+
+  // Haversine distance in yards between two lat/lng points
+  const distYards=(lat1,lng1,lat2,lng2)=>{
+    const R=6371000;
+    const dLat=(lat2-lat1)*Math.PI/180;
+    const dLng=(lng2-lng1)*Math.PI/180;
+    const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+    return Math.round(2*R*Math.asin(Math.sqrt(a))*1.09361);
+  };
+
   // ── Hole map fetcher ─────────────────────────────────────────────
-  const fetchHoleMap = useCallback(async (courseName, holeNum) => {
-    if (!courseName || holeMapLoading) return;
+  const [holeMap,setHoleMap]=useState(null);
+  const [holeMapLoading,setHoleMapLoading]=useState(false);
+  const [showHoleMap,setShowHoleMap]=useState(false);
+
+  const fetchHoleMap=useCallback(async(courseName,holeNum)=>{
+    if(!courseName||holeMapLoading)return;
     setHoleMapLoading(true);
     setHoleMap(null);
-    try {
-      const svgExample = '<svg viewBox="0 0 300 500" xmlns="http://www.w3.org/2000/svg"><polygon points="120,480 180,480 175,300 160,200 150,100 140,200 125,300" fill="#4ade80" opacity="0.8"/><rect x="135" y="460" width="30" height="20" rx="4" fill="#22c55e"/><ellipse cx="150" cy="80" rx="30" ry="20" fill="#86efac"/><line x1="150" y1="60" x2="150" y2="80" stroke="#1f2937" stroke-width="2"/><polygon points="150,60 165,67 150,74" fill="#ef4444"/></svg>';
-      const prompt = "You are a golf course architect and caddie. For hole " + holeNum + " at " + courseName + ":\n\nReturn ONLY valid JSON (no markdown) in this exact format:\n{\n  \"par\": 4,\n  \"yards\": 412,\n  \"index\": 7,\n  \"description\": \"2-3 sentence description of the hole layout, key features, and challenges\",\n  \"shape\": \"dogleg-left\",\n  \"hazards\": [\"water left\", \"bunker right\"],\n  \"tips\": \"Brief caddie tip for this specific hole\",\n  \"svg\": \"" + svgExample + "\"\n}\n\nThe SVG must show the actual hole shape of " + courseName + " hole " + holeNum + " with: fairway (green polygon), putting green (darker ellipse), tee box (rectangle at bottom), bunkers (tan ellipses), water (blue shapes if any), flag at top. Portrait 300x500 viewBox, tee at bottom, green at top. Use stroke-width not strokeWidth.";
+    try{
+      const prompt="Return ONLY a JSON object (no markdown, no explanation) for "+courseName+" hole "+holeNum+". Format:\n"+
+        '{"par":4,"yards":412,"index":7,'+
+        '"description":"One sentence about hole layout and key challenge.",'+
+        '"shape":"dogleg-left",'+
+        '"hazards":["water left of green","bunker right 220y from tee"],'+
+        '"tips":"One specific strategic tip for this hole.",'+
+        '"green_lat":36.5677,"green_lng":-121.9522,'+
+        '"tee_lat":36.5701,"tee_lng":-121.9530,'+
+        '"features":['+
+          '{"type":"fairway","points":[[0.5,0.9],[0.4,0.7],[0.45,0.5],[0.5,0.3],[0.5,0.1]],"width":0.18},'+
+          '{"type":"green","cx":0.5,"cy":0.08,"rx":0.12,"ry":0.07},'+
+          '{"type":"bunker","cx":0.35,"cy":0.12,"rx":0.06,"ry":0.04},'+
+          '{"type":"water","points":[[0.1,0.6],[0.3,0.55],[0.25,0.45],[0.05,0.5]]},'+
+          '{"type":"trees","cx":0.7,"cy":0.5,"r":0.08}'+
+        ']}\n\n'+
+        "Use coordinates as 0-1 fractions of a 300x500 canvas (0,0=top-left, tee at bottom y=0.9, green at top y=0.08). "+
+        "For a dogleg-left the fairway points should curve left. Include realistic bunkers and hazards for this specific hole.";
 
-      const r = await fetch("/api/chat", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          messages: [{role: "user", content: prompt}],
-          system: "You are a golf course data API. Return only valid JSON, no markdown fences."
+      const r=await fetch("/api/chat",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          messages:[{role:"user",content:prompt}],
+          system:"You are a golf course data API. Return ONLY valid JSON with no markdown code fences."
         })
       });
-      const d = await r.json();
-      const text = d?.content?.[0]?.text || "";
-      const start = text.indexOf("{");
-      const end = text.lastIndexOf("}");
-      if (start >= 0 && end > start) {
-        const parsed = JSON.parse(text.slice(start, end + 1));
+      const d=await r.json();
+      const text=d?.content?.[0]?.text||"";
+
+      // Strip markdown fences if present
+      const clean=text.replace(/```json/g,"").replace(/```/g,"").trim();
+      const start=clean.indexOf("{");
+      const end=clean.lastIndexOf("}");
+      if(start>=0&&end>start){
+        const parsed=JSON.parse(clean.slice(start,end+1));
         setHoleMap(parsed);
-        // Auto-fill par and yardage
-        if (parsed.yards) setYardage(String(parsed.yards));
-        if (parsed.par) setHolePars(prev => {
-          const n = [...prev]; n[holeNum - 1] = parsed.par; return n;
-        });
+        if(parsed.yards)setYardage(String(parsed.yards));
+        if(parsed.par)setHolePars(prev=>{const n=[...prev];n[holeNum-1]=parsed.par;return n;});
+        setShowHoleMap(true);
+      }else{
+        // Fallback: set a minimal map so UI still renders
+        setHoleMap({par:holePars[holeNum-1],yards:yardage||400,index:holeNum,
+          description:"Hole "+holeNum+" at "+courseName,shape:"straight",
+          hazards:[],tips:"Play to the center of the green.",
+          features:[
+            {type:"fairway",points:[[0.5,0.9],[0.48,0.6],[0.5,0.3],[0.5,0.08]],width:0.16},
+            {type:"green",cx:0.5,cy:0.08,rx:0.12,ry:0.07}
+          ]});
         setShowHoleMap(true);
       }
-    } catch (e) {
-      console.error("Hole map error:", e);
+    }catch(e){
+      console.error("Hole map error:",e);
+      setHoleMap({par:holePars[holeNum-1]||4,yards:yardage||400,index:holeNum,
+        description:"Hole "+holeNum+" at "+courseName,shape:"straight",
+        hazards:[],tips:"Play to the center of the green.",
+        features:[
+          {type:"fairway",points:[[0.5,0.9],[0.48,0.6],[0.5,0.3],[0.5,0.08]],width:0.16},
+          {type:"green",cx:0.5,cy:0.08,rx:0.12,ry:0.07}
+        ]});
+      setShowHoleMap(true);
     }
     setHoleMapLoading(false);
-  }, [holeMapLoading]);
+  },[holeMapLoading,holePars,yardage]);
 
-  // Re-fetch hole map when course or hole changes (if map was open)
-  useEffect(() => {
-    if (course && showHoleMap) {
-      fetchHoleMap(course, hole);
-    }
-  }, [hole, course]);
+  useEffect(()=>{
+    if(course&&showHoleMap)fetchHoleMap(course,hole);
+  },[hole,course]);
 
+  // Canvas renderer for hole map
+  const HoleMapCanvas=({map,gps,W=300,H=500})=>{
+    const canvasRef=useRef(null);
+    useEffect(()=>{
+      const cv=canvasRef.current;
+      if(!cv||!map)return;
+      const ctx=cv.getContext("2d");
+      ctx.clearRect(0,0,W,H);
+
+      // Sky/rough background
+      ctx.fillStyle="#c8e6c9";
+      ctx.fillRect(0,0,W,H);
+
+      // Draw features
+      (map.features||[]).forEach(f=>{
+        if(f.type==="fairway"&&f.points){
+          ctx.beginPath();
+          const hw=((f.width||0.16)*W)/2;
+          // Build path along centerline with width
+          const pts=f.points.map(p=>[p[0]*W,p[1]*H]);
+          // Create thick stroke
+          ctx.strokeStyle="#4ade80";
+          ctx.lineWidth=hw*2;
+          ctx.lineCap="round";
+          ctx.lineJoin="round";
+          ctx.moveTo(pts[0][0],pts[0][1]);
+          for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+          ctx.stroke();
+          // Lighter center
+          ctx.strokeStyle="#86efac";
+          ctx.lineWidth=hw*0.8;
+          ctx.moveTo(pts[0][0],pts[0][1]);
+          for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+          ctx.stroke();
+        }
+        if(f.type==="green"){
+          ctx.beginPath();
+          ctx.ellipse(f.cx*W,f.cy*H,(f.rx||0.1)*W,(f.ry||0.07)*H,0,0,Math.PI*2);
+          ctx.fillStyle="#22c55e";
+          ctx.fill();
+          ctx.strokeStyle="#16a34a";
+          ctx.lineWidth=2;
+          ctx.stroke();
+        }
+        if(f.type==="bunker"){
+          ctx.beginPath();
+          ctx.ellipse(f.cx*W,f.cy*H,(f.rx||0.07)*W,(f.ry||0.05)*H,0,0,Math.PI*2);
+          ctx.fillStyle="#fde68a";
+          ctx.fill();
+          ctx.strokeStyle="#d97706";
+          ctx.lineWidth=1.5;
+          ctx.stroke();
+        }
+        if(f.type==="water"&&f.points){
+          ctx.beginPath();
+          const pts=f.points.map(p=>[p[0]*W,p[1]*H]);
+          ctx.moveTo(pts[0][0],pts[0][1]);
+          for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i][0],pts[i][1]);
+          ctx.closePath();
+          ctx.fillStyle="rgba(59,130,246,0.6)";
+          ctx.fill();
+          ctx.strokeStyle="#2563eb";
+          ctx.lineWidth=1.5;
+          ctx.stroke();
+        }
+        if(f.type==="trees"){
+          const r=(f.r||0.07)*Math.min(W,H);
+          ctx.beginPath();
+          ctx.arc(f.cx*W,f.cy*H,r,0,Math.PI*2);
+          ctx.fillStyle="rgba(22,101,52,0.7)";
+          ctx.fill();
+        }
+      });
+
+      // Tee box
+      ctx.fillStyle="#1f2937";
+      ctx.strokeStyle="#374151";
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.roundRect(W/2-12,H*0.87,24,14,4);
+      ctx.fill();
+
+      // Flag
+      const flagX=W/2, flagY=(map.features||[]).find(f=>f.type==="green")?.cy*H||H*0.08;
+      ctx.strokeStyle="#1f2937";
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.moveTo(flagX,flagY-20);
+      ctx.lineTo(flagX,flagY+4);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(flagX,flagY-20);
+      ctx.lineTo(flagX+14,flagY-13);
+      ctx.lineTo(flagX,flagY-6);
+      ctx.closePath();
+      ctx.fillStyle="#ef4444";
+      ctx.fill();
+
+      // GPS dot
+      if(gps&&map.tee_lat&&map.green_lat){
+        // Map GPS to canvas coords
+        const latRange=map.tee_lat-map.green_lat;
+        const lngRange=map.green_lng-map.tee_lng;
+        if(Math.abs(latRange)>0.0001||Math.abs(lngRange)>0.0001){
+          const relLat=(map.tee_lat-gps.lat)/(latRange||0.001);
+          const relLng=(gps.lng-map.tee_lng)/(lngRange||0.001);
+          const px=W*(0.5+relLng*0.3);
+          const py=H*(0.87-relLat*0.75);
+          if(px>0&&px<W&&py>0&&py<H){
+            // Accuracy ring
+            ctx.beginPath();
+            ctx.arc(px,py,14,0,Math.PI*2);
+            ctx.fillStyle="rgba(59,130,246,0.15)";
+            ctx.fill();
+            // Player dot
+            ctx.beginPath();
+            ctx.arc(px,py,7,0,Math.PI*2);
+            ctx.fillStyle="#3b82f6";
+            ctx.fill();
+            ctx.strokeStyle="#fff";
+            ctx.lineWidth=2;
+            ctx.stroke();
+            // Pulse ring
+            ctx.beginPath();
+            ctx.arc(px,py,11,0,Math.PI*2);
+            ctx.strokeStyle="rgba(59,130,246,0.6)";
+            ctx.lineWidth=2;
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Distance markers along fairway
+      if(map.features){
+        const fw=map.features.find(f=>f.type==="fairway");
+        if(fw&&fw.points){
+          const greenF=map.features.find(f=>f.type==="green");
+          const greenY=(greenF?.cy||0.08)*H;
+          [100,150,200].forEach(dist=>{
+            const t=dist/(map.yards||400);
+            const idx=Math.floor(t*(fw.points.length-1));
+            if(idx<fw.points.length){
+              const px=fw.points[idx][0]*W;
+              const py=fw.points[idx][1]*H;
+              ctx.beginPath();
+              ctx.arc(px,py,4,0,Math.PI*2);
+              ctx.fillStyle="rgba(255,255,255,0.8)";
+              ctx.fill();
+              ctx.fillStyle="#1f2937";
+              ctx.font="bold 9px Inter,sans-serif";
+              ctx.textAlign="center";
+              ctx.fillText(dist+"y",px,py-7);
+            }
+          });
+        }
+      }
+
+    },[map,gps,W,H]);
+
+    return <canvas ref={canvasRef} width={W} height={H} style={{width:"100%",height:"auto",maxHeight:"360px",objectFit:"contain"}}/>;
+  };
 
   const sendMessage=async(text)=>{
     const msg=text||input;
@@ -1062,86 +1285,111 @@ function ObiGolfApp(){
                 </div>
               </div>
 
-              {/* ── Hole Map ─────────────────────────────── */}
+              {/* ── Hole Map ───────────────────────────────── */}
               {course&&(
                 <div className="mb-3">
-                  <div className="flex items-center justify-between">
-                    <button onClick={()=>{if(!holeMap&&!holeMapLoading)fetchHoleMap(course,hole);setShowHoleMap(o=>!o);}}
+                  <div className="flex items-center justify-between mb-2">
+                    <button onClick={()=>{
+                      if(showHoleMap){setShowHoleMap(false);}
+                      else{setShowHoleMap(true);if(!holeMap)fetchHoleMap(course,hole);}
+                    }}
                       className={cn("display text-[11px] font-bold uppercase tracking-wider inline-flex items-center gap-1.5 transition",
                         showHoleMap?"text-foreground":"text-muted-foreground hover:text-foreground")}>
                       <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>
-                      Hole map {holeMapLoading&&"(loading...)"}
-                      <ChevronDown className={cn("h-3.5 w-3.5 transition-transform",showHoleMap&&"rotate-180")} strokeWidth={2.5}/>
+                      Hole map
+                      {holeMapLoading&&<span className="text-muted-foreground">(loading...)</span>}
                     </button>
-                    {course&&holeMap&&showHoleMap&&(
-                      <button onClick={()=>fetchHoleMap(course,hole)}
-                        className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition">
-                        Refresh
-                      </button>
+                    {showHoleMap&&(
+                      <div className="flex items-center gap-2">
+                        {gpsWatcher==null?(
+                          <button onClick={()=>{startGPS();}} className="display text-[10px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-1">
+                            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg>
+                            GPS off
+                          </button>
+                        ):(
+                          <button onClick={stopGPS} className="display text-[10px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-1">
+                            <span className="h-2 w-2 rounded-full bg-primary animate-pulse inline-block"/>
+                            GPS on
+                          </button>
+                        )}
+                        <button onClick={()=>fetchHoleMap(course,hole)} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
+                          Refresh
+                        </button>
+                      </div>
                     )}
                   </div>
 
                   {showHoleMap&&(
-                    <div className="mt-2 rounded-xl border border-border bg-card overflow-hidden">
+                    <div className="rounded-xl border border-border bg-card overflow-hidden">
                       {holeMapLoading&&(
-                        <div className="flex items-center justify-center p-8 gap-3">
-                          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin-slow"/>
-                          <p className="display text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Generating hole map...</p>
+                        <div className="flex items-center justify-center gap-3 p-8">
+                          <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent" style={{animation:"spin 0.8s linear infinite"}}/>
+                          <p className="display text-[12px] font-bold uppercase tracking-wider text-muted-foreground">Generating hole map...</p>
                         </div>
                       )}
                       {holeMap&&!holeMapLoading&&(
-                        <div>
+                        <React.Fragment>
                           {/* Header */}
-                          <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-secondary/40">
+                          <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border bg-foreground text-background">
                             <div>
-                              <p className="display text-[11px] font-bold uppercase tracking-wider">{course}</p>
-                              <p className="display text-[10px] text-muted-foreground font-bold">Hole {hole} · Par {holeMap.par} · {holeMap.yards}yds · Hdcp {holeMap.index}</p>
+                              <p className="display text-[13px] font-bold tracking-tight truncate">{course}</p>
+                              <p className="display text-[10px] font-bold opacity-60">Hole {hole} · Par {holeMap.par} · {holeMap.yards}yds · Hdcp {holeMap.index||hole}</p>
                             </div>
                             <div className="text-right">
-                              <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{holeMap.shape}</p>
+                              <p className="display text-[10px] font-bold uppercase tracking-wider opacity-70 capitalize">{holeMap.shape||"straight"}</p>
+                              {gpsPos&&holeMap.green_lat&&(
+                                <p className="display text-[12px] font-bold text-primary">{distYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)}y to pin</p>
+                              )}
                             </div>
                           </div>
 
-                          {/* SVG map + info side by side */}
-                          <div className="flex gap-0">
-                            {/* SVG map */}
-                            <div className="w-32 shrink-0 bg-sky-950/30 flex items-center justify-center p-2 border-r border-border">
-                              {holeMap.svg&&(
-                                <div className="w-full" dangerouslySetInnerHTML={{__html: holeMap.svg
-                                  .replace(/strokeWidth=/g, 'stroke-width=')
-                                  .replace(/viewBox=/g, 'viewBox=')
-                                }}/>
-                              )}
+                          {/* Map canvas */}
+                          <div className="bg-emerald-950/20 p-2">
+                            <HoleMapCanvas map={holeMap} gps={gpsPos} W={260} H={400}/>
+                          </div>
+
+                          {/* GPS distance bar */}
+                          {gpsPos&&holeMap.green_lat&&(
+                            <div className="grid grid-cols-3 gap-px bg-border">
+                              {[
+                                ["To pin",distYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)+"y"],
+                                ["From tee",holeMap.tee_lat?distYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng)+"y":"--"],
+                                ["Acc",gpsPos.accuracy?Math.round(gpsPos.accuracy)+"m":"--"],
+                              ].map(([l,v])=>(
+                                <div key={l} className="bg-card px-3 py-2 text-center">
+                                  <p className="display text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{l}</p>
+                                  <p className="stat text-[18px] leading-tight text-primary">{v}</p>
+                                </div>
+                              ))}
                             </div>
-                            {/* Info panel */}
-                            <div className="flex-1 p-3 space-y-2">
-                              <p className="text-[12px] text-foreground leading-relaxed">{holeMap.description}</p>
-                              {holeMap.hazards&&holeMap.hazards.length>0&&(
-                                <div>
-                                  <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Hazards</p>
-                                  <div className="flex flex-wrap gap-1">
-                                    {holeMap.hazards.map((h,i)=>(
-                                      <span key={i} className="display text-[9px] font-bold uppercase tracking-wider bg-destructive/10 text-destructive rounded-md px-1.5 py-0.5">{h}</span>
-                                    ))}
-                                  </div>
+                          )}
+
+                          {/* Hazards + tip */}
+                          {(holeMap.hazards?.length>0||holeMap.tips)&&(
+                            <div className="px-3.5 py-2.5 space-y-2 border-t border-border">
+                              {holeMap.hazards?.length>0&&(
+                                <div className="flex flex-wrap gap-1">
+                                  {holeMap.hazards.map((h,i)=>(
+                                    <span key={i} className="display text-[9px] font-bold uppercase tracking-wider bg-destructive/10 text-destructive rounded px-1.5 py-0.5">{h}</span>
+                                  ))}
                                 </div>
                               )}
                               {holeMap.tips&&(
-                                <div className="rounded-lg bg-primary/10 border border-primary/30 p-2">
-                                  <p className="display text-[10px] font-bold uppercase tracking-wider text-primary mb-0.5">Obi&apos;s tip</p>
-                                  <p className="text-[11px] text-foreground leading-snug">{holeMap.tips}</p>
+                                <div className="rounded-lg bg-primary/10 border border-primary/30 px-2.5 py-2">
+                                  <p className="display text-[9px] font-bold uppercase tracking-wider text-primary mb-0.5">Obi&apos;s tip</p>
+                                  <p className="text-[12px] text-foreground leading-snug">{holeMap.tips}</p>
                                 </div>
                               )}
                             </div>
-                          </div>
-                        </div>
+                          )}
+                        </React.Fragment>
                       )}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Scorecard toggle */}
+{/* Scorecard toggle */}
               <div className="flex items-center justify-between mb-3">
                 <button onClick={()=>setScorecardOpen(o=>!o)}
                   className="display text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 transition">
