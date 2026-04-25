@@ -1,724 +1,136 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { supabase } from "./supabase.js";
+// OBI-GOLF-REDESIGN-v1 - Lovable design system
+import React,{useState,useEffect,useRef,useCallback} from "react";
+import {supabase} from "./supabase.js";
+import {DARK_THEME,LIGHT_THEME,DEFAULT_BAG,Ball,ScoreBadge,Avatar,
+  fmtDate,fmtDateShort,windDir,wxIcon,playingYards,firstName,randJab,
+  JABS,QUICK_PROMPTS,analyzeSwing,analyzeSwingVideo,
+  ErrorBoundary,ShotShapeDiagram,OnboardingFlow} from "./AppPart1.jsx";
 
-// Fonts
-const fontLink = document.createElement("link");
-fontLink.rel  = "stylesheet";
-fontLink.href = "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap";
-if(!document.querySelector('link[href*="Space+Grotesk"]')) document.head.appendChild(fontLink);
-
-// ── Design System ─────────────────────────────────────────────────
-// Accent: clean golf-flag green used sparingly as an action color only
-// Base: near-black / near-white with warm neutral cards
-const DARK_THEME = {
-  bg:       "#0c0c0f",      // near black with cool tint
-  dark:     "#111116",      // top bar / nav
-  surface:  "#18181f",      // inputs, secondary surfaces
-  card:     "#1e1e27",      // cards
-  cardHov:  "#232330",      // card hover
-  border:   "#2a2a38",      // subtle borders
-  accent:   "#34d399",      // emerald — used SPARINGLY for CTAs only
-  accentDim:"#064e3b",      // accent background tint
-  gold:     "#f59e0b",      // scores, highlights
-  goldDim:  "#451a03",      // gold tint bg
-  white:    "#f1f5f9",      // primary text
-  text:     "#e2e8f0",      // body text
-  muted:    "#64748b",      // secondary text
-  subtle:   "#334155",      // tertiary / placeholders
-  red:      "#f87171",      // errors, negative scores
-  blue:     "#818cf8",      // neutral info
-  isDark:   true,
-};
-const LIGHT_THEME = {
-  bg:       "#fafafa",
-  dark:     "#ffffff",
-  surface:  "#f4f4f8",
-  card:     "#ffffff",
-  cardHov:  "#f8f8fc",
-  border:   "#e2e4ea",
-  accent:   "#059669",      // darker emerald for light bg readability
-  accentDim:"#d1fae5",
-  gold:     "#d97706",
-  goldDim:  "#fef3c7",
-  white:    "#0f172a",
-  text:     "#1e293b",
-  muted:    "#64748b",
-  subtle:   "#94a3b8",
-  red:      "#dc2626",
-  blue:     "#4f46e5",
-  isDark:   false,
-};
-
-function Ball({ size=32 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-      <circle cx="50" cy="50" r="46" fill="#f59e0b"/>
-      <circle cx="50" cy="50" r="46" fill="url(#ballGrad)"/>
-      <ellipse cx="38" cy="34" rx="12" ry="7" fill="#fde68a" opacity="0.85" transform="rotate(-35 38 34)"/>
-      <circle cx="36" cy="54" r="4" fill="#1a1a1a" opacity="0.2"/>
-      <circle cx="50" cy="47" r="4" fill="#1a1a1a" opacity="0.2"/>
-      <circle cx="64" cy="54" r="4" fill="#1a1a1a" opacity="0.2"/>
-      <circle cx="43" cy="64" r="4" fill="#1a1a1a" opacity="0.2"/>
-      <circle cx="57" cy="64" r="4" fill="#1a1a1a" opacity="0.2"/>
-      <circle cx="50" cy="74" r="4" fill="#1a1a1a" opacity="0.2"/>
-      <defs><radialGradient id="ballGrad" cx="35%" cy="30%" r="70%"><stop offset="0%" stopColor="#fffbeb" stopOpacity="0.4"/><stop offset="100%" stopColor="#92400e" stopOpacity="0.25"/></radialGradient></defs>
-    </svg>
-  );
-}
-
-function Avatar({ name, size=40, highlight=false, photoUrl=null, onClick=null, T=DARK_THEME }) {
-  const ini = (name||"?").split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
-  const gradients = [
-    "linear-gradient(135deg,#6366f1,#8b5cf6)",
-    "linear-gradient(135deg,#0ea5e9,#6366f1)",
-    "linear-gradient(135deg,#f59e0b,#ef4444)",
-    "linear-gradient(135deg,#10b981,#0ea5e9)",
-    "linear-gradient(135deg,#f43f5e,#8b5cf6)",
-    "linear-gradient(135deg,#f59e0b,#10b981)",
-  ];
-  const grad = gradients[(name||"?").charCodeAt(0)%gradients.length];
-  const borderColor = highlight ? "#34d399" : (T ? T.border : "#2a2a38");
-  const shadowColor = highlight ? "#064e3b" : "none";
-  return (
-    <div onClick={onClick} style={{ width:size,height:size,borderRadius:"50%",overflow:"hidden",border:`2px solid ${borderColor}`,flexShrink:0,cursor:onClick?"pointer":"default",background:grad,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:highlight?`0 0 0 3px ${shadowColor}`:"none" }}>
-      {photoUrl && photoUrl.length > 0
-        ? <img src={photoUrl} alt={name||"avatar"} style={{width:"100%",height:"100%",objectFit:"cover"}} onError={(e)=>{ e.target.style.display="none"; }}/>
-        : <span style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:size*0.36,color:"#fff",fontWeight:"700",letterSpacing:"-0.5px"}}>{ini}</span>
-      }
-    </div>
-  );
-}
-
-function ScorePill({ score, par, large=false }) {
-  if (!score||!par) return null;
-  const d = score-par;
-  const configs = {
-    "-2": { label:"Eagle",  color:"#f59e0b", bg:"rgba(245,158,11,0.12)", border:"rgba(245,158,11,0.3)" },
-    "-1": { label:"Birdie", color:"#10b981", bg:"rgba(16,185,129,0.12)", border:"rgba(16,185,129,0.3)" },
-     "0": { label:"Par",    color:"#818cf8", bg:"rgba(129,140,248,0.12)", border:"rgba(129,140,248,0.3)" },
-     "1": { label:"Bogey",  color:"#f87171", bg:"rgba(248,113,113,0.12)", border:"rgba(248,113,113,0.3)" },
-  };
-  const cfg = configs[String(Math.max(-2,Math.min(1,d)))]||{ label:`+${d}`, color:"#f87171", bg:"rgba(248,113,113,0.12)", border:"rgba(248,113,113,0.3)" };
-  return (
-    <div style={{ display:"inline-flex",alignItems:"center",gap:"4px",background:cfg.bg,borderRadius:"99px",padding:large?"6px 14px":"3px 10px",border:`1px solid ${cfg.border}` }}>
-      <span style={{ color:cfg.color,fontSize:large?"12px":"10px",fontWeight:"500",fontFamily:"'Inter',sans-serif",opacity:0.8 }}>{cfg.label}</span>
-      <span style={{ color:cfg.color,fontSize:large?"16px":"13px",fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700" }}>{d>0?`+${d}`:d===0?"E":d}</span>
-    </div>
-  );
-}
-
-const HANDICAPS=[{label:"Beginner",sub:"30+",value:"beginner",hcp:36},{label:"High",sub:"18-29",value:"high",hcp:24},{label:"Mid",sub:"9-17",value:"mid",hcp:13},{label:"Low",sub:"0-8",value:"low",hcp:4}];
-const PERSONAS=[{id:"pro",icon:"🏆",label:"Tour Pro",desc:"Calm. Clinical. Precise."},{id:"coach",icon:"🎯",label:"The Coach",desc:"Encouraging & confidence-building."},{id:"oldschool",icon:"🚬",label:"Old School",desc:"Gritty, direct, zero fluff."}];
-const DEFAULT_BAG=[{club:"Driver",carry:230},{club:"3-Wood",carry:210},{club:"5-Wood",carry:195},{club:"4-Iron",carry:180},{club:"5-Iron",carry:170},{club:"6-Iron",carry:160},{club:"7-Iron",carry:150},{club:"8-Iron",carry:140},{club:"9-Iron",carry:130},{club:"PW",carry:120},{club:"GW",carry:105},{club:"SW",carry:90},{club:"LW",carry:70}];
-const QUICK_PROMPTS=[{label:"🏌 Club?",prompt:"What club should I hit from here?"},{label:"🗺 Hole plan",prompt:"Walk me through the strategy for this hole."},{label:"🌿 In rough",prompt:"My ball is sitting down in the rough. What's my play?"},{label:"💨 Wind",prompt:"How is this wind affecting my shot and what should I adjust?"},{label:"⚖️ Lay up?",prompt:"Should I lay up or go for it? Give me the risk/reward breakdown."},{label:"🏖 Bunker",prompt:"I'm in a greenside bunker. Talk me through the shot."},{label:"🎯 Putting",prompt:"Give me a putting read and routine for this green."},{label:"🔄 Reset",prompt:"I just mishit badly. Help me reset mentally for the next shot."}];
-const JABS=["That's why you pay for the caddie 😂","Course management called… 💀","Bold strategy. Very bold. 😅","Obi is disappointed in you 🙏","The rough misses you already 🌿","Scratch player energy… not 😂","That one hurt to watch 😬","Back to the range with you 🏌"];
-
-const windDir=d=>["N","NE","E","SE","S","SW","W","NW"][Math.round(d/45)%8];
-const wxIcon=c=>!c&&c!==0?"🌤":c===0?"☀️":c<=3?"⛅":c<=48?"🌫":c<=67?"🌧":c<=77?"🌨":"⛈";
-const randJab=()=>JABS[Math.floor(Math.random()*JABS.length)];
-function playingYards(y,elev,ws,wd){return Math.round((y+elev/10)+Math.cos(wd*Math.PI/180)*ws*0.7);}
-function fmtDate(d){return new Date(d).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});}
-function fmtDateShort(d){return new Date(d).toLocaleDateString("en-US",{month:"short",day:"numeric"});}
-
-async function callGemini(sys,msgs){
-  const contents=[{role:"user",parts:[{text:"Caddie instructions: "+sys}]},{role:"model",parts:[{text:"Got it. Ready to caddie."}]},...msgs.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]}))];
-  const res=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents})});
-  const data=await res.json();
-  if(data.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"API error");
-  return data.candidates?.[0]?.content?.parts?.[0]?.text||"No response from Obi.";
-}
-
-async function analyzeSwing(b64,mime,notes,bag,hcp){
-  const goalLabels={full_swing:"full swing mechanics",driver:"driver swing",irons:"iron play",short_game:"short game (chips/pitches)",bunker:"bunker play",putting:"putting stroke",tempo:"tempo and rhythm",custom:"the specific area mentioned in notes"};
-  const goalFocus=goalLabels[notes?.split("GOAL:")[1]?.trim()]||"overall swing mechanics";
-  const cleanNotes=notes?.replace(/GOAL:[^\n]*/,"").trim()||"none";
-  const contents=[{role:"user",parts:[{inline_data:{mime_type:mime,data:b64}},{text:`You are an expert PGA teaching professional. Player HCP: ${hcp}. The player wants to focus specifically on: ${goalFocus}. Additional notes: ${cleanNotes}.\nAnalyze this golf swing with a focus on ${goalFocus}. Cover: Setup & Address, Backswing, Downswing & Transition, Impact, Follow Through.\nThen give: PRIMARY FAULT related to ${goalFocus} (the one thing to fix first), DRILL (specific step-by-step drill to fix it), POSITIVES (what they do well).\nBe encouraging, specific, and visual. Write like a great teaching pro talking directly to their student.`}]}];
-  const res=await fetch("/api/swing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents})});
-  const data=await res.json();
-  if(data.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
-  return data.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
-}
-
-async function analyzeSwingVideo(videoFile, notes, bag, hcp) {
-  const D = DARK_THEME; // fallback theme for this standalone function
-  const apiKey = await fetch("/api/gemini-key").then(r=>r.json()).then(d=>d.key).catch(()=>null);
-  if (!apiKey) throw new Error("Could not get API key");
-
-  const promptText = `You are an expert PGA teaching professional analyzing a full golf swing video. Player HCP: ${hcp}. Notes: ${notes||"none"}.
-Watch the FULL swing motion in this video and analyze: Setup & Address, Backswing, Downswing & Transition, Impact position, Follow Through & Finish.
-Then give: PRIMARY FAULT (the single most important thing to fix), DRILL (specific step-by-step drill to fix it), POSITIVES (1-2 things they do well).
-Be specific about what you see in the VIDEO MOTION - mention timing, sequencing, speed. Write like a great teaching pro talking to their student.`;
-
-  // Step 1 - Upload video to Google File API directly from browser
-  const uploadRes = await fetch(
-    `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: {
-        "X-Goog-Upload-Protocol": "resumable",
-        "X-Goog-Upload-Command": "start",
-        "X-Goog-Upload-Header-Content-Length": videoFile.size,
-        "X-Goog-Upload-Header-Content-Type": videoFile.type,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ file: { display_name: "golf_swing" } }),
-    }
-  );
-
-  const uploadUrl = uploadRes.headers.get("x-goog-upload-url");
-  if (!uploadUrl) throw new Error("Could not start video upload");
-
-  // Step 2 - Upload video bytes
-  const finalRes = await fetch(uploadUrl, {
-    method: "POST",
-    headers: {
-      "X-Goog-Upload-Command": "upload, finalize",
-      "X-Goog-Upload-Offset": "0",
-      "Content-Type": videoFile.type,
-    },
-    body: videoFile,
-  });
-
-  const fileData = await finalRes.json();
-  const fileUri = fileData?.file?.uri;
-  const fileName = fileData?.file?.name;
-  if (!fileUri) throw new Error("Video upload failed - try a shorter clip");
-
-  // Step 3 - Wait for processing
-  let ready = false;
-  let attempts = 0;
-  while (!ready && attempts < 15) {
-    await new Promise(r => setTimeout(r, 2000));
-    const check = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`
-    ).then(r => r.json());
-    if (check?.state === "ACTIVE" || check?.file?.state === "ACTIVE") ready = true;
-    attempts++;
-  }
-  if (!ready) throw new Error("Video processing timed out - try a clip under 30 seconds");
-
-  // Step 4 - Analyze with Gemini
-  const analyzeRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          role: "user",
-          parts: [
-            { file_data: { mime_type: videoFile.type, file_uri: fileUri } },
-            { text: promptText }
-          ]
-        }],
-        generationConfig: {
-          maxOutputTokens: 1500,
-          temperature: 0.7,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      }),
-    }
-  );
-
-  const result = await analyzeRes.json();
-  if (result.error) throw new Error(result.error.message || "Analysis failed");
-  return result.candidates?.[0]?.content?.parts?.[0]?.text || "Could not analyze swing.";
-}
-
-
-
+// ── CSS injected into <head> ───────────────────────────────────────
 const CSS=`
-  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
-  @keyframes popIn    {from{opacity:0;transform:scale(0.88)}to{opacity:1;transform:scale(1)}}
-  @keyframes fadeUp   {from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
-  @keyframes slideIn  {from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
-  @keyframes pulse    {0%,100%{opacity:1}50%{opacity:0.35}}
-  @keyframes bounce   {0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-  @keyframes shimmer  {0%{background-position:-200px 0}100%{background-position:200px 0}}
-  input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
-  select option{background:#1e1e27;color:#e2e8f0}
-  ::-webkit-scrollbar{width:3px;height:3px}
-  ::-webkit-scrollbar-thumb{background:#2a2a38;border-radius:2px}
-  *{-webkit-tap-highlight-color:transparent;box-sizing:border-box}
-  input:focus,textarea:focus,select:focus{border-color:#34d399 !important;outline:none}
-  button:active{transform:scale(0.97)}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body,#root{height:100%;background:var(--bg);}
+body{font-family:var(--font-sans);-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+:root{
+  --font-sans:'Inter',ui-sans-serif,system-ui,sans-serif;
+  --font-display:'Space Grotesk','Inter',ui-sans-serif,sans-serif;
+  --radius:0.75rem;
+  --bg:#0f0f14;
+  --fg:#f0f0f5;
+  --card:#17171f;
+  --card-border:#2a2a38;
+  --surface:#1f1f2a;
+  --muted:#5a5a72;
+  --muted-fg:#8888a4;
+  --primary:#4ade80;
+  --primary-dim:rgba(74,222,128,0.12);
+  --accent:#fbbf24;
+  --destructive:#f87171;
+  --ring:#4ade80;
+}
+.light{
+  --bg:#f8f8fc;
+  --fg:#1a1a28;
+  --card:#ffffff;
+  --card-border:#e4e4ef;
+  --surface:#f0f0f8;
+  --muted:#d0d0e0;
+  --muted-fg:#7070a0;
+  --primary:#16a34a;
+  --primary-dim:rgba(22,163,74,0.1);
+  --accent:#d97706;
+  --destructive:#dc2626;
+}
+.display{font-family:var(--font-display);font-weight:700;letter-spacing:-0.02em;}
+.stat{font-family:var(--font-display);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-0.04em;}
+.tabular{font-variant-numeric:tabular-nums;}
+.pt-safe{padding-top:env(safe-area-inset-top);}
+.pb-safe{padding-bottom:env(safe-area-inset-bottom);}
+input,textarea,select{font-family:var(--font-sans);}
+input::placeholder,textarea::placeholder{color:var(--muted-fg);}
+button{cursor:pointer;font-family:inherit;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{from{opacity:0;transform:scale(0.8)}to{opacity:1;transform:scale(1)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.fade-up{animation:fadeUp 0.4s cubic-bezier(.2,.8,.4,1) both;}
+.pop-in{animation:popIn 0.4s cubic-bezier(.34,1.56,.64,1) both;}
+/* Scrollable areas */
+.scroll-y{overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+.scroll-x::-webkit-scrollbar{display:none;}
+/* Tab pill */
+.tab-pill{display:flex;gap:4px;background:var(--surface);border-radius:12px;padding:4px;}
+.tab-pill button{flex:1;padding:7px 10px;border-radius:9px;border:none;background:transparent;color:var(--muted-fg);font-family:var(--font-display);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;transition:all 0.15s;}
+.tab-pill button.active{background:var(--card);color:var(--fg);box-shadow:0 1px 4px rgba(0,0,0,0.3);}
+/* Chat bubble */
+.bubble-user{background:var(--primary);color:#000;border-radius:18px 18px 4px 18px;padding:10px 14px;max-width:82%;font-size:14px;line-height:1.5;}
+.bubble-ai{background:var(--surface);color:var(--fg);border-radius:18px 18px 18px 4px;padding:10px 14px;max-width:88%;font-size:14px;line-height:1.6;border:1px solid var(--card-border);}
+/* Chip */
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--card-border);border-radius:99px;padding:5px 12px;font-size:11px;font-family:var(--font-display);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--fg);white-space:nowrap;}
+/* Stat card */
+.stat-card{background:var(--card);border:1px solid var(--card-border);border-radius:16px;padding:14px;}
+/* Row list */
+.row-list{background:var(--card);border:1px solid var(--card-border);border-radius:16px;overflow:hidden;}
+.row-list>*+*{border-top:1px solid var(--card-border);}
+/* Nav active indicator */
+.nav-pip{width:4px;height:4px;border-radius:99px;background:var(--primary);margin:0 auto 2px;}
 `;
 
-
-// ── Shot Shape Diagram Component ─────────────────────────────────
-function ShotShapeDiagram({ result, club, dexterity, T }) {
-  const [progress, setProgress] = useState(0);
-  T = T || DARK_THEME;
-  dexterity = dexterity || "right";
-
-  useEffect(() => {
-    setProgress(0);
-    const delay = setTimeout(() => {
-      let p = 0;
-      const iv = setInterval(() => {
-        p += 1.5;
-        setProgress(Math.min(p, 100));
-        if (p >= 100) clearInterval(iv);
-      }, 16);
-      return () => clearInterval(iv);
-    }, 300);
-    return () => clearTimeout(delay);
-  }, [result]);
-
-  if (!result || result.error) return null;
-
-  const shape   = result.shot_shape      || "straight";
-  const launch  = result.launch_angle    || "mid";
-  const carry   = result.estimated_carry || 150;
-  const contact = result.contact_quality || "flush";
-  const tip     = result.tip             || "";
-  const path    = result.swing_path      || "neutral";
-  const isLeft  = dexterity === "left";
-
-  const shapeConfig = {
-    "straight":    { curve: 0,                    color: "#94a3b8", label: "Straight",    dir: "→" },
-    "slight draw": { curve: isLeft?-0.12:0.12,    color: "#34d399", label: "Slight Draw", dir: isLeft?"↙":"↘" },
-    "draw":        { curve: isLeft?-0.25:0.25,    color: "#10b981", label: "Draw",        dir: isLeft?"↙":"↘" },
-    "strong draw": { curve: isLeft?-0.40:0.40,    color: "#059669", label: "Strong Draw", dir: isLeft?"↙":"↘" },
-    "hook":        { curve: isLeft?-0.55:0.55,    color: "#f59e0b", label: "Hook",        dir: isLeft?"↙":"↘" },
-    "slight fade": { curve: isLeft?0.12:-0.12,    color: "#818cf8", label: "Slight Fade", dir: isLeft?"↘":"↙" },
-    "fade":        { curve: isLeft?0.25:-0.25,    color: "#6366f1", label: "Fade",        dir: isLeft?"↘":"↙" },
-    "strong fade": { curve: isLeft?0.40:-0.40,    color: "#ef4444", label: "Strong Fade", dir: isLeft?"↘":"↙" },
-    "slice":       { curve: isLeft?0.60:-0.60,    color: "#f87171", label: "Slice",       dir: isLeft?"↘":"↙" },
-  };
-  const cfg    = shapeConfig[shape] || shapeConfig["straight"];
-  const peakPct = { "low":0.18,"mid-low":0.28,"mid":0.38,"mid-high":0.48,"high":0.58 }[launch] || 0.38;
-  const contactColor = contact==="flush" ? "#34d399"
-    : (contact.includes("thin")||contact.includes("fat")) ? "#f87171" : "#f59e0b";
-
-  // ── Overhead view (top-down) ──────────────────────────
-  const OW=320, OH=200;
-  const oSx=OW*0.5, oSy=OH*0.88;   // tee at bottom-center
-  const oEx=OW*0.5 + OW*cfg.curve*0.55, oEy=OH*0.08;  // carry point at top
-  const oMx=(oSx+oEx)/2 + (oEx-oSx)*0.3, oMy=OH*0.48;
-
-  function overheadPath(pct) {
-    const t2=pct/100, steps=Math.max(2,Math.floor(t2*50)), pts=[];
-    for(let i=0;i<=steps;i++){
-      const s=(t2*i)/steps;
-      const x=(1-s)*(1-s)*oSx+2*(1-s)*s*oMx+s*s*oEx;
-      const y=(1-s)*(1-s)*oSy+2*(1-s)*s*oMy+s*s*oEy;
-      pts.push((i===0?"M ":"L ")+x.toFixed(1)+" "+y.toFixed(1));
-    }
-    return pts.join(" ");
-  }
-
-  const ot=progress/100;
-  const oBx=(1-ot)*(1-ot)*oSx+2*(1-ot)*ot*oMx+ot*ot*oEx;
-  const oBy=(1-ot)*(1-ot)*oSy+2*(1-ot)*ot*oMy+ot*ot*oEy;
-
-  // ── Side view (height profile) ────────────────────────
-  const SW=320, SH=120;
-  const sSx=30, sSy=SH*0.88;
-  const sEx=SW-20, sEy=SH*0.88;
-  const sMx=(sSx+sEx)/2, sMy=SH*(1-peakPct)*0.9;
-
-  function sidePath(pct) {
-    const t2=pct/100, steps=Math.max(2,Math.floor(t2*50)), pts=[];
-    for(let i=0;i<=steps;i++){
-      const s=(t2*i)/steps;
-      const x=(1-s)*(1-s)*sSx+2*(1-s)*s*sMx+s*s*sEx;
-      const y=(1-s)*(1-s)*sSy+2*(1-s)*s*sMy+s*s*sEy;
-      pts.push((i===0?"M ":"L ")+x.toFixed(1)+" "+y.toFixed(1));
-    }
-    return pts.join(" ");
-  }
-
-  const st=progress/100;
-  const sBx=(1-st)*(1-st)*sSx+2*(1-st)*st*sMx+st*st*sEx;
-  const sBy=(1-st)*(1-st)*sSy+2*(1-st)*st*sMy+st*st*sEy;
-
-  // Peak ball position
-  const peakT=0.5;
-  const peakX=(1-peakT)*(1-peakT)*sSx+2*(1-peakT)*peakT*sMx+peakT*peakT*sEx;
-  const peakY=sMy;
-
-  return (
-    <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:"18px",overflow:"hidden",marginBottom:"16px"}}>
-
-      {/* Header */}
-      <div style={{padding:"14px 16px 10px",borderBottom:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"15px",fontWeight:"700",color:T.white}}>Shot Tracer</div>
-        <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
-          <div style={{width:"8px",height:"8px",borderRadius:"50%",background:cfg.color,boxShadow:`0 0 6px ${cfg.color}`}}/>
-          <span style={{fontSize:"13px",fontWeight:"700",color:cfg.color,fontFamily:"'Space Grotesk',sans-serif"}}>{cfg.label}</span>
-        </div>
-      </div>
-
-      {/* ── TOP DOWN VIEW ── */}
-      <div style={{padding:"10px 16px 0",borderBottom:`1px solid ${T.border}40`}}>
-        <div style={{fontSize:"9px",color:T.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"4px"}}>TOP-DOWN SHAPE</div>
-        <svg width="100%" viewBox={`0 0 ${OW} ${OH}`} style={{display:"block"}}>
-          <defs>
-            <linearGradient id="trailGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-              <stop offset="0%" stopColor={cfg.color} stopOpacity="0.1"/>
-              <stop offset="100%" stopColor={cfg.color} stopOpacity="0.8"/>
-            </linearGradient>
-          </defs>
-
-          {/* Fairway guide */}
-          <rect x={OW*0.35} y={OH*0.04} width={OW*0.3} height={OH*0.8} rx="4" fill={T.surface} opacity="0.3"/>
-
-          {/* Target line */}
-          <line x1={oSx} y1={oSy} x2={oSx} y2={OH*0.05} stroke={T.border} strokeWidth="1" strokeDasharray="5,6" opacity="0.5"/>
-
-          {/* Glow under path */}
-          {progress>5&&<path d={overheadPath(progress)} stroke={cfg.color} strokeWidth="12" strokeLinecap="round" fill="none" opacity="0.08"/>}
-
-          {/* Main tracer line */}
-          {progress>0&&<path d={overheadPath(progress)} stroke="url(#trailGrad)" strokeWidth="3" strokeLinecap="round" fill="none"/>}
-
-          {/* Trail dots */}
-          {[15,30,45,60,75,90].map(pct=>{
-            if(progress<pct)return null;
-            const tp=pct/100;
-            const dx=(1-tp)*(1-tp)*oSx+2*(1-tp)*tp*oMx+tp*tp*oEx;
-            const dy=(1-tp)*(1-tp)*oSy+2*(1-tp)*tp*oMy+tp*tp*oEy;
-            const sz=pct>60?4:3;
-            return <circle key={pct} cx={dx} cy={dy} r={sz} fill={cfg.color} opacity={pct/120}/>;
-          })}
-
-          {/* Ball */}
-          {progress>0&&progress<100&&(
-            <g>
-              <circle cx={oBx} cy={oBy} r="9" fill={cfg.color} opacity="0.15"/>
-              <circle cx={oBx} cy={oBy} r="5.5" fill="#f59e0b"/>
-              <circle cx={oBx-1.5} cy={oBy-1.5} r="1.5" fill="#fff" opacity="0.7"/>
-            </g>
-          )}
-
-          {/* Landing marker */}
-          {progress>=98&&(
-            <g>
-              <circle cx={oEx} cy={oEy} r="14" fill={cfg.color} opacity="0.1"/>
-              <circle cx={oEx} cy={oEy} r="8"  fill={cfg.color} opacity="0.25"/>
-              <circle cx={oEx} cy={oEy} r="5"  fill={cfg.color}/>
-              <circle cx={oEx} cy={oEy} r="2"  fill="#fff"/>
-            </g>
-          )}
-
-          {/* Carry label */}
-          {progress>=85&&(
-            <g opacity={Math.min(1,(progress-85)/15)}>
-              <rect x={oEx-22} y={oEy-24} width="44" height="18" rx="6" fill={T.surface}/>
-              <text x={oEx} y={oEy-12} textAnchor="middle" fontSize="11" fontFamily="Space Grotesk,sans-serif" fontWeight="700" fill={cfg.color}>{carry}y</text>
-            </g>
-          )}
-
-          {/* Tee */}
-          <circle cx={oSx} cy={oSy} r="6" fill={T.surface} stroke={T.muted} strokeWidth="1.5"/>
-          <circle cx={oSx} cy={oSy} r="3" fill={T.muted}/>
-          <text x={oSx} y={oSy+14} textAnchor="middle" fontSize="8" fill={T.muted} fontFamily="Inter,sans-serif" letterSpacing="1">TEE</text>
-        </svg>
-      </div>
-
-      {/* ── SIDE PROFILE VIEW ── */}
-      <div style={{padding:"10px 16px 6px",borderBottom:`1px solid ${T.border}40`}}>
-        <div style={{fontSize:"9px",color:T.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"4px"}}>SIDE PROFILE — HEIGHT</div>
-        <svg width="100%" viewBox={`0 0 ${SW} ${SH}`} style={{display:"block"}}>
-          <defs>
-            <linearGradient id="heightGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor={cfg.color} stopOpacity="0.6"/>
-              <stop offset="50%" stopColor={cfg.color} stopOpacity="1"/>
-              <stop offset="100%" stopColor={cfg.color} stopOpacity="0.4"/>
-            </linearGradient>
-          </defs>
-
-          {/* Ground */}
-          <line x1={sSx-5} y1={sSy} x2={sEx+5} y2={sEy} stroke={T.border} strokeWidth="1.5"/>
-          {/* Distance markers */}
-          {[25,50,75].map(pct=>{
-            const gx=sSx+(sEx-sSx)*pct/100;
-            return <line key={pct} x1={gx} y1={sSy} x2={gx} y2={sSy+4} stroke={T.border} strokeWidth="1" opacity="0.5"/>;
-          })}
-
-          {/* Fill under curve */}
-          {progress>10&&(
-            <path d={sidePath(progress)+" L "+Math.min(sSx+(sEx-sSx)*progress/100,sEx).toFixed(1)+" "+sSy+" L "+sSx+" "+sSy+" Z"} fill={cfg.color} opacity="0.07"/>
-          )}
-
-          {/* Glow */}
-          {progress>5&&<path d={sidePath(progress)} stroke={cfg.color} strokeWidth="8" strokeLinecap="round" fill="none" opacity="0.1"/>}
-
-          {/* Main curve */}
-          {progress>0&&<path d={sidePath(progress)} stroke="url(#heightGrad)" strokeWidth="2.5" strokeLinecap="round" fill="none"/>}
-
-          {/* Apex marker */}
-          {progress>=50&&(
-            <g opacity={Math.min(1,(progress-50)/25)}>
-              <line x1={peakX} y1={peakY} x2={peakX} y2={sSy} stroke={cfg.color} strokeWidth="1" strokeDasharray="3,4" opacity="0.4"/>
-              <circle cx={peakX} cy={peakY} r="4" fill={cfg.color} opacity="0.9"/>
-            </g>
-          )}
-
-          {/* Ball */}
-          {progress>0&&progress<100&&(
-            <g>
-              <circle cx={sBx} cy={sBy} r="7" fill={cfg.color} opacity="0.1"/>
-              <circle cx={sBx} cy={sBy} r="4.5" fill="#f59e0b"/>
-              <circle cx={sBx-1} cy={sBy-1} r="1.2" fill="#fff" opacity="0.7"/>
-            </g>
-          )}
-
-          {/* Labels */}
-          {progress>=60&&(
-            <text x={peakX} y={peakY-8} textAnchor="middle" fontSize="9" fill={T.muted} fontFamily="Inter,sans-serif">{launch}</text>
-          )}
-          <text x={sSx} y={sSy+12} textAnchor="middle" fontSize="8" fill={T.muted} fontFamily="Inter,sans-serif">TEE</text>
-          <text x={sEx} y={sEy+12} textAnchor="middle" fontSize="8" fill={T.muted} fontFamily="Inter,sans-serif">{carry}y</text>
-        </svg>
-      </div>
-
-      {/* ── Stats grid ── */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1px",background:T.border}}>
-        {[
-          ["Carry",   `${carry}y`,      cfg.color],
-          ["Shape",   cfg.label,        cfg.color],
-          ["Launch",  launch,           T.text],
-          ["Strike",  contact,          contactColor],
-          ["Path",    path,             T.muted],
-          ["Flight",  result.ball_flight||"mid", T.muted],
-        ].map(([label,value,color])=>(
-          <div key={label} style={{background:T.card,padding:"10px 8px",textAlign:"center"}}>
-            <div style={{fontSize:"9px",color:T.muted,letterSpacing:"1px",textTransform:"uppercase",marginBottom:"3px"}}>{label}</div>
-            <div style={{fontSize:"11px",fontWeight:"600",color,fontFamily:"'Space Grotesk',sans-serif",textTransform:"capitalize",lineHeight:"1.3"}}>{value}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Tip ── */}
-      {tip&&(
-        <div style={{padding:"12px 16px",display:"flex",gap:"10px",alignItems:"flex-start"}}>
-          <div style={{fontSize:"16px",flexShrink:0}}>💡</div>
-          <div style={{fontSize:"13px",color:T.text,lineHeight:"1.5"}}>{tip}</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Error Boundary ───────────────────────────────────────────────
-class ErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state={hasError:false,error:null}; }
-  static getDerivedStateFromError(e){ return {hasError:true,error:e}; }
-  componentDidCatch(e,i){ console.error("Caught:",e,i); }
-  render(){
-    if(this.state.hasError) return (
-      <div style={{minHeight:"100vh",background:"#0c0c0f",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Inter',sans-serif",padding:"24px",textAlign:"center"}}>
-        <div style={{fontSize:"48px",marginBottom:"16px"}}>⛳</div>
-        <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:"#f1f5f9",marginBottom:"8px"}}>Something went wrong</div>
-        <div style={{fontSize:"13px",color:"#64748b",marginBottom:"8px"}}>{this.state.error?.message||"Unknown error"}</div>
-        <div style={{fontSize:"13px",color:"#64748b",marginBottom:"24px"}}>Your data is safe.</div>
-        <button onClick={()=>window.location.reload()} style={{background:"#34d399",border:"none",borderRadius:"12px",color:"#fff",fontSize:"15px",padding:"12px 28px",cursor:"pointer",fontWeight:"600"}}>Reload App</button>
-      </div>
-    );
-    return this.props.children;
-  }
-}
-
-// ── Multi-Step Onboarding Component ──────────────────────────────
-function OnboardingFlow({ D, S, profile, setProfile, authName, setAuthName, onComplete }) {
-  const [step, setStep] = useState(0);
-  const [localName, setLocalName] = useState(authName || "");
-  const [homeCourse, setHomeCourse] = useState("");
-  const [ageRange, setAgeRange] = useState("");
-
-  const steps = [
-    { id: "name",      title: "What's your name?",           sub: "Obi will use this every time you play" },
-    { id: "dexterity", title: "How do you swing?",           sub: "Obi tailors all advice to your swing side" },
-    { id: "handicap",  title: "What's your level?",          sub: "Helps Obi calibrate strategy and advice" },
-    { id: "age",       title: "What's your age range?",      sub: "Optional — helps personalize coaching style" },
-    { id: "course",    title: "Do you have a home course?",  sub: "Optional — Obi will know it well" },
-    { id: "persona",   title: "Choose your caddie style",    sub: "You can always change this in Settings" },
-  ];
-
-  const current = steps[step];
-  const progress = ((step) / steps.length) * 100;
-
-  const next = () => {
-    // Save data at each step
-    if (step === 0) setAuthName(localName);
-    if (step === 3) setProfile(p => ({ ...p, ageRange }));
-    if (step === 4) setProfile(p => ({ ...p, homeCourse }));
-
-    if (step < steps.length - 1) {
-      setStep(s => s + 1);
-    } else {
-      // Final step — save everything and complete
-      setAuthName(localName);
-      setProfile(p => ({ ...p, homeCourse, ageRange }));
-      setTimeout(() => onComplete(), 50);
-    }
-  };
-
-  const skip = () => {
-    if (step < steps.length - 1) setStep(s => s + 1);
-    else onComplete();
-  };
-
-  const canNext = () => {
-    if (current.id === "name") return localName.trim().length > 0;
-    return true;
-  };
-
-  return (
-    <div style={{ animation: "fadeUp 0.4s both" }}>
-      {/* Progress bar */}
-      <div style={{ height: "3px", background: D.border, borderRadius: "2px", marginBottom: "28px", overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${progress}%`, background: `linear-gradient(90deg, ${D.accent}, ${D.accent})`, borderRadius: "2px", transition: "width 0.4s ease" }}/>
-      </div>
-
-      {/* Step indicator */}
-      <div style={{ fontSize: "11px", color: D.muted, letterSpacing: "2px", textTransform: "uppercase", marginBottom: "8px", textAlign: "center" }}>
-        Step {step + 1} of {steps.length}
-      </div>
-
-      <div style={{ ...S.card, marginBottom: "16px" }}>
-        <div style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: "22px", fontWeight: "700", color: D.white, marginBottom: "6px" }}>{current.title}</div>
-        <div style={{ color: D.muted, fontSize: "14px", marginBottom: "20px" }}>{current.sub}</div>
-
-        {/* STEP 0 — Name */}
-        {current.id === "name" && (
-          <div>
-            <input
-              autoFocus
-              placeholder="Your first name"
-              value={localName}
-              onChange={e => setLocalName(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && canNext() && next()}
-              style={{ ...S.input, fontSize: "18px", fontWeight: "600" }}
-            />
-          </div>
-        )}
-
-        {/* STEP 1 — Dexterity */}
-        {current.id === "dexterity" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            {[
-              { v: "right", label: "Right Handed", icon: "🏌️", desc: "Standard swing" },
-              { v: "left",  label: "Left Handed",  icon: "🏌️‍♂️", desc: "Mirror swing" },
-            ].map(dx => (
-              <button key={dx.v} onClick={() => { setProfile(p => ({ ...p, dexterity: dx.v })); }}
-                style={{ background: profile.dexterity === dx.v ? D.accentDim : D.surface, border: `2px solid ${profile.dexterity === dx.v ? D.accent : D.border}`, borderRadius: "14px", padding: "20px 12px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", transition: "all 0.2s" }}>
-                <span style={{ fontSize: "36px" }}>{dx.icon}</span>
-                <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "14px", color: profile.dexterity === dx.v ? D.accent : D.text }}>{dx.label}</span>
-                <span style={{ fontSize: "11px", color: D.muted }}>{dx.desc}</span>
-                {profile.dexterity === dx.v && <div style={{ width: "22px", height: "22px", borderRadius: "50%", background: D.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "12px" }}>✓</div>}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* STEP 2 — Handicap */}
-        {current.id === "handicap" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            {[
-              { label: "Beginner", sub: "30+",   value: "beginner", hcp: 36, icon: "🌱", desc: "Just starting out" },
-              { label: "High",     sub: "18–29", value: "high",     hcp: 24, icon: "📈", desc: "Building consistency" },
-              { label: "Mid",      sub: "9–17",  value: "mid",      hcp: 13, icon: "⛳", desc: "Breaking 90" },
-              { label: "Low",      sub: "0–8",   value: "low",      hcp: 4,  icon: "🏆", desc: "Scratch territory" },
-            ].map(h => (
-              <button key={h.value} onClick={() => setProfile(p => ({ ...p, handicap: h.value, hcp: h.hcp }))}
-                style={{ background: profile.handicap === h.value ? D.accentDim : D.surface, border: `2px solid ${profile.handicap === h.value ? D.accent : D.border}`, borderRadius: "14px", padding: "16px 10px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", transition: "all 0.2s" }}>
-                <span style={{ fontSize: "28px" }}>{h.icon}</span>
-                <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "15px", color: profile.handicap === h.value ? D.accent : D.text }}>{h.label}</span>
-                <span style={{ fontSize: "11px", color: D.muted }}>HCP {h.sub}</span>
-                <span style={{ fontSize: "11px", color: D.subtle }}>{h.desc}</span>
-                {profile.handicap === h.value && <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: D.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px", marginTop: "4px" }}>✓</div>}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* STEP 3 — Age range */}
-        {current.id === "age" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-            {[
-              { v: "under25", label: "Under 25", icon: "🔥" },
-              { v: "25-40",   label: "25 – 40",  icon: "💪" },
-              { v: "40-55",   label: "40 – 55",  icon: "⛳" },
-              { v: "55plus",  label: "55+",       icon: "🏆" },
-            ].map(a => (
-              <button key={a.v} onClick={() => setAgeRange(a.v)}
-                style={{ background: ageRange === a.v ? D.accentDim : D.surface, border: `2px solid ${ageRange === a.v ? D.accent : D.border}`, borderRadius: "14px", padding: "16px 10px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", transition: "all 0.2s" }}>
-                <span style={{ fontSize: "28px" }}>{a.icon}</span>
-                <span style={{ fontFamily: "'Space Grotesk',sans-serif", fontWeight: "700", fontSize: "14px", color: ageRange === a.v ? D.accent : D.text }}>{a.label}</span>
-                {ageRange === a.v && <div style={{ width: "20px", height: "20px", borderRadius: "50%", background: D.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "11px" }}>✓</div>}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* STEP 4 — Home course */}
-        {current.id === "course" && (
-          <div>
-            <input
-              placeholder="e.g. Pebble Beach, Augusta National, my local muni..."
-              value={homeCourse}
-              onChange={e => setHomeCourse(e.target.value)}
-              style={{ ...S.input, marginBottom: "8px" }}
-            />
-            <div style={{ fontSize: "12px", color: D.muted, lineHeight: 1.5 }}>
-              Obi will know your home course layout, typical conditions, and key holes to watch out for.
-            </div>
-          </div>
-        )}
-
-        {/* STEP 5 — Persona */}
-        {current.id === "persona" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {[
-              { id: "pro",       icon: "🏆", label: "Tour Pro",   desc: "Calm, clinical, Tour-level precision. Speaks with quiet authority." },
-              { id: "coach",     icon: "🎯", label: "The Coach",  desc: "Encouraging, warm, confidence-building. Keeps you positive." },
-              { id: "oldschool", icon: "🚬", label: "Old School", desc: "Gritty, direct, zero fluff. Old-school caddie energy." },
-            ].map(p => (
-              <button key={p.id} onClick={() => setProfile(prev => ({ ...prev, persona: p.id }))}
-                style={{ display: "flex", alignItems: "center", gap: "14px", width: "100%", background: profile.persona === p.id ? D.accentDim : D.surface, border: `2px solid ${profile.persona === p.id ? D.accent : D.border}`, borderRadius: "14px", padding: "16px", cursor: "pointer", textAlign: "left", transition: "all 0.2s" }}>
-                <span style={{ fontSize: "28px" }}>{p.icon}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: "700", color: D.white, fontSize: "16px" }}>{p.label}</div>
-                  <div style={{ fontSize: "12px", color: D.muted, marginTop: "3px", lineHeight: 1.4 }}>{p.desc}</div>
-                </div>
-                {profile.persona === p.id && <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: D.accent, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "13px", flexShrink: 0 }}>✓</div>}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Navigation */}
-      <button onClick={next} disabled={!canNext()} style={{ ...S.btnPrimary, opacity: canNext() ? 1 : 0.4, marginBottom: "10px" }}>
-        {step === steps.length - 1 ? "Let's Play Golf 🏌️" : step === steps.length - 2 ? "Almost there →" : "Next →"}
-      </button>
-      {step > 0 && current.id !== "name" && (
-        <button onClick={skip} style={{ ...S.btnGhost }}>Skip for now</button>
-      )}
-      {step > 0 && (
-        <button onClick={() => setStep(s => s - 1)} style={{ ...S.btnGhost, marginTop: "2px" }}>← Back</button>
-      )}
-    </div>
-  );
-}
-
 function ObiGolfApp(){
-  const [darkMode,setDarkMode]=useState(()=>{ const saved=localStorage.getItem("obi_dark"); return saved===null?true:saved!=="false"; });
-  const D = darkMode ? DARK_THEME : LIGHT_THEME;
+  const [isDark,setIsDark]=useState(()=>{
+    try{const s=localStorage.getItem("obi_dark");return s===null?true:s==="true";}catch{return true;}
+  });
 
-  // Shared styles — theme-reactive
-  const S={
-    input:{background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"12px",color:D.text,fontSize:"15px",padding:"13px 16px",outline:"none",fontFamily:"'Inter',sans-serif",width:"100%",boxSizing:"border-box",transition:"border-color 0.2s"},
-    btnPrimary:{background:D.accent,border:"none",borderRadius:"12px",color:"#fff",fontSize:"15px",padding:"14px",cursor:"pointer",fontWeight:"600",fontFamily:"'Inter',sans-serif",width:"100%",letterSpacing:"-0.2px"},
-    btnSecondary:{background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"12px",color:D.text,fontSize:"15px",padding:"13px",cursor:"pointer",fontWeight:"500",fontFamily:"'Inter',sans-serif",width:"100%"},
-    btnGhost:{background:"transparent",border:"none",color:D.muted,fontSize:"14px",padding:"10px",cursor:"pointer",fontFamily:"'Inter',sans-serif",width:"100%"},
-    card:{background:D.card,border:`1px solid ${D.border}`,borderRadius:"16px",padding:"16px",boxShadow:darkMode?"0 1px 3px rgba(0,0,0,0.4)":"0 1px 3px rgba(0,0,0,0.07),0 4px 16px rgba(0,0,0,0.04)"},
-    pill:{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"5px 12px",fontSize:"12px",color:D.muted,fontFamily:"'Inter',sans-serif",cursor:"pointer",whiteSpace:"nowrap"},
+  // Inject design system CSS once
+  useEffect(()=>{
+    const id="obi-css";
+    if(!document.getElementById(id)){
+      const el=document.createElement("style");
+      el.id=id;el.textContent=CSS;
+      document.head.appendChild(el);
+    }
+  },[]);
+
+  useEffect(()=>{
+    const el=document.documentElement;
+    el.classList.toggle("light",!isDark);
+    document.body.style.background="var(--bg)";
+    try{localStorage.setItem("obi_dark",String(isDark));}catch{}
+  },[isDark]);
+
+  // ── Shared style tokens ──────────────────────────────────────────
+  const T={
+    bg:"var(--bg)", fg:"var(--fg)", card:"var(--card)", border:"var(--card-border)",
+    surface:"var(--surface)", muted:"var(--muted)", mutedFg:"var(--muted-fg)",
+    primary:"var(--primary)", primaryDim:"var(--primary-dim)",
+    accent:"var(--accent)", red:"var(--destructive)",
   };
 
+  // ── Reusable style helpers ───────────────────────────────────────
+  const S={
+    input:{background:T.surface,border:"1px solid "+T.border,borderRadius:"12px",color:T.fg,
+      fontSize:"14px",padding:"11px 14px",outline:"none",width:"100%",fontFamily:"var(--font-sans)"},
+    btnPrimary:{background:T.primary,border:"none",borderRadius:"12px",color:"#000",
+      fontSize:"14px",fontFamily:"var(--font-display)",fontWeight:"700",padding:"12px 20px",
+      textTransform:"uppercase",letterSpacing:"0.06em",cursor:"pointer",display:"inline-flex",
+      alignItems:"center",justifyContent:"center",gap:"8px"},
+    btnSecondary:{background:T.surface,border:"1px solid "+T.border,borderRadius:"12px",color:T.fg,
+      fontSize:"13px",fontFamily:"var(--font-display)",fontWeight:"700",padding:"10px 16px",
+      textTransform:"uppercase",letterSpacing:"0.06em",cursor:"pointer",display:"inline-flex",
+      alignItems:"center",justifyContent:"center",gap:"6px"},
+    btnGhost:{background:"transparent",border:"none",color:T.mutedFg,fontSize:"13px",
+      fontFamily:"var(--font-display)",fontWeight:"700",padding:"8px",cursor:"pointer",
+      textTransform:"uppercase",letterSpacing:"0.06em"},
+    card:{background:T.card,border:"1px solid "+T.border,borderRadius:"16px",padding:"16px"},
+    pill:{background:T.surface,border:"1px solid "+T.border,borderRadius:"99px",
+      padding:"5px 12px",fontSize:"11px",fontFamily:"var(--font-display)",fontWeight:"700",
+      textTransform:"uppercase",letterSpacing:"0.06em",cursor:"pointer",color:T.fg,
+      display:"inline-flex",alignItems:"center",gap:"6px"},
+  };
+
+  // ── Auth state ───────────────────────────────────────────────────
   const [user,setUser]=useState(null);
   const [userProfile,setUserProfile]=useState(null);
   const [authScreen,setAuthScreen]=useState("login");
@@ -727,1254 +139,1149 @@ function ObiGolfApp(){
   const [authPass,setAuthPass]=useState("");
   const [authName,setAuthName]=useState("");
   const [authError,setAuthError]=useState("");
+
+  // ── Navigation ───────────────────────────────────────────────────
   const [tab,setTab]=useState("caddie");
-  // Stop speech when navigating away
-  const changeTab = (newTab) => {
-    if(window.speechSynthesis) window.speechSynthesis.cancel();
+  const changeTab=(newTab)=>{
+    if(window.speechSynthesis)window.speechSynthesis.cancel();
     setSpeaking(false);
     setTab(newTab);
   };
   const [subView,setSubView]=useState("chat");
+  const [socialView,setSocialView]=useState("feed");
+  const [profileSection,setProfileSection]=useState(null);
+
+  // ── Profile & onboarding ─────────────────────────────────────────
   const [avatarUrl,setAvatarUrl]=useState(null);
   const [uploadingAvatar,setUploadingAvatar]=useState(false);
   const [showAvatarZoom,setShowAvatarZoom]=useState(null);
   const avatarInputRef=useRef(null);
-  const [profile,setProfile]=useState({handicap:"mid",hcp:13,persona:"pro",missTend:"straight",bag:DEFAULT_BAG,dexterity:"right",ageRange:"",homeCourse:""});
+  const [profile,setProfile]=useState({handicap:"mid",hcp:13,persona:"pro",missTend:"straight",bag:DEFAULT_BAG,dexterity:"right",homeCourse:"",practiceGoal:""});
   const [onboardStep,setOnboardStep]=useState(0);
   const [editingBag,setEditingBag]=useState(false);
+
+  // ── Round / caddie ───────────────────────────────────────────────
   const [course,setCourse]=useState("");
   const [courseInput,setCourseInput]=useState("");
   const [hole,setHole]=useState(1);
   const [holePars,setHolePars]=useState(Array(18).fill(4));
-  const [scores,setScores]=useState(Array(18).fill(null));
   const [yardage,setYardage]=useState("");
-  const [elevation,setElevation]=useState(0);
   const [lie,setLie]=useState("fairway");
-  const [shotHistory,setShotHistory]=useState([]);
-  const [showCard,setShowCard]=useState(null);
-  const [weather,setWeather]=useState(null);
-  const [wxLoading,setWxLoading]=useState(false);
+  const [elevation,setElevation]=useState(0);
   const [messages,setMessages]=useState([]);
   const [input,setInput]=useState("");
   const [loading,setLoading]=useState(false);
   const [speaking,setSpeaking]=useState(false);
-  const [listening,setListening]=useState(false);
-  const chatRef=useRef(null);
+  const [shotHistory,setShotHistory]=useState([]);
+  const [scorecard,setScorecard]=useState(Array(18).fill(null));
+  const [holeOpen,setHoleOpen]=useState(false);
+
+  // ── Weather ──────────────────────────────────────────────────────
+  const [weather,setWeather]=useState(null);
+
+  // ── Practice ─────────────────────────────────────────────────────
+  const [practiceSubTab,setPracticeSubTab]=useState("swing");
   const [swingFile,setSwingFile]=useState(null);
   const [swingNotes,setSwingNotes]=useState("");
   const [swingAnalysis,setSwingAnalysis]=useState("");
   const [swingLoading,setSwingLoading]=useState(false);
   const [swingHistory,setSwingHistory]=useState([]);
-  const [selectedSwing,setSelectedSwing]=useState(null);
-  const fileRef=useRef(null);
-
-  // Range Mode state
-  const [practiceSubTab,setPracticeSubTab]=useState("swinglab"); // swinglab | range
-  const [rangeClub,setRangeClub]=useState("7-Iron");
-  const [rangeFile,setRangeFile]=useState(null);
-  const [rangeLoading,setRangeLoading]=useState(false);
+  const [rangeClub,setRangeClub]=useState("7-iron");
+  const [rangeResult,setRangeResult]=useState(null);
   const [rangeShotResult,setRangeShotResult]=useState(null);
   const [rangeHistory,setRangeHistory]=useState([]);
+  const [rangeLoading,setRangeLoading]=useState(false);
+  const [cameraActive,setCameraActive]=useState(false);
+  const [recording,setRecording]=useState(false);
   const [clubStats,setClubStats]=useState({});
-  const [showClubProfile,setShowClubProfile]=useState(null);
-  const [isRecording,setIsRecording]=useState(false);
-  const [mediaRecorder,setMediaRecorder]=useState(null);
-  const rangeFileRef=useRef(null);
-  const rangeVideoRef=useRef(null);
+  const [showAllShots,setShowAllShots]=useState(false);
+  const videoRef=useRef(null);
+  const mediaRecorderRef=useRef(null);
+  const chunksRef=useRef([]);
+
+  // ── Social ───────────────────────────────────────────────────────
+  const [rounds,setRounds]=useState([]);
   const [friends,setFriends]=useState([]);
   const [friendReqs,setFriendReqs]=useState([]);
+  const [friendSearch,setFriendSearch]=useState("");
+  const [friendResults,setFriendResults]=useState([]);
   const [feed,setFeed]=useState([]);
-  const [leaderboard,setLeaderboard]=useState([]);
-  const [roundHistory,setRoundHistory]=useState([]);
-  const [socialTab,setSocialTab]=useState("feed");
   const [showAllFeed,setShowAllFeed]=useState(false);
-  const [searchQ,setSearchQ]=useState("");
-  const [searchRes,setSearchRes]=useState([]);
   const [jabPost,setJabPost]=useState(null);
+  const [showCard,setShowCard]=useState(null);
 
+  // ── Refs ─────────────────────────────────────────────────────────
+  const chatEndRef=useRef(null);
+  const swingInputRef=useRef(null);
+
+  // ── Auth effect ──────────────────────────────────────────────────
   useEffect(()=>{
     supabase.auth.getSession().then(({data:{session}})=>{
-      setUser(session?.user??null);setAuthLoading(false);
-      if(session?.user)loadProfile(session.user.id);
+      setUser(session?.user||null);
+      setAuthLoading(false);
+      if(session?.user)loadProfile(session.user);
     });
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,session)=>{
-      setUser(session?.user??null);
-      if(session?.user)loadProfile(session.user.id);
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((_,session)=>{
+      setUser(session?.user||null);
+      if(session?.user){loadProfile(session.user);setAuthScreen("app");}
+      else setAuthScreen("login");
     });
-    return ()=>subscription.unsubscribe();
+    return()=>subscription.unsubscribe();
   },[]);
 
-  useEffect(()=>{if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight;},[messages,loading]);
-
-  // Persist dark mode
-  useEffect(()=>{
-    localStorage.setItem("obi_dark", darkMode);
-    document.body.style.background = darkMode ? "#0c0c0f" : "#fafafa";
-    document.body.style.transition = "background 0.2s";
-  },[darkMode]);
-
-  // Helper to get first name
-  const firstName = (name) => (name||"").split(" ")[0] || "there";
-
-  async function loadProfile(uid){
-    const {data}=await supabase.from("profiles").select("*").eq("id",uid).single();
+  const loadProfile=async(u)=>{
+    const {data}=await supabase.from("profiles").select("*").eq("id",u.id).single();
     if(data){
       setUserProfile(data);
-      if(data.avatar_url) setAvatarUrl(data.avatar_url);
-      setProfile(p=>({...p,handicap:data.handicap_category||"mid",hcp:data.handicap_index||13,persona:data.caddie_persona||"pro",missTend:data.miss_tendency||"straight",bag:data.bag_distances||DEFAULT_BAG,dexterity:data.dexterity||"right",ageRange:data.age_range||"",homeCourse:data.home_course||""}));
-      loadSocial(uid);loadRounds(uid);loadSwings(uid);loadRangeHistory(uid);
-    } else setAuthScreen("onboard");
-  }
-
-  async function saveProfile(){
-    if(!user)return;
-    const nameInput = document.getElementById("profile-name-input");
-    const newName = nameInput?.value?.trim() || authName || userProfile?.full_name || "";
-    await supabase.from("profiles").upsert({id:user.id,email:user.email,full_name:newName,handicap_category:profile.handicap,handicap_index:profile.hcp,caddie_persona:profile.persona,miss_tendency:profile.missTend,bag_distances:profile.bag,avatar_url:avatarUrl||userProfile?.avatar_url||null,dexterity:profile.dexterity||"right",age_range:profile.ageRange||"",home_course:profile.homeCourse||"",updated_at:new Date().toISOString()});
-    loadProfile(user.id);setTab("caddie");
-  }
-
-  async function uploadAvatar(file){
-    if(!user||!file)return;
-    setUploadingAvatar(true);
-    try{
-      // Compress image before upload
-      const compressed = await compressImage(file, 400);
-
-      // Upload to Supabase Storage — file named by user ID
-      const ext = "jpg"; // always save as jpg after compression
-      const path = `${user.id}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(path, compressed, { upsert: true, contentType: "image/jpeg" });
-
-      if(uploadError) throw uploadError;
-
-      // Get public URL
-      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-      const url = data.publicUrl + "?t=" + Date.now(); // cache bust
-
-      setAvatarUrl(url);
-
-      // Save to profile immediately
-      await supabase.from("profiles").update({
-        avatar_url: url,
-        updated_at: new Date().toISOString(),
-      }).eq("id", user.id);
-
-    }catch(err){
-      console.error("Avatar upload failed:", err);
-      alert("Photo upload failed: " + err.message);
+      setAvatarUrl(data.avatar_url||null);
+      if(data.onboarded){
+        setAuthScreen("app");
+        if(data.bag&&data.bag.length>0){
+          setProfile(p=>({...p,
+            handicap:data.handicap_category||p.handicap,
+            hcp:data.handicap_index||p.hcp,
+            persona:data.caddie_persona||p.persona,
+            missTend:data.miss_tendency||p.missTend,
+            bag:data.bag,
+            dexterity:data.dexterity||p.dexterity,
+            homeCourse:data.home_course||p.homeCourse,
+            practiceGoal:data.practice_goal||p.practiceGoal,
+          }));
+        }
+      } else {
+        setAuthScreen("onboard");
+      }
+      loadRounds(u.id);
+      loadFriends(u.id);
+      loadFeed();
+    } else {
+      setAuthScreen("onboard");
     }
-    setUploadingAvatar(false);
-  }
+  };
 
-  // Compress image to max width/height using canvas
-  function compressImage(file, maxSize=400){
-    return new Promise((resolve)=>{
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-      img.onload = ()=>{
-        const canvas = document.createElement("canvas");
-        let w = img.width, h = img.height;
-        if(w > h){ if(w > maxSize){ h = h*(maxSize/w); w = maxSize; } }
-        else { if(h > maxSize){ w = w*(maxSize/h); h = maxSize; } }
-        canvas.width = w; canvas.height = h;
-        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-        URL.revokeObjectURL(url);
-        canvas.toBlob((blob)=>{
-          resolve(new File([blob], file.name, { type: "image/jpeg" }));
-        }, "image/jpeg", 0.82);
-      };
-      img.src = url;
+  const saveProfile=async()=>{
+    if(!user)return;
+    await supabase.from("profiles").upsert({
+      id:user.id,full_name:userProfile?.full_name||authName,
+      handicap_category:profile.handicap,handicap_index:profile.hcp,
+      caddie_persona:profile.persona,miss_tendency:profile.missTend,
+      bag:profile.bag,dexterity:profile.dexterity,
+      home_course:profile.homeCourse,practice_goal:profile.practiceGoal,
+      onboarded:true,updated_at:new Date().toISOString(),
     });
-  }
+  };
 
+  const loadRounds=async(uid)=>{
+    const {data}=await supabase.from("rounds").select("*").eq("user_id",uid).order("played_at",{ascending:false}).limit(20);
+    if(data)setRounds(data);
+  };
 
-  async function handleLogin(){setAuthError("");setAuthLoading(true);const{error}=await supabase.auth.signInWithPassword({email:authEmail,password:authPass});if(error)setAuthError(error.message);setAuthLoading(false);}
-  async function handleSignup(){setAuthError("");setAuthLoading(true);const{error}=await supabase.auth.signUp({email:authEmail,password:authPass});if(error)setAuthError(error.message);else setAuthScreen("onboard");setAuthLoading(false);}
-  async function handleGoogle(){await supabase.auth.signInWithOAuth({provider:"google",options:{redirectTo:window.location.origin}});}
-  async function handleLogout(){await supabase.auth.signOut();setUser(null);setUserProfile(null);}
+  const loadFriends=async(uid)=>{
+    const {data}=await supabase.from("friendships").select("*,requester:profiles!friendships_requester_id_fkey(id,full_name,handicap_index,avatar_url),addressee:profiles!friendships_addressee_id_fkey(id,full_name,handicap_index,avatar_url)").or("requester_id.eq."+uid+",addressee_id.eq."+uid);
+    if(data){
+      setFriends(data.filter(f=>f.status==="accepted"));
+      setFriendReqs(data.filter(f=>f.status==="pending"&&f.addressee_id===uid));
+    }
+  };
 
-  const fetchWeather=useCallback(async()=>{
-    setWxLoading(true);
-    try{
-      const pos=await new Promise((res,rej)=>navigator.geolocation.getCurrentPosition(res,rej,{timeout:8000}));
-      const{latitude:lat,longitude:lon}=pos.coords;
-      const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,wind_direction_10m,weather_code,relative_humidity_2m&wind_speed_unit=mph&temperature_unit=fahrenheit`);
-      const d=await r.json();const c=d.current;
-      setWeather({temp:Math.round(c.temperature_2m),wind:Math.round(c.wind_speed_10m),windDeg:c.wind_direction_10m,humidity:c.relative_humidity_2m,code:c.weather_code});
-    }catch{setWeather({temp:72,wind:8,windDeg:225,humidity:55,code:1});}
-    setWxLoading(false);
+  const loadFeed=async()=>{
+    const {data}=await supabase.from("rounds").select("*,profiles(full_name,avatar_url,handicap_index)").order("played_at",{ascending:false}).limit(20);
+    if(data)setFeed(data);
+  };
+
+  // ── Auth handlers ────────────────────────────────────────────────
+  const handleLogin=async(e)=>{
+    e&&e.preventDefault();
+    setAuthError("");
+    const{error}=await supabase.auth.signInWithPassword({email:authEmail,password:authPass});
+    if(error)setAuthError(error.message);
+  };
+
+  const handleSignup=async(e)=>{
+    e&&e.preventDefault();
+    setAuthError("");
+    const{error}=await supabase.auth.signUp({email:authEmail,password:authPass,options:{data:{full_name:authName}}});
+    if(error)setAuthError(error.message);
+    else setAuthScreen("onboard");
+  };
+
+  const handleLogout=async()=>{
+    await supabase.auth.signOut();
+    setUser(null);setMessages([]);setRounds([]);
+  };
+
+  const handleGoogleAuth=async()=>{
+    await supabase.auth.signInWithOAuth({provider:"google",options:{redirectTo:window.location.origin}});
+  };
+
+  // ── Weather ──────────────────────────────────────────────────────
+  const fetchWeather=useCallback(()=>{
+    if(!navigator.geolocation)return;
+    navigator.geolocation.getCurrentPosition(async({coords:{latitude:lat,longitude:lng}})=>{
+      try{
+        const r=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+lat+"&longitude="+lng+"&current=temperature_2m,wind_speed_10m,wind_direction_10m,weather_code&temperature_unit=fahrenheit&wind_speed_unit=mph");
+        const d=await r.json();
+        setWeather({temp:Math.round(d.current.temperature_2m),wind:Math.round(d.current.wind_speed_10m),windDeg:d.current.wind_direction_10m,code:d.current.weather_code});
+      }catch{}
+    });
   },[]);
 
-  useEffect(()=>{if(user)fetchWeather();},[user]);
+  useEffect(()=>{fetchWeather();},[fetchWeather]);
 
-  const speak=(text)=>{
-    if(!window.speechSynthesis)return;
-    window.speechSynthesis.cancel();
-    const utt=new SpeechSynthesisUtterance(text.replace(/[*_#`]/g,""));
-    utt.rate=0.93;utt.pitch=1.0;utt.volume=1.0;
-    utt.onstart=()=>setSpeaking(true);utt.onend=()=>setSpeaking(false);
-    window.speechSynthesis.speak(utt);
-  };
-
-  const startListening=()=>{
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR){alert("Voice input needs Chrome or Safari.");return;}
-    const rec=new SR();rec.lang="en-US";rec.interimResults=false;
-    rec.onstart=()=>setListening(true);rec.onend=()=>setListening(false);
-    rec.onresult=(e)=>sendMessage(e.results[0][0].transcript);
-    rec.onerror=()=>setListening(false);rec.start();
-  };
-
+  // ── Caddie chat ──────────────────────────────────────────────────
   const buildSystem=()=>{
-    const pm={pro:"You are a calm, precise Tour-level golf caddie named Obi. Quiet authority. Always complete your sentences. 2-3 sentences per response.",coach:"You are an encouraging golf coach-caddie named Obi. Warm, confidence-building. Always complete sentences. 2-3 sentences.",oldschool:"You are a gritty old-school caddie named Obi. Straight talk. Always complete sentences. Short and real."};
-    const bagStr=profile.bag.map(b=>`${b.club}:${b.carry}y`).join(", ");
-    const wx=weather?`Wind ${weather.wind}mph from ${windDir(weather.windDeg)}. Temp ${weather.temp}F.`:"Weather unavailable.";
+    const personas={
+      pro:"You are a calm precise Tour-level golf caddie named Obi. Quiet authority. 2-3 sentences.",
+      coach:"You are an encouraging golf coach-caddie named Obi. Warm and confidence-building. 2-3 sentences.",
+      hype:"You are an energetic hype-man caddie named Obi. Enthusiastic and motivating. 2-3 sentences.",
+      savage:"You are a savage trash-talking caddie named Obi. Brutal honesty with humor. 2-3 sentences.",
+      oldschool:"You are a gritty old-school caddie named Obi. Straight talk. Short and real."
+    };
+    const persona=personas[profile.persona]||personas.pro;
+    const bagStr=profile.bag.map(b=>b.club+":"+b.carry+"y").join(", ");
+    const wx=weather?"Wind "+weather.wind+"mph "+windDir(weather.windDeg)+". "+weather.temp+"F.":"No weather.";
     const py=yardage?playingYards(parseInt(yardage),elevation,weather?.wind||0,weather?.windDeg||0):null;
     const name=firstName(userProfile?.full_name);
     const handed=profile.dexterity==="left"?"left-handed":"right-handed";
-    return `${pm[profile.persona]}\nPLAYER: Name is ${name}. ALWAYS address them by first name. ${handed} golfer. HCP ${profile.hcp} (${profile.handicap}). Miss: ${profile.missTend}. Home course: ${profile.homeCourse||"unknown"}.\nBAG: ${bagStr}\nHOLE: ${course||"unknown"}, Hole ${hole}, Par ${holePars[hole-1]}\nYARDAGE: ${yardage?`${yardage}y actual, ~${py}y playing`:"not set"}. Lie: ${lie}. Elevation: ${elevation}ft.\nCONDITIONS: ${wx}\nRECENT: ${shotHistory.slice(-3).map(s=>`H${s.hole}: ${s.outcome}`).join(". ")||"none"}\nRULES: Only clubs from bag. Be specific. No markdown. No bullet points. Always finish sentences. ALWAYS use ${name}'s first name naturally. Tailor all advice to a ${handed} player.`;
+    const yardStr=yardage?(yardage+"y actual, ~"+py+"y playing"):"not set";
+    const recentStr=shotHistory.slice(-3).map(s=>"H"+s.hole+": "+s.outcome).join(". ")||"none";
+    return persona
+      +"\nPLAYER: "+name+". Always use first name. "+handed+" golfer. HCP "+profile.hcp+" ("+profile.handicap+"). Miss: "+profile.missTend+". Home: "+(profile.homeCourse||"unknown")+"."
+      +"\nBAG: "+bagStr
+      +"\nHOLE: "+(course||"unknown")+", Hole "+hole+", Par "+holePars[hole-1]
+      +"\nYARDAGE: "+yardStr+". Lie: "+lie+". Elevation: "+elevation+"ft."
+      +"\nCONDITIONS: "+wx
+      +"\nRECENT: "+recentStr
+      +"\nRULES: Only clubs from bag. No markdown. No bullets. Always finish sentences. Tailor to "+handed+" player.";
   };
 
-  const sendMessage=async(override)=>{
-    const text=(override!==undefined?override:input).trim();
-    if(!text||loading)return;
+  const sendMessage=async(text)=>{
+    const msg=text||input;
+    if(!msg.trim()||loading)return;
     setInput("");
-    const userMsg={role:"user",content:text};
-    const newMsgs=[...messages,userMsg];
-    setMessages(newMsgs);setLoading(true);
+    const userMsg={role:"user",content:msg};
+    const newMessages=[...messages,userMsg];
+    setMessages(newMessages);
+    setLoading(true);
     try{
-      const reply=await callGemini(buildSystem(),newMsgs);
-      setMessages(prev=>[...prev,{role:"assistant",content:reply}]);
-      speak(reply);
-      if(["pulled","pushed","chunked","topped","shanked","flushed","rough","bunker"].some(w=>text.toLowerCase().includes(w)))
-        setShotHistory(prev=>[...prev,{hole,outcome:text}]);
+      const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({messages:newMessages,system:buildSystem()})});
+      const d=await r.json();
+      const reply=d.content[0].text;
+      setMessages(m=>[...m,{role:"assistant",content:reply}]);
     }catch(e){
-      const msg=e.message?.includes("quota")||e.message?.includes("429")?"API quota hit — wait a minute.":"Connection issue. Try again.";
-      setMessages(prev=>[...prev,{role:"assistant",content:msg}]);
+      setMessages(m=>[...m,{role:"assistant",content:"Sorry, having trouble connecting. Try again."}]);
     }
     setLoading(false);
   };
 
-  async function saveRound(){
+  const speak=(text)=>{
+    if(!window.speechSynthesis)return;
+    if(speaking){window.speechSynthesis.cancel();setSpeaking(false);return;}
+    const utt=new SpeechSynthesisUtterance(text.replace(/[*_#]/g,""));
+    utt.rate=0.93;utt.pitch=0.95;
+    utt.onend=()=>setSpeaking(false);
+    setSpeaking(true);
+    window.speechSynthesis.speak(utt);
+  };
+
+  useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"});},[messages]);
+
+  // ── Scorecard ────────────────────────────────────────────────────
+  const saveRound=async()=>{
     if(!user)return;
-    const pl=scores.filter(Boolean).length;
-    if(pl===0){alert("No scores entered yet.");return;}
-    const tot=scores.reduce((a,b)=>a+(b||0),0);
-    const par=holePars.slice(0,pl).reduce((a,b)=>a+b,0);
-    const{data}=await supabase.from("rounds").insert({user_id:user.id,course_name:course||"Unknown Course",total_score:tot,total_par:par,holes_played:pl,scores,hole_pars:holePars,weather_conditions:weather,is_public:true,played_at:new Date().toISOString()}).select().single();
-    if(data){setShowCard(data);loadRounds(user.id);loadSocial(user.id);}
-  }
-
-  async function loadRounds(uid){const{data}=await supabase.from("rounds").select("*").eq("user_id",uid).order("played_at",{ascending:false}).limit(20);if(data)setRoundHistory(data);}
-
-  async function loadSocial(uid){
-    const{data:fd}=await supabase.from("friendships").select("*, friend:profiles!friendships_friend_id_fkey(*)").eq("user_id",uid).eq("status","accepted");
-    if(fd)setFriends(fd.map(f=>f.friend));
-    const{data:rd}=await supabase.from("friendships").select("*, requester:profiles!friendships_user_id_fkey(*)").eq("friend_id",uid).eq("status","pending");
-    if(rd)setFriendReqs(rd);
-    const fids=fd?.map(f=>f.friend_id)||[];
-    const allIds=[...fids,uid];
-    const{data:feedData}=await supabase.from("rounds").select("*, profile:profiles(*)").in("user_id",allIds).eq("is_public",true).order("played_at",{ascending:false}).limit(30);
-    if(feedData)setFeed(feedData);
-    const mo=new Date();mo.setMonth(mo.getMonth()-1);
-    const{data:lb}=await supabase.from("rounds").select("*, profile:profiles(*)").in("user_id",allIds).gte("played_at",mo.toISOString()).order("total_score",{ascending:true}).limit(20);
-    if(lb)setLeaderboard(lb);
-  }
-
-  async function loadSwings(uid){const{data}=await supabase.from("swing_analyses").select("*").eq("user_id",uid).order("analyzed_at",{ascending:false}).limit(10);if(data)setSwingHistory(data);}
-
-  async function loadRangeHistory(uid){
-    const{data}=await supabase.from("range_shots").select("*").eq("user_id",uid).order("recorded_at",{ascending:false}).limit(100);
-    if(data){
-      setRangeHistory(data);
-      buildClubStats(data);
+    const filled=scorecard.filter(Boolean);
+    if(filled.length===0)return;
+    const total=filled.reduce((a,b)=>a+b,0);
+    const par=holePars.slice(0,filled.length).reduce((a,b)=>a+b,0);
+    const {data,error}=await supabase.from("rounds").insert({
+      user_id:user.id,course_name:course||"Unknown Course",
+      total_score:total,holes_played:filled.length,
+      score_vs_par:total-par,played_at:new Date().toISOString(),
+      scorecard:scorecard,hole_pars:holePars,
+    }).select().single();
+    if(!error&&data){
+      setRounds(r=>[data,...r]);
+      alert("Round saved! Score: "+total+" ("+( total-par>0?"+":"")+( total-par)+")");
     }
-  }
+  };
 
-  function buildClubStats(shots){
-    const stats={};
-    shots.forEach(s=>{
-      if(!s.club)return;
-      if(!stats[s.club])stats[s.club]={shots:[],shapes:{},launches:{}};
-      stats[s.club].shots.push(s);
-      const shape=s.shot_shape||"straight";
-      stats[s.club].shapes[shape]=(stats[s.club].shapes[shape]||0)+1;
-      const launch=s.launch_angle||"mid";
-      stats[s.club].launches[launch]=(stats[s.club].launches[launch]||0)+1;
-    });
-    // Compute averages
-    Object.keys(stats).forEach(club=>{
-      const sh=stats[club].shots;
-      const carries=sh.map(s=>s.estimated_carry).filter(Boolean);
-      stats[club].avgCarry=carries.length>0?Math.round(carries.reduce((a,b)=>a+b,0)/carries.length):null;
-      stats[club].minCarry=carries.length>0?Math.min(...carries):null;
-      stats[club].maxCarry=carries.length>0?Math.max(...carries):null;
-      stats[club].count=sh.length;
-      // Most common shape
-      const shapes=stats[club].shapes;
-      stats[club].typicalShape=Object.keys(shapes).sort((a,b)=>shapes[b]-shapes[a])[0]||"straight";
-      stats[club].shapeCount=shapes[stats[club].typicalShape]||0;
-      // Most common launch
-      const launches=stats[club].launches;
-      stats[club].typicalLaunch=Object.keys(launches).sort((a,b)=>launches[b]-launches[a])[0]||"mid";
-      // Consistency — coefficient of variation
-      if(carries.length>1){
-        const mean=stats[club].avgCarry;
-        const variance=carries.reduce((a,b)=>a+Math.pow(b-mean,2),0)/carries.length;
-        const cv=Math.sqrt(variance)/mean;
-        stats[club].consistency=cv<0.04?"Elite":cv<0.07?"Very Good":cv<0.10?"Good":cv<0.14?"Average":"Inconsistent";
-        stats[club].consistencyStars=cv<0.04?5:cv<0.07?4:cv<0.10?3:cv<0.14?2:1;
-      } else {
-        stats[club].consistency="Not enough data";
-        stats[club].consistencyStars=0;
-      }
-    });
-    setClubStats(stats);
-    // Update bag distances with real observed data
-    if(Object.keys(stats).length>0){
-      setProfile(p=>({
-        ...p,
-        bag:p.bag.map(b=>({
-          ...b,
-          carry:stats[b.club]?.avgCarry||b.carry,
-          observed:!!stats[b.club]?.avgCarry,
-        }))
-      }));
-    }
-  }
-
-  async function analyzeRangeShot(videoFile, club){
-    const handed = profile.dexterity==="left" ? "left-handed" : "right-handed";
-    const knownCarry = profile.bag.find(b=>b.club===club)?.carry || 150;
-
-    const promptText = `You are a golf expert analyzing a swing. Player: ${handed}, Club: ${club} (~${knownCarry}y carry).
-Respond ONLY with JSON, nothing else:
-{"shot_shape":"straight","launch_angle":"mid","estimated_carry":${knownCarry},"contact_quality":"flush","swing_path":"neutral","ball_flight":"mid-trajectory","tip":"Stay balanced through impact."}
-Options - shot_shape: straight/slight draw/draw/strong draw/hook/slight fade/fade/strong fade/slice
-launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thin/thin/slightly fat/fat/toe/heel`;
-
-    // Extract a frame from video — avoids ALL size/upload issues
-    const frameBlob = await new Promise((resolve, reject) => {
-      const video = document.createElement("video");
-      const canvas = document.createElement("canvas");
-      const url = URL.createObjectURL(videoFile);
-      video.src = url;
-      video.muted = true;
-      video.playsInline = true;
-      video.crossOrigin = "anonymous";
-
-      const cleanup = () => URL.revokeObjectURL(url);
-
-      video.onerror = () => { cleanup(); reject(new Error("Could not read video")); };
-
-      video.onloadedmetadata = () => {
-        // Seek to impact zone (40% through)
-        video.currentTime = Math.min(video.duration * 0.4, video.duration - 0.1);
-      };
-
-      video.onseeked = () => {
-        try {
-          canvas.width  = Math.min(video.videoWidth,  640);
-          canvas.height = Math.min(video.videoHeight, 480);
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          cleanup();
-          canvas.toBlob(blob => {
-            if (blob) resolve(blob);
-            else reject(new Error("Could not extract frame"));
-          }, "image/jpeg", 0.8);
-        } catch(e) { cleanup(); reject(e); }
-      };
-
-      // Fallback timeout
-      setTimeout(() => { cleanup(); reject(new Error("Video read timeout — try a shorter clip")); }, 10000);
-      video.load();
-    });
-
-    // Convert frame to base64
-    const b64 = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload  = e => resolve(e.target.result.split(",")[1]);
-      reader.onerror = () => reject(new Error("Could not encode frame"));
-      reader.readAsDataURL(frameBlob);
-    });
-
-    // Send frame image through proxy — always small, never hits size limit
-    const res = await fetch("/api/swing", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          role: "user",
-          parts: [
-            { inline_data: { mime_type: "image/jpeg", data: b64 } },
-            { text: promptText }
-          ]
-        }]
-      }),
-    });
-
-    if (!res.ok) throw new Error("Server error " + res.status);
-    const data = await res.json();
-    if (data.error) {
-      const msg = typeof data.error === "string" ? data.error : data.error.message;
-      throw new Error(msg || "Analysis failed");
-    }
-
-    const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-    let parsed;
-    try {
-      const clean = rawText.replace(/```json|```/g, "").trim();
-      const match = clean.match(/\{[\s\S]*\}/);
-      parsed = JSON.parse(match ? match[0] : clean);
-    } catch {
-      // Fallback defaults if JSON parse fails
-      parsed = {};
-    }
-
-    return {
-      shot_shape:      parsed.shot_shape      || "straight",
-      launch_angle:    parsed.launch_angle    || "mid",
-      estimated_carry: parseInt(parsed.estimated_carry) || knownCarry,
-      contact_quality: parsed.contact_quality || "flush",
-      swing_path:      parsed.swing_path      || "neutral",
-      ball_flight:     parsed.ball_flight     || "mid-trajectory",
-      tip:             parsed.tip             || "Keep a smooth tempo through the ball.",
-    };
-  }
-
-
-  async function runRangeAnalysis(){
-    if(!rangeFile)return;
-    setRangeLoading(true);
-    setRangeShotResult(null);
+  // ── Avatar upload ────────────────────────────────────────────────
+  const handleAvatarUpload=async(e)=>{
+    const file=e.target.files?.[0];
+    if(!file||!user)return;
+    setUploadingAvatar(true);
     try{
-      const result = await analyzeRangeShot(rangeFile, rangeClub);
-      setRangeShotResult(result);
-      if(user){
-        try{
-          await supabase.from("range_shots").insert({
-            user_id:          user.id,
-            club:             rangeClub,
-            shot_shape:       result.shot_shape,
-            launch_angle:     result.launch_angle,
-            estimated_carry:  result.estimated_carry,
-            contact_quality:  result.contact_quality,
-            swing_path:       result.swing_path,
-            ball_flight:      result.ball_flight,
-            tip:              result.tip,
-            recorded_at:      new Date().toISOString(),
-          });
-          loadRangeHistory(user.id);
-        } catch(dbErr){
-          console.error("DB save failed:", dbErr);
-          // Don't crash — result still shows
-        }
-      }
-    } catch(err){
-      console.error("Range analysis error:", err);
-      setRangeShotResult({ error: err.message || "Analysis failed. Please try again." });
-    } finally {
-      setRangeLoading(false);
-      setRangeFile(null);
-    }
-  }
-  async function searchUsers(q){if(!q.trim()){setSearchRes([]);return;}const{data}=await supabase.from("profiles").select("*").ilike("full_name",`%${q}%`).neq("id",user?.id).limit(8);if(data)setSearchRes(data);}
-  async function sendFriendReq(fid){await supabase.from("friendships").insert({user_id:user.id,friend_id:fid,status:"pending"});setSearchRes(prev=>prev.filter(u=>u.id!==fid));}
-  async function acceptFriendReq(reqId,requesterId){await supabase.from("friendships").update({status:"accepted"}).eq("id",reqId);await supabase.from("friendships").insert({user_id:user.id,friend_id:requesterId,status:"accepted"});loadSocial(user.id);}
+      const canvas=document.createElement("canvas");
+      const img=new Image();
+      img.onload=async()=>{
+        const maxSize=400;
+        let{width:w,height:h}={width:img.width,height:img.height};
+        if(w>h){if(w>maxSize){h=h*(maxSize/w);w=maxSize;}}
+        else{if(h>maxSize){w=w*(maxSize/h);h=maxSize;}}
+        canvas.width=w;canvas.height=h;
+        canvas.getContext("2d").drawImage(img,0,0,w,h);
+        canvas.toBlob(async(blob)=>{
+          if(!blob)return;
+          const ext=file.name.split(".").pop()||"jpg";
+          const path=user.id+"."+ext;
+          const{error:upErr}=await supabase.storage.from("avatars").upload(path,blob,{upsert:true,contentType:"image/jpeg"});
+          if(!upErr){
+            const{data:{publicUrl}}=supabase.storage.from("avatars").getPublicUrl(path);
+            const url=publicUrl+"?t="+Date.now();
+            setAvatarUrl(url);
+            await supabase.from("profiles").update({avatar_url:url}).eq("id",user.id);
+          }
+          setUploadingAvatar(false);
+        },"image/jpeg",0.85);
+      };
+      img.src=URL.createObjectURL(file);
+    }catch{setUploadingAvatar(false);}
+  };
 
-  async function runSwingAnalysis(){
-    if(!swingFile)return;
+  // ── Friend search ────────────────────────────────────────────────
+  const searchFriends=async()=>{
+    if(!friendSearch.trim())return;
+    const{data}=await supabase.from("profiles").select("id,full_name,handicap_index,avatar_url").ilike("full_name","%"+friendSearch+"%").neq("id",user?.id).limit(10);
+    setFriendResults(data||[]);
+  };
+
+  const sendFriendReq=async(toId)=>{
+    if(!user)return;
+    await supabase.from("friendships").insert({requester_id:user.id,addressee_id:toId,status:"pending"});
+    setFriendResults(r=>r.filter(x=>x.id!==toId));
+  };
+
+  const acceptFriend=async(fid)=>{
+    await supabase.from("friendships").update({status:"accepted"}).eq("id",fid);
+    if(user)loadFriends(user.id);
+  };
+
+  // ── Swing analysis ───────────────────────────────────────────────
+  const handleSwingAnalyze=async()=>{
+    if(!swingFile||swingLoading)return;
     setSwingLoading(true);setSwingAnalysis("");
     try{
-      if(swingFile.type.startsWith("video/")){
-        // Send full video directly to Google File API — full motion analysis
-        const notesWithGoal=profile.practiceGoal?`GOAL:${profile.practiceGoal}\n${swingNotes}`:swingNotes;
-        const analysis=await analyzeSwingVideo(swingFile,notesWithGoal,profile.bag,profile.hcp);
-        setSwingAnalysis(analysis);
-        if(user){await supabase.from("swing_analyses").insert({user_id:user.id,notes:swingNotes,analysis,analyzed_at:new Date().toISOString()});loadSwings(user.id);}
-      } else {
-        // Image — use existing inline method
-        const reader=new FileReader();
-        reader.onload=async(e)=>{
-          try{
-            const b64=e.target.result.split(",")[1];
-            const notesWithGoal=profile.practiceGoal?`GOAL:${profile.practiceGoal}\n${swingNotes}`:swingNotes;
-            const analysis=await analyzeSwing(b64,swingFile.type,notesWithGoal,profile.bag,profile.hcp);
-            setSwingAnalysis(analysis);
-            if(user){await supabase.from("swing_analyses").insert({user_id:user.id,notes:swingNotes,analysis,analyzed_at:new Date().toISOString()});loadSwings(user.id);}
-          }catch(err){setSwingAnalysis("Analysis failed: "+err.message);}
-          setSwingLoading(false);
-        };
-        reader.readAsDataURL(swingFile);
-        return;
+      const isVideo=swingFile.type.startsWith("video/");
+      let result;
+      if(isVideo){result=await analyzeSwingVideo(swingFile,swingNotes,profile);}
+      else{result=await analyzeSwing(swingFile,swingNotes,profile);}
+      setSwingAnalysis(result);
+      if(user){
+        const{data}=await supabase.from("swing_analyses").insert({
+          user_id:user.id,notes:swingNotes,analysis:result,
+          club_used:swingNotes||"unknown",created_at:new Date().toISOString(),
+        }).select().single();
+        if(data)setSwingHistory(h=>[data,...h]);
       }
-    }catch(err){
-      setSwingAnalysis("Analysis failed: "+err.message);
-    }
+    }catch(e){setSwingAnalysis("Analysis failed. Please try again.");}
     setSwingLoading(false);
-  }
+  };
 
-  function shareRound(round){
-    const d=round.total_score-round.total_par;
-    const ds=d>0?`+${d}`:d===0?"even par":`${d}`;
-    const txt=`🏌️ Just finished ${round.course_name||"a round"} on Obi Golf\n⛳ ${round.total_score} strokes (${ds})\n📍 ${round.holes_played} holes played\n\nGet your AI caddie → obigolf.app`;
-    if(navigator.share)navigator.share({title:"My Obi Golf Round",text:txt});
-    else{navigator.clipboard?.writeText(txt);alert("Copied to clipboard!");}
-  }
+  useEffect(()=>{
+    if(!user)return;
+    supabase.from("swing_analyses").select("*").eq("user_id",user.id).order("created_at",{ascending:false}).limit(10).then(({data})=>{if(data)setSwingHistory(data);});
+    supabase.from("range_shots").select("*").eq("user_id",user.id).order("created_at",{ascending:false}).limit(50).then(({data})=>{if(data){setRangeHistory(data);const stats={};data.forEach(s=>{if(!stats[s.club])stats[s.club]={count:0,shapes:{},totalCarry:0,shapeCount:0,typicalShape:"straight",consistencyStars:3};stats[s.club].count++;if(s.shape)stats[s.club].shapes[s.shape]=(stats[s.club].shapes[s.shape]||0)+1;});Object.keys(stats).forEach(club=>{const sh=stats[club].shapes;const top=Object.entries(sh).sort((a,b)=>b[1]-a[1])[0];if(top){stats[club].typicalShape=top[0];stats[club].shapeCount=top[1];}});setClubStats(stats);}});
+  },[user]);
 
-  const par=holePars[hole-1];
-  const py=yardage&&weather?playingYards(parseInt(yardage)||0,elevation,weather.wind,weather.windDeg):null;
-  const totalScore=scores.reduce((a,b)=>a+(b||0),0);
-  const played=scores.filter(Boolean).length;
-  const scoreDiff=played>0?totalScore-holePars.slice(0,played).reduce((a,b)=>a+b,0):0;
-  const recClub=py?[...profile.bag].sort((a,b)=>Math.abs(a.carry-py)-Math.abs(b.carry-py))[0]:null;
+  // ── Range shot ───────────────────────────────────────────────────
+  const analyzeRangeShot=async(videoBlob)=>{
+    setRangeLoading(true);setRangeShotResult(null);
+    try{
+      const frames=[];
+      const video=document.createElement("video");
+      video.src=URL.createObjectURL(videoBlob);
+      await new Promise(res=>{video.onloadedmetadata=res;});
+      const duration=Math.min(video.duration,5);
+      const numFrames=4;
+      for(let i=0;i<numFrames;i++){
+        video.currentTime=(duration/(numFrames+1))*(i+1);
+        await new Promise(res=>{video.onseeked=res;});
+        const canvas=document.createElement("canvas");
+        canvas.width=320;canvas.height=240;
+        canvas.getContext("2d").drawImage(video,0,0,320,240);
+        frames.push(canvas.toDataURL("image/jpeg",0.7).split(",")[1]);
+      }
+      const r=await fetch("/api/swing",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({frames,club:rangeClub,mode:"range",playerProfile:{handicap:profile.hcp,persona:profile.persona,missTend:profile.missTend,dexterity:profile.dexterity}})});
+      const d=await r.json();
+      const jsonStart=d.analysis.indexOf("{");
+      const jsonEnd=d.analysis.lastIndexOf("}");
+      const match=jsonStart>=0&&jsonEnd>jsonStart?[d.analysis.slice(jsonStart,jsonEnd+1)]:null;
+      if(match){
+        const parsed=JSON.parse(match[0]);
+        setRangeShotResult(parsed);
+        const shotData={user_id:user?.id,club:rangeClub,shape:parsed.shape||"straight",carry:parsed.carry||0,notes:parsed.coaching||"",created_at:new Date().toISOString()};
+        setRangeHistory(h=>[shotData,...h]);
+        setClubStats(prev=>{
+          const s={...prev};
+          if(!s[rangeClub])s[rangeClub]={count:0,shapes:{},shapeCount:0,typicalShape:"straight",consistencyStars:3};
+          s[rangeClub].count++;
+          if(parsed.shape){s[rangeClub].shapes[parsed.shape]=(s[rangeClub].shapes[parsed.shape]||0)+1;const top=Object.entries(s[rangeClub].shapes).sort((a,b)=>b[1]-a[1])[0];s[rangeClub].typicalShape=top[0];s[rangeClub].shapeCount=top[1];}
+          return s;
+        });
+        if(user)await supabase.from("range_shots").insert(shotData);
+      }
+    }catch(e){setRangeShotResult({error:"Analysis failed"});}
+    setRangeLoading(false);
+  };
 
-  // LOADING
-  if(authLoading)return(
-    <div style={{minHeight:"100vh",background:D.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"20px"}}>
-      <div style={{animation:"popIn 0.6s cubic-bezier(.34,1.56,.64,1) both"}}><Ball size={76}/></div>
-      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"32px",fontWeight:"700",color:D.white,letterSpacing:"-0.5px",animation:"fadeUp 0.6s 0.2s both"}}>Obi Golf</div>
-      <div style={{display:"flex",gap:"7px",animation:"fadeUp 0.6s 0.4s both"}}>{[0,1,2].map(i=><div key={i} style={{width:"6px",height:"6px",borderRadius:"50%",background:D.accent,animation:`pulse 1.2s infinite ${i*0.2}s`}}/>)}</div>
-      <style>{CSS}</style>
-    </div>
-  );
+  // ── Camera ───────────────────────────────────────────────────────
+  const startCamera=async()=>{
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false});
+      if(videoRef.current){videoRef.current.srcObject=stream;videoRef.current.play();}
+      setCameraActive(true);
+    }catch(e){alert("Camera access denied.");}
+  };
 
-  // AUTH
-  if(!user||authScreen==="onboard")return(
-    <div style={{minHeight:"100vh",background:D.bg,fontFamily:"'Inter',sans-serif",backgroundImage:darkMode?`radial-gradient(ellipse at 20% 10%,${D.accentDim}66 0%,transparent 50%),radial-gradient(ellipse at 80% 90%,${D.accentDim}33 0%,transparent 50%)`:"none"}}>
-      <div style={{maxWidth:"420px",margin:"0 auto",padding:"40px 24px",display:"flex",flexDirection:"column",minHeight:"100vh",justifyContent:"center"}}>
-        <div style={{textAlign:"center",marginBottom:"36px",animation:"fadeUp 0.5s both"}}>
-          <Ball size={56}/>
-          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"36px",fontWeight:"800",color:D.white,letterSpacing:"2px",marginTop:"12px"}}>OBI GOLF</div>
-          <div style={{color:D.muted,fontSize:"14px",marginTop:"4px",letterSpacing:"1px"}}>AI CADDIE · COACH · COMMUNITY</div>
-        </div>
+  const stopCamera=()=>{
+    if(videoRef.current?.srcObject){
+      videoRef.current.srcObject.getTracks().forEach(t=>t.stop());
+      videoRef.current.srcObject=null;
+    }
+    setCameraActive(false);setRecording(false);
+  };
 
-        {authScreen==="onboard"&&(
-          <OnboardingFlow
-            D={D} S={S} profile={profile} setProfile={setProfile}
-            authName={authName} setAuthName={setAuthName}
-            onComplete={saveProfile}
-          />
-        )}
+  const startRecording=()=>{
+    if(!videoRef.current?.srcObject)return;
+    chunksRef.current=[];
+    const mr=new MediaRecorder(videoRef.current.srcObject,{mimeType:"video/webm;codecs=vp8"});
+    mr.ondataavailable=e=>{if(e.data.size>0)chunksRef.current.push(e.data);};
+    mr.onstop=()=>{
+      const blob=new Blob(chunksRef.current,{type:"video/webm"});
+      stopCamera();
+      analyzeRangeShot(blob);
+    };
+    mediaRecorderRef.current=mr;
+    mr.start();setRecording(true);
+    setTimeout(()=>{if(mr.state==="recording")mr.stop();},4000);
+  };
 
-        {authScreen==="login"&&!user&&(
-          <div style={{animation:"fadeUp 0.4s both"}}>
-            <div style={{...S.card,marginBottom:"16px"}}>
-              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:D.white,marginBottom:"20px",letterSpacing:"-0.3px"}}>Sign in</div>
-              <input placeholder="Email address" type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} style={{...S.input,marginBottom:"12px"}}/>
-              <input placeholder="Password" type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleLogin()} style={{...S.input,marginBottom:authError?"8px":"0"}}/>
-              {authError&&<div style={{color:D.red,fontSize:"13px",marginTop:"8px"}}>{authError}</div>}
-            </div>
-            <button onClick={handleLogin} style={{...S.btnPrimary,marginBottom:"10px"}}>Sign In</button>
-            <button onClick={handleGoogle} style={{...S.btnSecondary,marginBottom:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px"}}><span style={{fontSize:"18px"}}>🔵</span> Continue with Google</button>
-            <button onClick={()=>setAuthScreen("signup")} style={S.btnGhost}>{"Don't have an account? Create one →"}</button>
-          </div>
-        )}
+  const stopRecording=()=>{
+    if(mediaRecorderRef.current?.state==="recording")mediaRecorderRef.current.stop();
+    setRecording(false);
+  };
 
-        {authScreen==="signup"&&!user&&(
-          <div style={{animation:"fadeUp 0.4s both"}}>
-            <div style={{...S.card,marginBottom:"16px"}}>
-              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",color:D.white,marginBottom:"20px",letterSpacing:"-0.3px"}}>Create account</div>
-              <input placeholder="Email address" type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} style={{...S.input,marginBottom:"12px"}}/>
-              <input placeholder="Password (min 6 characters)" type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)} style={{...S.input,marginBottom:authError?"8px":"0"}}/>
-              {authError&&<div style={{color:D.red,fontSize:"13px",marginTop:"8px"}}>{authError}</div>}
-            </div>
-            <button onClick={handleSignup} style={{...S.btnPrimary,marginBottom:"10px"}}>Create Account</button>
-            <button onClick={handleGoogle} style={{...S.btnSecondary,marginBottom:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px"}}><span style={{fontSize:"18px"}}>🔵</span> Continue with Google</button>
-            <button onClick={()=>setAuthScreen("login")} style={S.btnGhost}>{"Already have an account? Sign in →"}</button>
-          </div>
-        )}
-      </div>
-      <style>{CSS}</style>
-    </div>
-  );
-
-  // SUMMARY MODAL
+  // ── Summary modal ────────────────────────────────────────────────
   const SummaryModal=({round})=>{
-    const diff=round.total_score-round.total_par;
-    const diffStr=diff>0?`+${diff}`:diff===0?"E":`${diff}`;
-    const diffColor=diff>0?D.red:diff<0?D.green:D.blue;
+    const diff=round.score_vs_par||0;
+    const diffStr=diff===0?"E":diff>0?"+"+diff:""+diff;
+    const diffColor=diff>0?T.red:diff<0?T.primary:"var(--fg)";
     return(
-      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={()=>setShowCard(null)}>
-        <div onClick={e=>e.stopPropagation()} style={{background:`linear-gradient(160deg,${D.card} 0%,${D.dark} 100%)`,border:`1px solid ${D.border}`,borderRadius:"24px",padding:"28px 24px",width:"100%",maxWidth:"360px",animation:"popIn 0.4s cubic-bezier(.34,1.56,.64,1) both"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"20px"}}>
+      <div onClick={()=>setShowCard(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+        <div onClick={e=>e.stopPropagation()} style={{...S.card,maxWidth:"380px",width:"100%",maxHeight:"80vh",overflowY:"auto"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"16px"}}>
             <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
-              <Ball size={36}/>
-              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:D.white,letterSpacing:"-0.3px"}}>Obi Golf</div>
+              <Ball size={32}/>
+              <div style={{fontFamily:"var(--font-display)",fontSize:"18px",fontWeight:"700",color:T.fg}}>Round Summary</div>
             </div>
-            <div style={{background:D.accentDim,borderRadius:"99px",padding:"4px 10px",fontSize:"11px",color:D.accent,fontWeight:"600",letterSpacing:"0.5px"}}>ROUND RECAP</div>
+            <button onClick={()=>setShowCard(null)} style={{...S.btnGhost,fontSize:"20px",lineHeight:1}}>x</button>
           </div>
-          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.accentLt,marginBottom:"2px"}}>{round.course_name||"Unknown Course"}</div>
-          <div style={{fontSize:"13px",color:D.muted,marginBottom:"24px"}}>{fmtDate(round.played_at)}</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px",marginBottom:"24px"}}>
-            {[["SCORE",round.total_score,D.white],["vs PAR",diffStr,diffColor],["HOLES",`${round.holes_played}/18`,D.text]].map(([l,v,c])=>(
-              <div key={l} style={{background:D.surface,borderRadius:"14px",padding:"14px 8px",textAlign:"center",border:`1px solid ${D.border}`}}>
-                <div style={{fontSize:"9px",color:D.muted,letterSpacing:"1.5px",marginBottom:"6px"}}>{l}</div>
-                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:c,lineHeight:1}}>{v}</div>
+          <div style={{fontFamily:"var(--font-display)",fontSize:"15px",fontWeight:"600",color:T.fg,marginBottom:"4px"}}>{round.course_name}</div>
+          <div style={{fontSize:"12px",color:T.mutedFg,marginBottom:"20px"}}>{fmtDate(round.played_at)}</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px",marginBottom:"20px"}}>
+            {[["SCORE",round.total_score,T.fg],["vs PAR",diffStr,diffColor],["HOLES",(round.holes_played||18)+"/18",T.fg]].map(([l,v,c])=>(
+              <div key={l} style={{background:T.surface,borderRadius:"12px",padding:"12px 8px",textAlign:"center"}}>
+                <div style={{fontSize:"9px",color:T.mutedFg,letterSpacing:"1.5px",marginBottom:"6px",fontFamily:"var(--font-display)",textTransform:"uppercase"}}>{l}</div>
+                <div style={{fontFamily:"var(--font-display)",fontSize:"26px",fontWeight:"700",color:c}}>{v}</div>
               </div>
             ))}
           </div>
-          <div style={{background:D.surface,borderRadius:"14px",padding:"14px 16px",marginBottom:"20px",borderLeft:`3px solid ${D.green}`}}>
-            <div style={{fontSize:"11px",color:D.accent,letterSpacing:"1.5px",marginBottom:"6px"}}>OBI SAYS</div>
-            <div style={{fontSize:"14px",color:D.text,lineHeight:1.6,fontStyle:"italic"}}>"{diff<0?"Outstanding round. That's the kind of golf that gets talked about in the clubhouse.":diff===0?"Solid par golf. Consistent — let's find those birdies next time.":"Every round is data. Obi will have you better prepared next time."}"</div>
-          </div>
-          <div style={{fontSize:"12px",color:D.muted,textAlign:"center",marginBottom:"20px"}}>🏌️ {userProfile?.full_name||"Golfer"} · HCP {userProfile?.handicap_index||"—"} · obigolf.app</div>
-          <div style={{display:"flex",gap:"10px"}}>
-            <button onClick={()=>shareRound(round)} style={{...S.btnPrimary,flex:1}}>📤 Share</button>
-            <button onClick={()=>setShowCard(null)} style={{...S.btnSecondary,flex:1}}>Done</button>
-          </div>
+          {round.scorecard&&(
+            <div style={{overflowX:"auto"}}>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(18,1fr)",gap:"3px",minWidth:"540px"}}>
+                {round.scorecard.map((s,i)=>(
+                  <div key={i} style={{textAlign:"center"}}>
+                    <div style={{fontSize:"9px",color:T.mutedFg,marginBottom:"3px",fontFamily:"var(--font-display)"}}>{i+1}</div>
+                    <div style={{borderRadius:"6px",padding:"4px 2px",background:s===null?T.surface:s<(round.hole_pars?.[i]||4)?T.primaryDim:s>(round.hole_pars?.[i]||4)?"rgba(248,113,113,0.15)":T.surface,fontFamily:"var(--font-display)",fontSize:"12px",fontWeight:"700",color:s===null?T.mutedFg:s<(round.hole_pars?.[i]||4)?T.primary:s>(round.hole_pars?.[i]||4)?T.red:T.fg}}>{s||"-"}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
   };
 
-  // MAIN APP
+  // ── Loading screen ───────────────────────────────────────────────
+  if(authLoading)return(
+    <div style={{minHeight:"100vh",background:T.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"20px"}}>
+      <div className="pop-in"><Ball size={64}/></div>
+      <div style={{fontFamily:"var(--font-display)",fontSize:"28px",fontWeight:"700",color:T.fg,letterSpacing:"-0.02em"}}>Obi Golf</div>
+      <div style={{display:"flex",gap:"6px"}}>
+        {[0,1,2].map(i=>(
+          <div key={i} style={{width:"6px",height:"6px",borderRadius:"99px",background:T.primary,animation:"pulse 1.2s "+(i*0.2)+"s infinite"}}/>
+        ))}
+      </div>
+    </div>
+  );
+
+  // ── Auth / Onboarding ────────────────────────────────────────────
+  if(!user||authScreen==="onboard")return(
+    <div style={{minHeight:"100vh",background:T.bg,fontFamily:"var(--font-sans)"}}>
+      <div style={{maxWidth:"420px",margin:"0 auto",padding:"40px 24px",display:"flex",flexDirection:"column",minHeight:"100vh"}}>
+        {authScreen!=="onboard"&&(
+          <React.Fragment>
+            <div style={{textAlign:"center",marginBottom:"40px"}} className="fade-up">
+              <Ball size={52}/>
+              <div style={{fontFamily:"var(--font-display)",fontSize:"28px",fontWeight:"700",color:T.fg,marginTop:"14px",letterSpacing:"-0.02em"}}>Obi Golf</div>
+              <div style={{fontSize:"13px",color:T.mutedFg,marginTop:"6px"}}>Your AI caddie. Always in the bag.</div>
+            </div>
+            <div style={{display:"flex",gap:"4px",background:T.surface,borderRadius:"12px",padding:"4px",marginBottom:"28px"}} className="fade-up">
+              {["login","signup"].map(s=>(
+                <button key={s} onClick={()=>setAuthScreen(s)} style={{flex:1,padding:"10px",borderRadius:"9px",border:"none",background:authScreen===s?T.card:"transparent",color:authScreen===s?T.fg:T.mutedFg,fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em",transition:"all 0.15s",boxShadow:authScreen===s?"0 1px 4px rgba(0,0,0,0.3)":"none"}}>
+                  {s==="login"?"Sign In":"Sign Up"}
+                </button>
+              ))}
+            </div>
+            <div className="fade-up" style={{animationDelay:"0.05s"}}>
+              <button onClick={handleGoogleAuth} style={{...S.btnSecondary,width:"100%",marginBottom:"16px",padding:"13px"}}>
+                <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+                Continue with Google
+              </button>
+              <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"16px"}}>
+                <div style={{flex:1,height:"1px",background:T.border}}/>
+                <span style={{fontSize:"11px",color:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.08em"}}>or</span>
+                <div style={{flex:1,height:"1px",background:T.border}}/>
+              </div>
+              {authScreen==="signup"&&(
+                <input style={{...S.input,marginBottom:"10px"}} placeholder="Full name" value={authName} onChange={e=>setAuthName(e.target.value)}/>
+              )}
+              <input style={{...S.input,marginBottom:"10px"}} placeholder="Email" type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)}/>
+              <input style={{...S.input,marginBottom:"16px"}} placeholder="Password" type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&(authScreen==="login"?handleLogin():handleSignup())}/>
+              {authError&&<div style={{color:T.red,fontSize:"13px",marginBottom:"12px",textAlign:"center"}}>{authError}</div>}
+              <button onClick={authScreen==="login"?handleLogin:handleSignup} style={{...S.btnPrimary,width:"100%",padding:"14px"}}>
+                {authScreen==="login"?"Sign In":"Create Account"}
+              </button>
+            </div>
+          </React.Fragment>
+        )}
+        {authScreen==="onboard"&&(
+          <OnboardingFlow
+            step={onboardStep}
+            setStep={setOnboardStep}
+            profile={profile}
+            setProfile={setProfile}
+            onComplete={async()=>{
+              await saveProfile();
+              setAuthScreen("app");
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+
+  // ── MAIN APP ─────────────────────────────────────────────────────
+  const name=firstName(userProfile?.full_name)||"Golfer";
+
   return(
-    <div style={{minHeight:"100vh",maxWidth:"480px",margin:"0 auto",background:D.bg,fontFamily:"'Inter',sans-serif",display:"flex",flexDirection:"column",position:"relative",transition:"background 0.2s,color 0.2s"}}>
+    <div style={{display:"flex",flexDirection:"column",height:"100vh",maxWidth:"480px",margin:"0 auto",background:T.bg,color:T.fg,fontFamily:"var(--font-sans)",position:"relative",overflow:"hidden"}}>
+
+      {/* Modals */}
       {showCard&&<SummaryModal round={showCard}/>}
 
-      {/* Avatar zoom modal */}
       {showAvatarZoom&&(
-        <div onClick={()=>setShowAvatarZoom(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
-          <div onClick={e=>e.stopPropagation()} style={{maxWidth:"360px",width:"100%",textAlign:"center"}}>
-            <img src={showAvatarZoom} alt="Profile" style={{width:"280px",height:"280px",borderRadius:"50%",objectFit:"cover",border:"3px solid "+D.green,boxShadow:"0 0 40px "+D.accent+"44"}}/>
-            <div style={{marginTop:"16px",color:D.muted,fontSize:"13px"}}>Tap anywhere to close</div>
+        <div onClick={()=>setShowAvatarZoom(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+          <div onClick={e=>e.stopPropagation()} style={{textAlign:"center"}}>
+            <img src={showAvatarZoom} alt="Profile" style={{width:"280px",height:"280px",borderRadius:"50%",objectFit:"cover"}}/>
+            <div style={{marginTop:"16px",color:T.mutedFg,fontSize:"13px"}}>Tap anywhere to close</div>
           </div>
         </div>
       )}
 
       {jabPost&&(
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}} onClick={()=>setJabPost(null)}>
-          <div onClick={e=>e.stopPropagation()} style={{...S.card,maxWidth:"320px",width:"100%",textAlign:"center",animation:"popIn 0.3s both"}}>
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
+          <div onClick={e=>e.stopPropagation()} style={{...S.card,maxWidth:"320px",width:"100%",textAlign:"center"}}>
             <div style={{fontSize:"40px",marginBottom:"12px"}}>😂</div>
-            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"18px",color:D.white,marginBottom:"8px"}}>Jab Sent!</div>
-            <div style={{fontSize:"14px",color:D.muted,marginBottom:"20px",fontStyle:"italic"}}>"{jabPost}"</div>
-            <button onClick={()=>setJabPost(null)} style={S.btnPrimary}>👍 Nice</button>
+            <div style={{fontFamily:"var(--font-display)",fontSize:"17px",color:T.fg,marginBottom:"8px",fontWeight:"700"}}>Send a jab?</div>
+            <div style={{fontSize:"14px",color:T.mutedFg,marginBottom:"20px",fontStyle:"italic"}}>"{jabPost}"</div>
+            <div style={{display:"flex",gap:"10px"}}>
+              <button onClick={()=>setJabPost(null)} style={{...S.btnGhost,flex:1}}>Cancel</button>
+              <button onClick={()=>setJabPost(null)} style={{...S.btnPrimary,flex:1}}>Send 🏌️</button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* TOP BAR */}
-      <div style={{padding:"12px 18px",background:D.dark,borderBottom:`1px solid ${D.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,backdropFilter:"blur(12px)"}}>
+      {/* ── HEADER ───────────────────────────────────────────────── */}
+      <header style={{flexShrink:0,padding:"12px 16px",background:T.bg,borderBottom:"1px solid "+T.border,display:"flex",alignItems:"center",justifyContent:"space-between",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",zIndex:20,paddingTop:"calc(12px + env(safe-area-inset-top))"}}>
         <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
           <Ball size={28}/>
-          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.white,letterSpacing:"-0.3px"}}>Obi Golf
-            {speaking&&<span style={{display:"inline-block",width:"6px",height:"6px",borderRadius:"50%",background:D.accent,animation:"pulse 1s infinite",marginLeft:"8px",verticalAlign:"middle"}}/>}
-          </div>
+          <span style={{fontFamily:"var(--font-display)",fontSize:"16px",fontWeight:"700",color:T.fg,letterSpacing:"-0.01em"}}>
+            Obi Golf
+            {speaking&&<span style={{display:"inline-block",width:"5px",height:"5px",borderRadius:"99px",background:T.primary,marginLeft:"8px",animation:"pulse 1s infinite"}}/>}
+          </span>
         </div>
-        <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-          {weather&&(
-            <div style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"5px 12px",display:"flex",alignItems:"center",gap:"6px",fontSize:"12px",color:D.muted}}>
+        <div style={{display:"flex",gap:"6px",alignItems:"center"}}>
+          {tab==="caddie"&&weather&&(
+            <div className="chip">
               <span>{wxIcon(weather.code)}</span>
-              <span style={{color:D.text}}>{weather.temp}°</span>
-              <span style={{color:D.border}}>·</span>
+              <span>{weather.temp}°</span>
+              <span style={{color:T.mutedFg}}>·</span>
               <span>{weather.wind}mph {windDir(weather.windDeg)}</span>
             </div>
           )}
-          <button onClick={()=>setDarkMode(d=>!d)} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"99px",padding:"6px 10px",cursor:"pointer",fontSize:"14px",color:D.muted,fontFamily:"'Inter',sans-serif",lineHeight:1}}>
-            {darkMode?"☀️":"🌙"}
+          <button onClick={()=>setIsDark(d=>!d)} style={{...S.btnGhost,padding:"7px",borderRadius:"10px",border:"1px solid "+T.border,background:T.surface}}>
+            {isDark?"☀️":"🌙"}
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* BOTTOM NAV */}
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:"480px",background:D.dark,borderTop:`1px solid ${D.border}`,display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom)",backdropFilter:"blur(12px)"}}>
-        {[
-          {id:"caddie", label:"Caddie", svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>},
-          {id:"practice", label:"Practice", svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2.5c0 1.5-1.5 6-1.5 6h-2S9 4 9 2.5a2.5 2.5 0 0 1 5 0z"/><path d="M11 8.5V21"/><path d="M8 21h6"/><path d="M15 13c2.5-1 4-3 4-5"/></svg>},
-          {id:"social", label:"Social", badge:friendReqs.length, svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>},
-          {id:"profile", label:"Profile", svg:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>},
-        ].map(t=>(
-          <button key={t.id} onClick={()=>changeTab(t.id)} style={{flex:1,padding:"8px 4px 6px",background:"transparent",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"2px",position:"relative"}}>
-            <div style={{width:"40px",height:"30px",borderRadius:"10px",background:tab===t.id?D.accentDim:"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s",color:tab===t.id?D.accent:D.muted}}>
-              {t.svg}
-            </div>
-            <span style={{fontSize:"10px",color:tab===t.id?D.accent:D.muted,fontFamily:"'Inter',sans-serif",fontWeight:tab===t.id?"600":"400",transition:"color 0.2s"}}>{t.label}</span>
-            {t.badge>0&&<div style={{position:"absolute",top:"4px",right:"calc(50% - 22px)",width:"7px",height:"7px",borderRadius:"50%",background:D.red,border:`1.5px solid ${D.dark}`}}/>}
-          </button>
-        ))}
-      </div>
+      {/* ── CONTENT ──────────────────────────────────────────────── */}
+      <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
 
-      {/* CONTENT */}
-      <div style={{flex:1,paddingBottom:"72px",overflowY:"auto"}}>
-
-        {/* CADDIE TAB */}
+        {/* ══ CADDIE TAB ══════════════════════════════════════════ */}
         {tab==="caddie"&&(
-          <div style={{display:"flex",flexDirection:"column"}}>
-            {/* Course bar */}
-            <div style={{padding:"12px 16px",background:D.dark,borderBottom:`1px solid ${D.border}`}}>
-              <input placeholder="⛳  Course name — e.g. Pebble Beach, Augusta..." value={courseInput} onChange={e=>setCourseInput(e.target.value)}
-                onBlur={()=>{if(courseInput&&courseInput!==course){setCourse(courseInput);sendMessage(`I'm playing ${courseInput}. Quick key tips and what should I know about hole ${hole}?`);}}}
-                onKeyDown={e=>{if(e.key==="Enter"&&courseInput&&courseInput!==course){setCourse(courseInput);sendMessage(`I'm playing ${courseInput}. Quick key tips and what should I know about hole ${hole}?`);}}}
-                style={{...S.input,marginBottom:"10px",fontSize:"14px"}}/>
-              <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
-                <div style={{display:"flex",alignItems:"center",gap:"4px"}}>
-                  <button onClick={()=>setHole(h=>Math.max(1,h-1))} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"8px",color:D.muted,padding:"4px 10px",cursor:"pointer",fontSize:"16px"}}>‹</button>
-                  <div style={{textAlign:"center",minWidth:"48px"}}>
-                    <div style={{fontSize:"9px",color:D.muted,letterSpacing:"1.5px",textTransform:"uppercase"}}>HOLE</div>
-                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,lineHeight:1}}>{hole}</div>
+          <div style={{display:"flex",flexDirection:"column",height:"100%",minHeight:"calc(100vh - 130px)"}}>
+
+            {/* Hole setup bar */}
+            <div style={{padding:"10px 16px",background:T.card,borderBottom:"1px solid "+T.border,position:"sticky",top:0,zIndex:10}}>
+              <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+                {/* Hole stepper */}
+                <div style={{display:"flex",alignItems:"center",gap:"4px",flexShrink:0}}>
+                  <button onClick={()=>setHole(h=>Math.max(1,h-1))} style={{background:T.surface,border:"1px solid "+T.border,borderRadius:"8px",color:T.mutedFg,padding:"4px 8px",cursor:"pointer",fontSize:"14px",lineHeight:1}}>-</button>
+                  <div style={{textAlign:"center",minWidth:"40px"}}>
+                    <div style={{fontSize:"8px",color:T.mutedFg,letterSpacing:"1.5px",textTransform:"uppercase",fontFamily:"var(--font-display)"}}>HOLE</div>
+                    <div style={{fontFamily:"var(--font-display)",fontSize:"20px",fontWeight:"700",color:T.fg,lineHeight:1}}>{hole}</div>
                   </div>
-                  <button onClick={()=>setHole(h=>Math.min(18,h+1))} style={{background:D.surface,border:`1px solid ${D.border}`,borderRadius:"8px",color:D.muted,padding:"4px 10px",cursor:"pointer",fontSize:"16px"}}>›</button>
+                  <button onClick={()=>setHole(h=>Math.min(18,h+1))} style={{background:T.surface,border:"1px solid "+T.border,borderRadius:"8px",color:T.mutedFg,padding:"4px 8px",cursor:"pointer",fontSize:"14px",lineHeight:1}}>+</button>
                 </div>
-                <div style={{display:"flex",gap:"3px"}}>
-                  {[3,4,5].map(p=>(
-                    <button key={p} onClick={()=>{const n=[...holePars];n[hole-1]=p;setHolePars(n);}} style={{background:par===p?D.accentDim:D.surface,border:`1px solid ${par===p?D.green:D.border}`,borderRadius:"8px",color:par===p?D.accent:D.muted,padding:"4px 10px",fontSize:"12px",cursor:"pointer",fontWeight:"600"}}>P{p}</button>
-                  ))}
+                {/* Par */}
+                <div style={{textAlign:"center",minWidth:"32px"}}>
+                  <div style={{fontSize:"8px",color:T.mutedFg,letterSpacing:"1.5px",textTransform:"uppercase",fontFamily:"var(--font-display)"}}>PAR</div>
+                  <div style={{fontFamily:"var(--font-display)",fontSize:"18px",fontWeight:"700",color:T.fg,lineHeight:1}}>{holePars[hole-1]}</div>
                 </div>
-                <input type="number" placeholder="Yds" value={yardage} onChange={e=>setYardage(e.target.value)} style={{...S.input,width:"70px",padding:"6px 10px",fontSize:"15px",fontWeight:"600",textAlign:"center"}}/>
-                <select value={lie} onChange={e=>setLie(e.target.value)} style={{...S.input,padding:"6px 8px",fontSize:"12px",flex:1}}>
-                  {["tee box","fairway","light rough","deep rough","bunker","hardpan","uphill lie","downhill lie"].map(l=>(
+                {/* Yardage */}
+                <input
+                  type="number"
+                  placeholder="Yds"
+                  value={yardage}
+                  onChange={e=>setYardage(e.target.value)}
+                  style={{...S.input,width:"70px",padding:"7px 10px",fontSize:"14px",textAlign:"center",fontFamily:"var(--font-display)",fontWeight:"700"}}
+                />
+                {/* Lie selector */}
+                <select value={lie} onChange={e=>setLie(e.target.value)} style={{...S.input,padding:"7px 10px",fontSize:"12px",flex:1,minWidth:"0",fontFamily:"var(--font-display)"}}>
+                  {["tee","fairway","rough","deep rough","bunker","fringe","green"].map(l=>(
                     <option key={l} value={l}>{l.charAt(0).toUpperCase()+l.slice(1)}</option>
                   ))}
                 </select>
+                {/* Expand */}
+                <button onClick={()=>setHoleOpen(o=>!o)} style={{...S.btnGhost,padding:"6px",flexShrink:0}}>
+                  {holeOpen?"▲":"▼"}
+                </button>
               </div>
+
+              {/* Expanded: course + elevation + score input */}
+              {holeOpen&&(
+                <div style={{marginTop:"10px",display:"flex",flexDirection:"column",gap:"8px"}}>
+                  <input
+                    placeholder="Course name"
+                    value={courseInput}
+                    onChange={e=>setCourseInput(e.target.value)}
+                    onBlur={()=>{if(courseInput&&courseInput!==course){setCourse(courseInput);}}}
+                    onKeyDown={e=>{if(e.key==="Enter"&&courseInput&&courseInput!==course){setCourse(courseInput);}}}
+                    style={{...S.input,fontSize:"13px"}}
+                  />
+                  <div style={{display:"flex",gap:"8px",alignItems:"center"}}>
+                    <label style={{fontSize:"11px",color:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em",flexShrink:0}}>Elevation</label>
+                    <input type="range" min="-100" max="100" value={elevation} onChange={e=>setElevation(Number(e.target.value))} style={{flex:1}}/>
+                    <span style={{fontSize:"13px",fontFamily:"var(--font-display)",fontWeight:"700",color:T.fg,minWidth:"50px",textAlign:"right"}}>{elevation>0?"+":""}{elevation}ft</span>
+                  </div>
+                  {/* Scorecard entry */}
+                  <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                    <span style={{fontSize:"11px",color:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em",flexShrink:0,alignSelf:"center"}}>Score H{hole}:</span>
+                    {[holePars[hole-1]-1,holePars[hole-1],holePars[hole-1]+1,holePars[hole-1]+2,holePars[hole-1]+3].map(v=>(
+                      <button key={v} onClick={()=>setScorecard(s=>{const n=[...s];n[hole-1]=v;return n;})}
+                        style={{...S.pill,padding:"5px 10px",background:scorecard[hole-1]===v?T.primary:T.surface,color:scorecard[hole-1]===v?"#000":T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700",fontSize:"12px"}}>
+                        {v}
+                      </button>
+                    ))}
+                    {scorecard.some(Boolean)&&(
+                      <button onClick={saveRound} style={{...S.btnPrimary,padding:"5px 12px",fontSize:"11px"}}>Save Round</button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Scorecard strip */}
+              {scorecard.some(Boolean)&&!holeOpen&&(
+                <div style={{display:"flex",gap:"3px",marginTop:"8px",overflowX:"auto",paddingBottom:"2px"}}>
+                  {scorecard.map((s,i)=>(
+                    <div key={i} style={{textAlign:"center",flexShrink:0,width:"24px"}}>
+                      <div style={{fontSize:"8px",color:i===hole-1?T.primary:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700"}}>{i+1}</div>
+                      <div style={{borderRadius:"5px",padding:"2px",background:s===null?"transparent":s<holePars[i]?T.primaryDim:s>holePars[i]?"rgba(248,113,113,0.15)":T.surface,fontFamily:"var(--font-display)",fontSize:"11px",fontWeight:"700",color:s===null?T.muted:s<holePars[i]?T.primary:s>holePars[i]?T.red:T.fg}}>{s||"·"}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Sub tabs */}
-            <div style={{display:"flex",background:D.dark,borderBottom:`1px solid ${D.border}`}}>
-              {[{id:"chat",label:"Chat"},{id:"situations",label:"Situations"},{id:"scorecard",label:"Scorecard"}].map(t=>(
-                <button key={t.id} onClick={()=>setSubView(t.id)} style={{flex:1,padding:"10px",background:"transparent",border:"none",borderBottom:`2px solid ${subView===t.id?D.green:"transparent"}`,color:subView===t.id?D.green:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:subView===t.id?"600":"400",transition:"all 0.15s"}}>{t.label}</button>
+            {/* Chat messages */}
+            <div style={{flex:1,padding:"16px",display:"flex",flexDirection:"column",gap:"10px",overflowY:"auto"}}>
+              {messages.length===0&&(
+                <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",flex:1,gap:"16px",padding:"40px 0"}}>
+                  <Ball size={52}/>
+                  <div style={{textAlign:"center"}}>
+                    <div style={{fontFamily:"var(--font-display)",fontSize:"20px",fontWeight:"700",color:T.fg,letterSpacing:"-0.02em"}}>Ready to caddie</div>
+                    <div style={{fontSize:"13px",color:T.mutedFg,marginTop:"6px"}}>Set your yardage and ask anything</div>
+                  </div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:"6px",justifyContent:"center",maxWidth:"340px"}}>
+                    {QUICK_PROMPTS.map(p=>(
+                      <button key={p.label} onClick={()=>sendMessage(p.prompt)} className="chip" style={{cursor:"pointer"}}>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {messages.map((m,i)=>(
+                <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",gap:"8px",alignItems:"flex-end"}}>
+                  {m.role==="assistant"&&<Ball size={22}/>}
+                  <div className={m.role==="user"?"bubble-user":"bubble-ai"}>
+                    {m.content}
+                    {m.role==="assistant"&&(
+                      <button onClick={()=>speak(m.content)} style={{display:"block",marginTop:"6px",background:"none",border:"none",color:T.mutedFg,fontSize:"11px",cursor:"pointer",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>
+                        {speaking?"⏹ Stop":"🔊 Read"}
+                      </button>
+                    )}
+                  </div>
+                </div>
               ))}
+              {loading&&(
+                <div style={{display:"flex",justifyContent:"flex-start",gap:"8px",alignItems:"flex-end"}}>
+                  <Ball size={22}/>
+                  <div className="bubble-ai" style={{display:"flex",gap:"4px",alignItems:"center"}}>
+                    {[0,1,2].map(i=>(
+                      <div key={i} style={{width:"5px",height:"5px",borderRadius:"99px",background:T.mutedFg,animation:"pulse 1.2s "+(i*0.15)+"s infinite"}}/>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef}/>
             </div>
 
-            {/* CHAT */}
-            {subView==="chat"&&(
-              <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 230px)"}}>
-                {py&&yardage&&(
-                  <div style={{margin:"10px 16px 0",background:D.surface,border:`1px solid ${D.border}`,borderRadius:"14px",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <div style={{textAlign:"center"}}>
-                      <div style={{fontSize:"10px",color:D.muted,marginBottom:"3px"}}>Actual</div>
-                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"26px",fontWeight:"700",color:D.white,lineHeight:1}}>{yardage}<span style={{fontSize:"13px",fontWeight:"400",color:D.muted}}>y</span></div>
-                    </div>
-                    <div style={{color:D.subtle,fontSize:"16px"}}>→</div>
-                    <div style={{textAlign:"center"}}>
-                      <div style={{fontSize:"10px",color:D.accent,marginBottom:"3px"}}>Playing</div>
-                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"26px",fontWeight:"700",color:D.accent,lineHeight:1}}>{py}<span style={{fontSize:"13px",fontWeight:"400"}}>y</span></div>
-                    </div>
-                    {recClub&&(<>
-                      <div style={{color:D.subtle,fontSize:"16px"}}>→</div>
-                      <div style={{textAlign:"center"}}>
-                        <div style={{fontSize:"10px",color:D.gold,marginBottom:"3px"}}>Club</div>
-                        <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:D.gold,lineHeight:1}}>{recClub.club}</div>
-                      </div>
-                    </>)}
-                  </div>
-                )}
-                <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:"16px",display:"flex",flexDirection:"column",gap:"12px"}}>
-                  {messages.length===0&&(
-                    <div style={{textAlign:"center",padding:"40px 20px",animation:"fadeUp 0.5s both"}}>
-                      <Ball size={56}/>
-                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:D.white,marginTop:"14px"}}>Obi is ready.</div>
-                      <div style={{color:D.muted,fontSize:"14px",marginTop:"6px",lineHeight:1.6}}>Enter the course name above<br/>or ask anything about your shot</div>
-                    </div>
-                  )}
-                  {messages.map((m,i)=>(
-                    <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",animation:"fadeUp 0.3s both"}}>
-                      {m.role==="assistant"&&<div style={{marginRight:"10px",marginTop:"4px",flexShrink:0}}><Ball size={28}/></div>}
-                      <div style={{maxWidth:"78%",background:m.role==="user"?D.accent:D.surface,border:`1px solid ${m.role==="user"?"transparent":D.border}`,borderRadius:m.role==="user"?"20px 20px 4px 20px":"20px 20px 20px 4px",padding:"11px 15px"}}>
-                        <div style={{fontSize:"14px",lineHeight:1.65,color:m.role==="user"?"#fff":D.text}}>{m.content}</div>
-                        {m.role==="assistant"&&<button onClick={()=>speak(m.content)} style={{background:"none",border:"none",color:D.muted,fontSize:"11px",cursor:"pointer",padding:"4px 0 0",fontFamily:"'Inter',sans-serif"}}>🔊 Replay</button>}
-                      </div>
-                    </div>
-                  ))}
-                  {loading&&(
-                    <div style={{display:"flex",gap:"6px",alignItems:"center",paddingLeft:"4px"}}>
-                      <Ball size={28}/>
-                      <div style={{display:"flex",gap:"4px",marginLeft:"10px"}}>{[0,1,2].map(i=><div key={i} style={{width:"8px",height:"8px",borderRadius:"50%",background:D.accent,animation:`bounce 1s infinite ${i*0.15}s`}}/>)}</div>
-                    </div>
-                  )}
-                </div>
-                <div style={{padding:"8px 16px",display:"flex",gap:"8px",overflowX:"auto",scrollbarWidth:"none"}}>
-                  {QUICK_PROMPTS.map(q=><button key={q.label} onClick={()=>sendMessage(q.prompt)} style={{...S.pill,flexShrink:0}}>{q.label}</button>)}
-                </div>
-                <div style={{padding:"10px 16px 16px",display:"flex",gap:"10px",alignItems:"center",background:D.dark,borderTop:`1px solid ${D.border}`}}>
-                  <button onClick={startListening} style={{width:"46px",height:"46px",borderRadius:"50%",background:listening?D.green:D.surface,border:`1.5px solid ${listening?D.green:D.border}`,fontSize:"18px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,animation:listening?"pulse 1s infinite":"none",boxShadow:listening?`0 0 0 4px ${D.accentDim}`:"none"}}>
-                    {listening?"🔴":"🎙"}
-                  </button>
-                  <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendMessage()} placeholder="Ask Obi anything..." style={{...S.input,flex:1,padding:"12px 16px"}}/>
-                  <button onClick={()=>sendMessage()} disabled={loading||!input.trim()} style={{width:"46px",height:"46px",borderRadius:"50%",background:input.trim()?`linear-gradient(135deg,${D.green},#16a34a)`:D.surface,border:`1.5px solid ${input.trim()?D.green:D.border}`,color:"#fff",fontSize:"18px",cursor:input.trim()?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:input.trim()?`0 4px 16px ${D.accent}44`:"none"}}>➤</button>
-                </div>
+            {/* Input bar */}
+            <div style={{padding:"10px 16px",background:T.card,borderTop:"1px solid "+T.border,paddingBottom:"calc(10px + env(safe-area-inset-bottom))",flexShrink:0}}>
+              <div style={{display:"flex",gap:"8px",alignItems:"center",background:T.surface,border:"1px solid "+T.border,borderRadius:"14px",padding:"6px 6px 6px 12px"}}>
+                <input
+                  value={input}
+                  onChange={e=>setInput(e.target.value)}
+                  onKeyDown={e=>e.key==="Enter"&&sendMessage()}
+                  placeholder="Ask Obi anything..."
+                  style={{flex:1,background:"transparent",border:"none",outline:"none",fontSize:"14px",color:T.fg,fontFamily:"var(--font-sans)"}}
+                />
+                <button onClick={()=>sendMessage()} disabled={!input.trim()||loading}
+                  style={{...S.btnPrimary,padding:"9px",borderRadius:"10px",flexShrink:0,opacity:input.trim()&&!loading?1:0.4}}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+                </button>
               </div>
-            )}
-
-            {/* SITUATIONS */}
-            {subView==="situations"&&(
-              <div style={{padding:"16px"}}>
-                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"4px"}}>Shot Situations</div>
-                <div style={{color:D.muted,fontSize:"14px",marginBottom:"16px"}}>Tap any situation for instant advice from Obi</div>
-                {[{icon:"🌿",title:"In the Rough",prompt:`I'm in ${lie} with ${yardage||"unknown"} yards to pin. Ball sitting down. What club and technique?`},{icon:"🏖",title:"Greenside Bunker",prompt:"I'm in a greenside bunker. Walk me through club, setup, and technique."},{icon:"⛰",title:"Uneven Lie",prompt:"I have an uneven lie. How does this affect my shot and what adjustments do I make?"},{icon:"🍃",title:"Punch Out",prompt:"I need to punch out from under trees. What club and where do I aim?"},{icon:"💦",title:"Carry the Water",prompt:`Need to carry water. ${yardage?`${yardage} yards.`:""}Risk/reward and recommended play?`},{icon:"🎯",title:"Tight Pin",prompt:"Pin is tucked tight. Attack it or play center? Smart play for my handicap?"},{icon:"🌬",title:"Into the Wind",prompt:`Wind is ${weather?.wind||"strong"}mph from ${weather?windDir(weather.windDeg):"the front"}. Club and shape?`},{icon:"🔄",title:"Reset After Mishit",prompt:"I just mishit badly. Help me identify what went wrong and reset mentally."}].map(s=>(
-                  <button key={s.title} onClick={()=>{setSubView("chat");sendMessage(s.prompt);}} style={{display:"flex",alignItems:"center",gap:"14px",width:"100%",background:D.card,border:`1px solid ${D.border}`,borderRadius:"16px",padding:"16px",marginBottom:"10px",cursor:"pointer",textAlign:"left"}}>
-                    <div style={{width:"48px",height:"48px",borderRadius:"14px",background:D.surface,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"24px",flexShrink:0}}>{s.icon}</div>
-                    <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{s.title}</div><div style={{color:D.muted,fontSize:"12px",marginTop:"3px",lineHeight:1.4}}>{s.prompt.slice(0,58)}…</div></div>
-                    <div style={{color:D.muted,fontSize:"18px"}}>›</div>
-                  </button>
-                ))}
-                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"16px",fontWeight:"700",color:D.text,margin:"20px 0 10px"}}>Log Shot Outcome</div>
-                <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
-                  {["Flushed it 👌","Pulled left","Pushed right","Chunked it","Thinned it","Perfect draw","Good fade","Found bunker","In the rough"].map(o=>(
-                    <button key={o} onClick={()=>{setShotHistory(prev=>[...prev,{hole,outcome:o}]);setSubView("chat");sendMessage(`Shot result: ${o}. What's my next play?`);}} style={{...S.pill}}>{o}</button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* SCORECARD */}
-            {subView==="scorecard"&&(
-              <div style={{padding:"16px"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px"}}>
-                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white}}>Scorecard</div>
-                  {played>0&&<ScorePill score={totalScore} par={holePars.slice(0,played).reduce((a,b)=>a+b,0)} large/>}
-                </div>
-                {[{label:"FRONT 9",r:[0,9]},{label:"BACK 9",r:[9,18]}].map(({label,r})=>(
-                  <div key={label} style={{marginBottom:"16px"}}>
-                    <div style={{fontSize:"10px",color:D.muted,letterSpacing:"2.5px",marginBottom:"8px"}}>{label}</div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(9,1fr)",gap:"4px"}}>
-                      {Array.from({length:9},(_,i)=>i+r[0]).map(idx=>{
-                        const h=idx+1;
-                        const sc=scores[idx];
-                        const d=sc?sc-holePars[idx]:null;
-                        const sc_color=d===null?D.border:d<=-2?D.gold:d===-1?D.green:d===0?D.blue:D.red;
-                        return(
-                          <div key={h} style={{display:"flex",flexDirection:"column",gap:"3px"}}>
-                            <div style={{textAlign:"center",fontSize:"9px",color:hole===h?D.green:D.muted,fontWeight:hole===h?"700":"400"}}>{h}</div>
-                            <div style={{textAlign:"center",fontSize:"9px",color:D.subtle}}>P{holePars[idx]}</div>
-                            <input type="number" min="1" max="15" value={scores[idx]||""} onChange={e=>{const ns=[...scores];ns[idx]=parseInt(e.target.value)||null;setScores(ns);}}
-                              style={{background:hole===h?D.accentDim:D.surface,border:`1.5px solid ${sc_color}`,borderRadius:"8px",color:d!==null?sc_color:D.text,textAlign:"center",fontSize:"15px",fontWeight:"700",padding:"6px 2px",outline:"none",fontFamily:"'Space Grotesk',sans-serif",width:"100%",boxSizing:"border-box"}}/>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-                <div style={{...S.card,marginBottom:"12px"}}>
-                  {[["Total strokes",totalScore||"—",D.white],["Holes played",`${played}/18`,D.muted],played>0&&["vs Par",scoreDiff>0?`+${scoreDiff}`:scoreDiff===0?"Even":`${scoreDiff}`,scoreDiff>0?D.red:scoreDiff<0?D.green:D.blue]].filter(Boolean).map(([l,v,c])=>(
-                    <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"8px"}}>
-                      <span style={{color:D.muted,fontSize:"14px"}}>{l}</span>
-                      <span style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:c}}>{v}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{display:"flex",gap:"10px",marginBottom:"10px"}}>
-                  <button onClick={()=>{setSubView("chat");sendMessage(`Round done. Score ${totalScore} on par ${holePars.reduce((a,b)=>a+b,0)}. ${scoreDiff>0?`+${scoreDiff}`:"Even par"}. Honest debrief please.`);}} style={{...S.btnSecondary,flex:1}}>🧠 Debrief</button>
-                  <button onClick={saveRound} style={{...S.btnPrimary,flex:1}}>💾 Save Round</button>
-                </div>
-                <button onClick={()=>{setMessages([]);setScores(Array(18).fill(null));setHole(1);setYardage("");setCourse("");setCourseInput("");setShotHistory([]);const g={pro:"New round. Ready.",coach:"Fresh start! Let's go.",oldschool:"New round. Let's go."}[profile.persona];setMessages([{role:"assistant",content:g}]);setSubView("chat");}} style={S.btnGhost}>🗑 New Round</button>
-              </div>
-            )}
+            </div>
           </div>
         )}
 
-        {/* PRACTICE TAB */}
+        {/* ══ PRACTICE TAB ════════════════════════════════════════ */}
         {tab==="practice"&&(
-          <div style={{display:"flex",flexDirection:"column"}}>
+          <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:"16px",paddingBottom:"24px"}}>
 
-            {/* Practice sub tabs */}
-            <div style={{display:"flex",background:D.dark,borderBottom:`1px solid ${D.border}`,position:"sticky",top:"52px",zIndex:10}}>
-              {[
-                {id:"swinglab",label:"Swing Lab"},
-                {id:"range",label:"Range Mode"},
-              ].map(t=>(
-                <button key={t.id} onClick={()=>setPracticeSubTab(t.id)} style={{flex:1,padding:"10px 4px",background:"transparent",border:"none",borderBottom:`2px solid ${practiceSubTab===t.id?D.accent:"transparent"}`,color:practiceSubTab===t.id?D.accent:D.muted,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:practiceSubTab===t.id?"600":"400",transition:"all 0.15s"}}>
-                  {t.label}
-                </button>
-              ))}
+            {/* Header */}
+            <div>
+              <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg}}>Practice</div>
+              <div style={{fontFamily:"var(--font-display)",fontSize:"26px",fontWeight:"700",color:T.fg,letterSpacing:"-0.02em",marginTop:"2px"}}>Sharpen your game.</div>
             </div>
 
-            {/* ── SWING LAB ── */}
-            {practiceSubTab==="swinglab"&&(
-              <div style={{padding:"20px 16px"}}>
-                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"4px"}}>Swing Lab</div>
-                <div style={{color:D.muted,fontSize:"14px",marginBottom:"20px",lineHeight:1.6}}>Upload a swing video and Obi analyzes it like a PGA teaching pro.</div>
+            {/* Sub-tabs */}
+            <div className="tab-pill">
+              <button className={practiceSubTab==="swing"?"active":""} onClick={()=>setPracticeSubTab("swing")}>Swing Lab</button>
+              <button className={practiceSubTab==="range"?"active":""} onClick={()=>setPracticeSubTab("range")}>Range Mode</button>
+            </div>
 
-                <div style={{marginBottom:"16px"}}>
-                  <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>What are we working on today?</div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginBottom:"10px"}}>
-                    {[
-                      {v:"full_swing",label:"Full Swing",icon:"🏌️",desc:"Overall mechanics"},
-                      {v:"driver",label:"Driver",icon:"💥",desc:"Distance & accuracy"},
-                      {v:"irons",label:"Irons",icon:"🎯",desc:"Approach consistency"},
-                      {v:"short_game",label:"Short Game",icon:"🌿",desc:"Chips & pitches"},
-                      {v:"bunker",label:"Bunker Play",icon:"🏖",desc:"Sand shots"},
-                      {v:"putting",label:"Putting",icon:"⛳",desc:"Stroke mechanics"},
-                      {v:"tempo",label:"Tempo & Rhythm",icon:"🎵",desc:"Timing & sequencing"},
-                      {v:"custom",label:"Something Else",icon:"💬",desc:"Describe below"},
-                    ].map(g=>(
-                      <button key={g.v} onClick={()=>setProfile(p=>({...p,practiceGoal:g.v}))} style={{background:profile.practiceGoal===g.v?D.accentDim:D.surface,border:`1.5px solid ${profile.practiceGoal===g.v?D.green:D.border}`,borderRadius:"12px",padding:"12px 10px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"flex-start",gap:"4px",textAlign:"left",transition:"all 0.15s"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:"6px",width:"100%"}}>
-                          <span style={{fontSize:"18px"}}>{g.icon}</span>
-                          <span style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"13px",color:profile.practiceGoal===g.v?D.accent:D.text,flex:1}}>{g.label}</span>
-                          {profile.practiceGoal===g.v&&<div style={{width:"16px",height:"16px",borderRadius:"50%",background:D.accent,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:"10px",flexShrink:0}}>✓</div>}
+            {/* ── Swing Lab ─────────────────────────────────────── */}
+            {practiceSubTab==="swing"&&(
+              <React.Fragment>
+                {/* Upload / record */}
+                {!swingAnalysis&&!swingLoading&&(
+                  <div style={{...S.card,background:"var(--fg)",color:T.bg}}>
+                    <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+                      <div style={{width:"44px",height:"44px",borderRadius:"12px",background:T.primary,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        <span style={{fontSize:"22px"}}>🎬</span>
+                      </div>
+                      <div style={{flex:1}}>
+                        <div style={{fontFamily:"var(--font-display)",fontSize:"15px",fontWeight:"700",letterSpacing:"-0.01em"}}>Analyze a swing</div>
+                        <div style={{fontSize:"11px",opacity:0.6,fontWeight:"500",marginTop:"2px"}}>Video or photo · AI breakdown</div>
+                      </div>
+                      <button onClick={()=>swingInputRef.current?.click()}
+                        style={{...S.btnPrimary,background:T.primary,padding:"9px 14px",fontSize:"12px",flexShrink:0}}>
+                        Upload
+                      </button>
+                    </div>
+                    <input ref={swingInputRef} type="file" accept="video/*,image/*" style={{display:"none"}}
+                      onChange={e=>{const f=e.target.files?.[0];if(f)setSwingFile(f);}}/>
+                  </div>
+                )}
+
+                {swingFile&&!swingAnalysis&&(
+                  <div style={S.card}>
+                    <div style={{fontSize:"13px",color:T.mutedFg,marginBottom:"10px"}}>
+                      Selected: <span style={{color:T.fg,fontWeight:"600"}}>{swingFile.name}</span>
+                    </div>
+                    <textarea
+                      placeholder="Notes (optional) - club, feel, what to improve..."
+                      value={swingNotes}
+                      onChange={e=>setSwingNotes(e.target.value)}
+                      rows={2}
+                      style={{...S.input,resize:"none",marginBottom:"10px"}}
+                    />
+                    <button onClick={handleSwingAnalyze} disabled={swingLoading}
+                      style={{...S.btnPrimary,width:"100%",padding:"13px",opacity:swingLoading?0.5:1}}>
+                      {swingLoading?"Analyzing...":"Analyze with Obi"}
+                    </button>
+                  </div>
+                )}
+
+                {swingLoading&&(
+                  <div style={{...S.card,textAlign:"center",padding:"32px"}}>
+                    <div style={{fontSize:"32px",marginBottom:"12px",animation:"spin 1s linear infinite",display:"inline-block"}}>⚙️</div>
+                    <div style={{fontFamily:"var(--font-display)",fontSize:"15px",fontWeight:"700",color:T.fg}}>Analyzing your swing...</div>
+                    <div style={{fontSize:"12px",color:T.mutedFg,marginTop:"6px"}}>Obi is reviewing your footage</div>
+                  </div>
+                )}
+
+                {swingAnalysis&&(
+                  <div>
+                    <div style={{...S.card,borderColor:T.primary+"66",background:T.primaryDim}}>
+                      <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px"}}>
+                        <div style={{width:"26px",height:"26px",borderRadius:"8px",background:T.fg,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          <span style={{color:T.primary,fontSize:"13px"}}>✦</span>
                         </div>
-                        <span style={{fontSize:"11px",color:D.muted,paddingLeft:"24px"}}>{g.desc}</span>
+                        <span style={{fontFamily:"var(--font-display)",fontSize:"11px",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.fg}}>Obi&apos;s Analysis</span>
+                      </div>
+                      <div style={{fontSize:"14px",color:T.fg,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{swingAnalysis}</div>
+                      <div style={{display:"flex",gap:"8px",marginTop:"14px"}}>
+                        <button onClick={()=>speak(swingAnalysis)} style={S.pill}>🔊 Read aloud</button>
+                        <button onClick={()=>{setSwingAnalysis("");setSwingFile(null);setSwingNotes("");}} style={S.pill}>🔄 New</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Swing history */}
+                {swingHistory.length>0&&(
+                  <div>
+                    <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg,marginBottom:"10px"}}>Recent analyses</div>
+                    <div className="row-list">
+                      {swingHistory.slice(0,5).map((s,i)=>(
+                        <div key={i} style={{padding:"12px 14px"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
+                            <span style={{fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>{s.club_used||"Swing"}</span>
+                            <span style={{fontSize:"11px",color:T.mutedFg}}>{fmtDateShort(s.created_at)}</span>
+                          </div>
+                          <div style={{fontSize:"13px",color:T.mutedFg,lineHeight:1.5}}>{s.analysis?.slice(0,120)}...</div>
+                          <div style={{display:"flex",gap:"6px",marginTop:"8px"}}>
+                            <button onClick={()=>speak(s.analysis)} style={S.pill}>🔊 Read</button>
+                            <button onClick={async()=>{await supabase.from("swing_analyses").delete().eq("id",s.id);setSwingHistory(h=>h.filter(x=>x.id!==s.id));}} style={{...S.pill,color:T.red}}>Delete</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </React.Fragment>
+            )}
+
+            {/* ── Range Mode ────────────────────────────────────── */}
+            {practiceSubTab==="range"&&(
+              <React.Fragment>
+                {/* Club select */}
+                <div style={S.card}>
+                  <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg,marginBottom:"10px"}}>Select club</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:"6px"}}>
+                    {profile.bag.map(b=>(
+                      <button key={b.club} onClick={()=>setRangeClub(b.club)}
+                        style={{...S.pill,background:rangeClub===b.club?T.primary:T.surface,color:rangeClub===b.club?"#000":T.mutedFg,borderColor:rangeClub===b.club?T.primary:T.border}}>
+                        {b.club}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div style={{marginBottom:"16px"}}>
-                  <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"8px"}}>{profile.practiceGoal==="custom"?"Describe what you want to work on *":"Any specific details? (optional)"}</div>
-                  <textarea placeholder={profile.practiceGoal==="driver"?"e.g. I keep slicing it left...":profile.practiceGoal==="irons"?"e.g. I chunk my 7-iron...":profile.practiceGoal==="putting"?"e.g. I push putts right...":"e.g. I've been struggling with my takeaway..."} value={swingNotes} onChange={e=>setSwingNotes(e.target.value)} rows={3} style={{...S.input,resize:"none",lineHeight:1.6,fontSize:"14px"}}/>
-                </div>
-
-                <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"8px"}}>Upload Your Swing</div>
-                <div onClick={()=>fileRef.current?.click()} style={{background:swingFile?D.accentDim:D.surface,border:`2px dashed ${swingFile?D.green:D.border}`,borderRadius:"18px",padding:"24px",textAlign:"center",cursor:"pointer",marginBottom:"14px",transition:"all 0.2s"}}>
-                  <input ref={fileRef} type="file" accept="video/*,image/*" onChange={e=>setSwingFile(e.target.files[0])} style={{display:"none"}}/>
-                  {swingFile?<div><div style={{fontSize:"36px",marginBottom:"8px"}}>🎬</div><div style={{color:D.accent,fontWeight:"600",fontSize:"15px"}}>{swingFile.name}</div><div style={{color:D.muted,fontSize:"12px",marginTop:"4px"}}>Tap to change</div></div>:<div><div style={{fontSize:"44px",marginBottom:"10px"}}>📹</div><div style={{color:D.white,fontWeight:"600",fontSize:"16px"}}>Upload Swing Video</div><div style={{color:D.muted,fontSize:"13px",marginTop:"6px",lineHeight:1.5}}>Face-on or down-the-line · Video or photo</div></div>}
-                </div>
-
-                <button onClick={runSwingAnalysis} disabled={!swingFile||swingLoading||(profile.practiceGoal==="custom"&&!swingNotes.trim())} style={{...S.btnPrimary,opacity:(swingFile&&!swingLoading)?1:0.4,marginBottom:"20px"}}>
-                  {swingLoading?"🔍 Obi is analyzing...":"🎯 Analyze My Swing"}
-                </button>
-
-                {swingLoading&&<div style={{...S.card,textAlign:"center",padding:"28px",marginBottom:"16px"}}><div style={{display:"flex",gap:"6px",justifyContent:"center",marginBottom:"14px"}}>{[0,1,2].map(i=><div key={i} style={{width:"10px",height:"10px",borderRadius:"50%",background:D.accent,animation:`bounce 1s infinite ${i*0.15}s`}}/>)}</div><div style={{color:D.text,fontWeight:"600",fontSize:"15px",marginBottom:"4px"}}>Obi is watching your swing</div><div style={{color:D.muted,fontSize:"13px"}}>This takes 15-20 seconds...</div></div>}
-
-                {swingAnalysis&&!swingLoading&&(
-                  <div style={{...S.card,marginBottom:"20px"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"14px"}}><Ball size={32}/><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.white}}>Obi's Analysis</div></div>
-                    <div style={{fontSize:"14px",color:D.text,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{swingAnalysis}</div>
-                    <div style={{display:"flex",gap:"8px",marginTop:"14px"}}>
-                      <button onClick={()=>speak(swingAnalysis)} style={{...S.pill}}>🔊 Read aloud</button>
-                      <button onClick={()=>{setSwingAnalysis("");setSwingFile(null);setSwingNotes("");}} style={{...S.pill}}>🔄 New analysis</button>
+                {/* Camera / record */}
+                {!cameraActive&&!rangeLoading&&!rangeShotResult&&(
+                  <button onClick={startCamera}
+                    style={{...S.card,background:T.primary,color:"#000",display:"flex",alignItems:"center",gap:"12px",width:"100%",textAlign:"left",border:"none",cursor:"pointer",padding:"16px"}}>
+                    <div style={{width:"44px",height:"44px",borderRadius:"12px",background:"rgba(0,0,0,0.1)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      <span style={{fontSize:"22px"}}>📹</span>
                     </div>
-                  </div>
-                )}
-
-                {swingHistory.length>0&&(
-                  <div>
-                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.white,margin:"0 0 12px"}}>Previous Analyses</div>
-                    {swingHistory.map((s,i)=>(
-                      <div key={i} style={{...S.card,marginBottom:"10px"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"6px"}}>
-                          <div>
-                            <div style={{color:D.text,fontSize:"13px",fontWeight:"500"}}>{fmtDate(s.analyzed_at)}</div>
-                            {s.notes&&<div style={{fontSize:"12px",color:D.accent,marginTop:"2px",fontStyle:"italic"}}>{s.notes.slice(0,50)}</div>}
-                          </div>
-                          <button onClick={async(e)=>{
-                            e.stopPropagation();
-                            const confirmed=window.confirm("Delete this swing analysis?");
-                            if(!confirmed)return;
-                            const{error}=await supabase.from("swing_analyses").delete().eq("id",s.id).eq("user_id",user.id);
-                            if(error){ alert("Delete failed: "+error.message); return; }
-                            loadSwings(user.id);
-                          }} style={{background:"transparent",border:"none",color:D.muted,cursor:"pointer",padding:"4px",display:"flex",alignItems:"center"}}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                          </button>
-                        </div>
-                        <div style={{fontSize:"13px",color:D.muted,lineHeight:1.5,cursor:"pointer"}} onClick={()=>setSelectedSwing(selectedSwing?.id===s.id?null:s)}>
-                          {selectedSwing?.id===s.id
-                            ?<div style={{color:D.text,whiteSpace:"pre-wrap",marginTop:"8px"}}>{s.analysis}</div>
-                            :<div>{s.analysis?.slice(0,120)}… <span style={{color:D.accent}}>Read more</span></div>
-                          }
-                        </div>
-                        {selectedSwing?.id===s.id&&<button onClick={()=>speak(s.analysis)} style={{marginTop:"8px",background:"none",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",padding:0,fontFamily:"'Inter',sans-serif"}}>🔊 Read aloud</button>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── RANGE MODE ── */}
-            {practiceSubTab==="range"&&(
-              <div style={{padding:"20px 16px"}}>
-                <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"4px"}}>Range Mode</div>
-                <div style={{color:D.muted,fontSize:"14px",marginBottom:"20px",lineHeight:1.6}}>
-                  Record your shot, get instant ball flight stats. Builds your real carry distances and shot shape profile over time.
-                </div>
-
-                {/* Setup tip */}
-                <div style={{background:D.accentDim,border:`1px solid ${D.accent}33`,borderRadius:"12px",padding:"12px 16px",marginBottom:"20px",display:"flex",gap:"10px",alignItems:"flex-start"}}>
-                  <span style={{fontSize:"20px",flexShrink:0}}>📱</span>
-                  <div style={{fontSize:"13px",color:D.text,lineHeight:1.6}}>
-                    <strong style={{color:D.accentLt}}>Setup:</strong> Place your phone 5-10 feet behind you, angled to see your full swing and ball launch. Use iPhone Slo-Mo for best results.
-                  </div>
-                </div>
-
-                {/* Club selector */}
-                <div style={{marginBottom:"16px"}}>
-                  <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Select Club</div>
-                  <div style={{display:"flex",gap:"6px",overflowX:"auto",scrollbarWidth:"none",paddingBottom:"4px"}}>
-                    {profile.bag.map(b=>{
-                      const cs=clubStats[b.club];
-                      const isSelected=rangeClub===b.club;
-                      return(
-                        <button key={b.club} onClick={()=>setRangeClub(b.club)} style={{flexShrink:0,background:isSelected?D.accentDim:D.surface,border:`1.5px solid ${isSelected?D.green:D.border}`,borderRadius:"12px",padding:"10px 12px",cursor:"pointer",textAlign:"center",minWidth:"70px",transition:"all 0.15s"}}>
-                          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"13px",color:isSelected?D.accent:D.text}}>{b.club}</div>
-                          <div style={{fontSize:"11px",color:isSelected?D.green:D.muted,marginTop:"2px"}}>
-                            {cs?.avgCarry?`${cs.avgCarry}y avg`:`${b.carry}y`}
-                          </div>
-                          {cs?.count>0&&<div style={{fontSize:"10px",color:D.subtle,marginTop:"1px"}}>{cs.count} shots</div>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Club stats card if we have data */}
-                {clubStats[rangeClub]?.count>=3&&(
-                  <div style={{...S.card,marginBottom:"16px",background:`linear-gradient(135deg,${D.accentDim},${D.surface})`}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
-                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"16px",fontWeight:"700",color:D.white}}>{rangeClub} — Your Numbers</div>
-                      <button onClick={()=>setShowClubProfile(rangeClub)} style={{...S.pill,color:D.accent,borderColor:D.accent+"44"}}>Full Profile</button>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px",marginBottom:"12px"}}>
-                      {[
-                        ["AVG CARRY",`${clubStats[rangeClub].avgCarry}y`,D.green],
-                        ["RANGE",`${clubStats[rangeClub].minCarry}-${clubStats[rangeClub].maxCarry}y`,D.text],
-                        ["SHOTS",clubStats[rangeClub].count,D.blue],
-                      ].map(([l,v,c])=>(
-                        <div key={l} style={{background:"rgba(0,0,0,0.2)",borderRadius:"10px",padding:"10px 8px",textAlign:"center"}}>
-                          <div style={{fontSize:"9px",color:D.muted,letterSpacing:"1.5px",marginBottom:"4px"}}>{l}</div>
-                          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"800",color:c,lineHeight:1}}>{v}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
-                      <div style={{...S.pill,background:D.surface}}>
-                        {({straight:"➡️",draw:"↩️","slight draw":"↪️",hook:"🔄","slight fade":"↩️",fade:"↪️","strong fade":"🔃",slice:"🔃"}[clubStats[rangeClub].typicalShape]||"➡️")} {clubStats[rangeClub].typicalShape} ({Math.round((clubStats[rangeClub].shapeCount/clubStats[rangeClub].count)*100)}%)
-                      </div>
-                      <div style={{...S.pill,background:D.surface}}>
-                        📐 {clubStats[rangeClub].typicalLaunch} launch
-                      </div>
-                      <div style={{...S.pill,background:D.surface,color:clubStats[rangeClub].consistencyStars>=4?D.green:clubStats[rangeClub].consistencyStars>=3?D.gold:D.red}}>
-                        {"⭐".repeat(Math.max(0,clubStats[rangeClub].consistencyStars||0))} {clubStats[rangeClub].consistency}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Camera Recording / Upload */}
-                {!rangeFile&&!isRecording&&(
-                  <div style={{marginBottom:"14px"}}>
-                    <button
-                      onClick={async()=>{
-                        try{
-                          const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false});
-                          const mimeType=MediaRecorder.isTypeSupported("video/mp4")?"video/mp4":"video/webm";
-                          const mr=new MediaRecorder(stream,{mimeType});
-                          const chunks=[];
-                          mr.ondataavailable=e=>chunks.push(e.data);
-                          mr.onstop=()=>{
-                            stream.getTracks().forEach(t=>t.stop());
-                            const blob=new Blob(chunks,{type:mimeType});
-                            setRangeFile(new File([blob],"shot."+(mimeType.includes("mp4")?"mp4":"webm"),{type:blob.type}));
-                            setIsRecording(false);
-                          };
-                          setMediaRecorder(mr);
-                          setIsRecording(true);
-                          mr.start();
-                          setTimeout(()=>{ if(mr.state==="recording") mr.stop(); },15000);
-                        }catch(err){
-                          alert("Camera access needed. Please allow camera in browser settings, then try uploading instead.");
-                        }
-                      }}
-                      style={{...S.btnPrimary,marginBottom:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:"10px"}}
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
-                      Record My Shot
-                    </button>
-                    <button onClick={()=>rangeFileRef.current?.click()} style={{...S.btnSecondary,display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",fontSize:"14px"}}>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                      Upload from camera roll
-                    </button>
-                    <input ref={rangeFileRef} type="file" accept="video/*" onChange={e=>setRangeFile(e.target.files[0])} style={{display:"none"}}/>
-                  </div>
-                )}
-
-                {/* Recording in progress */}
-                {isRecording&&(
-                  <div style={{background:D.red+"18",border:`2px solid ${D.red}55`,borderRadius:"16px",padding:"20px",textAlign:"center",marginBottom:"14px"}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",marginBottom:"12px"}}>
-                      <div style={{width:"10px",height:"10px",borderRadius:"50%",background:D.red,animation:"pulse 1s infinite"}}/>
-                      <span style={{color:D.red,fontWeight:"600",fontSize:"15px",fontFamily:"'Space Grotesk',sans-serif"}}>Recording your shot...</span>
-                    </div>
-                    <div style={{color:D.muted,fontSize:"13px",marginBottom:"14px"}}>Swing when ready · auto-stops at 15s</div>
-                    <button onClick={()=>{ if(mediaRecorder&&mediaRecorder.state==="recording") mediaRecorder.stop(); }} style={{background:D.red,border:"none",borderRadius:"10px",color:"#fff",fontWeight:"600",fontSize:"14px",padding:"10px 24px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
-                      Done — Stop Recording
-                    </button>
-                  </div>
-                )}
-
-                {/* Video ready to analyze */}
-                {rangeFile&&!isRecording&&(
-                  <div style={{background:D.accentDim,border:`1.5px solid ${D.accent}55`,borderRadius:"14px",padding:"12px 14px",marginBottom:"14px",display:"flex",alignItems:"center",gap:"12px"}}>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={D.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
                     <div style={{flex:1}}>
-                      <div style={{color:D.accent,fontWeight:"600",fontSize:"14px"}}>Shot recorded ✓</div>
-                      <div style={{color:D.muted,fontSize:"12px",marginTop:"1px"}}>{rangeClub} · tap analyze when ready</div>
+                      <div style={{fontFamily:"var(--font-display)",fontSize:"15px",fontWeight:"700",letterSpacing:"-0.01em"}}>Record a shot</div>
+                      <div style={{fontSize:"11px",opacity:0.7,fontWeight:"500",marginTop:"2px"}}>4-second clip · AI analysis</div>
                     </div>
-                    <button onClick={()=>setRangeFile(null)} style={{background:"transparent",border:"none",color:D.muted,cursor:"pointer",padding:"4px"}}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M9 18l6-6-6-6"/></svg>
+                  </button>
+                )}
+
+                {cameraActive&&(
+                  <div style={S.card}>
+                    <video ref={videoRef} muted playsInline style={{width:"100%",borderRadius:"10px",background:"#000",aspectRatio:"4/3",objectFit:"cover"}}/>
+                    <div style={{display:"flex",gap:"10px",marginTop:"12px"}}>
+                      {!recording?(
+                        <button onClick={startRecording} style={{...S.btnPrimary,flex:1,padding:"13px"}}>
+                          <span style={{width:"10px",height:"10px",borderRadius:"99px",background:"#fff",display:"inline-block"}}/>
+                          Record
+                        </button>
+                      ):(
+                        <button onClick={stopRecording} style={{...S.btnSecondary,flex:1,padding:"13px"}}>
+                          <span style={{width:"10px",height:"10px",borderRadius:"3px",background:T.red,display:"inline-block"}}/>
+                          Stop ({recording?"●":""})
+                        </button>
+                      )}
+                      <button onClick={stopCamera} style={{...S.btnGhost,padding:"13px 16px",border:"1px solid "+T.border,borderRadius:"12px"}}>Cancel</button>
+                    </div>
                   </div>
                 )}
 
-                <button onClick={runRangeAnalysis} disabled={!rangeFile||rangeLoading||isRecording} style={{...S.btnPrimary,opacity:rangeFile&&!rangeLoading&&!isRecording?1:0.4,marginBottom:"20px"}}>
-                  {rangeLoading?"📡 Analyzing shot...":"📊 Analyze Shot"}
-                </button>
-
-
-                {/* Loading */}
                 {rangeLoading&&(
-                  <div style={{...S.card,textAlign:"center",padding:"28px",marginBottom:"16px"}}>
-                    <div style={{display:"flex",gap:"6px",justifyContent:"center",marginBottom:"14px"}}>{[0,1,2].map(i=><div key={i} style={{width:"10px",height:"10px",borderRadius:"50%",background:D.accent,animation:`bounce 1s infinite ${i*0.15}s`}}/>)}</div>
-                    <div style={{color:D.text,fontWeight:"600",fontSize:"15px",marginBottom:"4px"}}>Reading your ball flight...</div>
-                    <div style={{color:D.muted,fontSize:"13px"}}>Analyzing shape, carry, and contact · 15-20 seconds</div>
+                  <div style={{...S.card,textAlign:"center",padding:"32px"}}>
+                    <div style={{fontSize:"32px",marginBottom:"12px",animation:"spin 1s linear infinite",display:"inline-block"}}>⚙️</div>
+                    <div style={{fontFamily:"var(--font-display)",fontSize:"15px",fontWeight:"700",color:T.fg}}>Analyzing shot...</div>
                   </div>
                 )}
 
-                {/* Shot result */}
-                {rangeShotResult&&!rangeLoading&&(
-                  rangeShotResult.error?(
-                    <div style={{...S.card,marginBottom:"16px",borderColor:D.red+"44"}}>
-                      <div style={{color:D.red,fontSize:"14px"}}>Analysis failed: {rangeShotResult.error}</div>
-                    </div>
-                  ):(
-                    <div>
-                      {/* Animated shot shape diagram */}
-                      <ShotShapeDiagram result={rangeShotResult} club={rangeClub} dexterity={profile.dexterity} T={D}/>
-
-                    <div style={{...S.card,marginBottom:"16px",background:D.card}}>
-                      <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"16px"}}>
-                        <Ball size={32}/>
-                        <div>
-                          <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"700",color:D.white}}>Shot Analysis</div>
-                          <div style={{fontSize:"12px",color:D.accent}}>{rangeClub}</div>
-                        </div>
-                      </div>
-
-                      {/* Big carry number */}
-                      <div style={{textAlign:"center",padding:"16px",background:"rgba(0,0,0,0.2)",borderRadius:"14px",marginBottom:"14px"}}>
-                        <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"4px"}}>Estimated Carry</div>
-                        <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"56px",fontWeight:"800",color:D.accent,lineHeight:1}}>{rangeShotResult.estimated_carry}</div>
-                        <div style={{fontSize:"14px",color:D.muted}}>yards</div>
-                        {clubStats[rangeClub]?.avgCarry&&(
-                          <div style={{fontSize:"12px",color:D.muted,marginTop:"6px"}}>
-                            Your avg: {clubStats[rangeClub].avgCarry}y · {rangeShotResult.estimated_carry>clubStats[rangeClub].avgCarry?`+${rangeShotResult.estimated_carry-clubStats[rangeClub].avgCarry} above avg`:`${rangeShotResult.estimated_carry-clubStats[rangeClub].avgCarry} below avg`}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Stats grid */}
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:"8px",marginBottom:"14px"}}>
-                        {[
-                          ["Shot Shape",rangeShotResult.shot_shape,D.blue],
-                          ["Launch",rangeShotResult.launch_angle,D.gold],
-                          ["Contact",rangeShotResult.contact_quality,rangeShotResult.contact_quality==="flush"?D.green:rangeShotResult.contact_quality?.includes("thin")||rangeShotResult.contact_quality?.includes("fat")?D.red:D.gold],
-                          ["Ball Flight",rangeShotResult.ball_flight,D.text],
-                          ["Swing Path",rangeShotResult.swing_path,D.blue],
-                          ["Club",rangeClub,D.muted],
-                        ].map(([l,v,c])=>(
-                          <div key={l} style={{background:"rgba(0,0,0,0.2)",borderRadius:"10px",padding:"10px 8px",textAlign:"center"}}>
-                            <div style={{fontSize:"9px",color:D.muted,letterSpacing:"1px",marginBottom:"4px",textTransform:"uppercase"}}>{l}</div>
-                            <div style={{fontSize:"12px",color:c,fontWeight:"600",textTransform:"capitalize"}}>{v||"—"}</div>
+                {rangeShotResult&&!rangeShotResult.error&&(
+                  <div>
+                    <ShotShapeDiagram shape={rangeShotResult.shape||"straight"} isLeft={profile.dexterity==="left"}/>
+                    <div style={{...S.card,marginTop:"10px",borderColor:T.primary+"66",background:T.primaryDim}}>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px",marginBottom:"14px"}}>
+                        {[["Shape",rangeShotResult.shape||"straight"],["Carry",(rangeShotResult.carry||0)+"y"],["Direction",rangeShotResult.direction||"center"]].map(([l,v])=>(
+                          <div key={l} style={{textAlign:"center"}}>
+                            <div style={{fontSize:"9px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"1.5px",color:T.mutedFg,marginBottom:"4px"}}>{l}</div>
+                            <div style={{fontFamily:"var(--font-display)",fontSize:"18px",fontWeight:"700",color:T.primary,lineHeight:1}}>{v}</div>
                           </div>
                         ))}
                       </div>
-
-                      {/* Obi tip */}
-                      {rangeShotResult.tip&&(
-                        <div style={{background:D.accentDim,borderRadius:"12px",padding:"12px 14px",borderLeft:`3px solid ${D.green}`}}>
-                          <div style={{fontSize:"10px",color:D.accent,letterSpacing:"1.5px",marginBottom:"6px"}}>OBI SAYS</div>
-                          <div style={{fontSize:"14px",color:D.text,lineHeight:1.6}}>{rangeShotResult.tip}</div>
-                        </div>
+                      {rangeShotResult.coaching&&(
+                        <div style={{fontSize:"14px",color:T.fg,lineHeight:1.6,paddingTop:"12px",borderTop:"1px solid "+T.border+"44"}}>{rangeShotResult.coaching}</div>
                       )}
-
                       <div style={{display:"flex",gap:"8px",marginTop:"12px"}}>
-                        <button onClick={()=>speak(`${rangeClub}. Estimated carry ${rangeShotResult.estimated_carry} yards. Shot shape: ${rangeShotResult.shot_shape}. Contact: ${rangeShotResult.contact_quality}. ${rangeShotResult.tip||""}`)} style={{...S.pill}}>🔊 Read</button>
-                        <button onClick={()=>{setRangeShotResult(null);setRangeFile(null);}} style={{...S.pill}}>🔄 Next shot</button>
+                        <button onClick={()=>speak(rangeShotResult.coaching||"")} style={S.pill}>🔊 Read</button>
+                        <button onClick={()=>setRangeShotResult(null)} style={S.pill}>🔄 Next shot</button>
                       </div>
                     </div>
-                    </div>
-                  )
-                )}
-
-                {/* Shot history by club */}
-                {rangeHistory.length>0&&(
-                  <div>
-                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.white,margin:"0 0 12px"}}>Recent Shots</div>
-                    {rangeHistory.slice(0,20).map((s,i)=>{
-                      const diff=clubStats[s.club]?.avgCarry?s.estimated_carry-clubStats[s.club].avgCarry:null;
-                      return(
-                        <div key={i} style={{display:"flex",alignItems:"center",gap:"12px",padding:"10px 14px",background:D.surface,borderRadius:"10px",border:`1px solid ${D.border}`,marginBottom:"6px"}}>
-                          <div style={{minWidth:"72px"}}>
-                            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"13px",color:D.text}}>{s.club}</div>
-                            <div style={{fontSize:"11px",color:D.muted}}>{fmtDateShort(s.recorded_at)}</div>
-                          </div>
-                          <div style={{flex:1}}>
-                            <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
-                              <span style={{...S.pill,fontSize:"11px",padding:"2px 8px"}}>{s.shot_shape||"—"}</span>
-                              <span style={{...S.pill,fontSize:"11px",padding:"2px 8px"}}>{s.contact_quality||"—"}</span>
-                            </div>
-                          </div>
-                          <div style={{textAlign:"right"}}>
-                            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"800",color:D.accent,lineHeight:1}}>{s.estimated_carry}</div>
-                            <div style={{fontSize:"10px",color:diff>0?D.green:diff<0?D.red:D.muted}}>{diff!=null?(diff>0?`+${diff}`:`${diff}`):""}y</div>
-                          </div>
-                        </div>
-                      );
-                    })}
                   </div>
                 )}
 
-                {/* All club profiles summary */}
-                {Object.keys(clubStats).length>0&&(
-                  <div style={{marginTop:"20px"}}>
-                    <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.white,margin:"0 0 12px"}}>My Club Profiles</div>
-                    <div style={{color:D.muted,fontSize:"13px",marginBottom:"14px"}}>Based on your actual range data — used by Obi for on-course advice</div>
-                    {Object.entries(clubStats).sort((a,b)=>(b[1].avgCarry||0)-(a[1].avgCarry||0)).map(([club,cs])=>(
-                      <div key={club} style={{...S.card,marginBottom:"10px",cursor:"pointer"}} onClick={()=>setShowClubProfile(showClubProfile===club?null:club)}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                          <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
-                            <div style={{textAlign:"center",minWidth:"60px"}}>
-                              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",letterSpacing:"-0.3px",color:D.accent,lineHeight:1}}>{cs.avgCarry||"—"}</div>
-                              <div style={{fontSize:"10px",color:D.muted}}>avg yards</div>
-                            </div>
-                            <div>
-                              <div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{club}</div>
-                              <div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{cs.count} shots · {cs.typicalShape}</div>
-                            </div>
+                {/* Club stats */}
+                {clubStats[rangeClub]?.count>=3&&(
+                  <div style={S.card}>
+                    <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg,marginBottom:"12px"}}>{rangeClub} stats</div>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"12px"}}>
+                      {[
+                        ["Shots",clubStats[rangeClub].count],
+                        ["Shape",clubStats[rangeClub].typicalShape],
+                        ["Consist",("⭐").repeat(Math.max(0,clubStats[rangeClub].consistencyStars))],
+                      ].map(([l,v])=>(
+                        <div key={l} style={{textAlign:"center"}}>
+                          <div style={{fontSize:"9px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"1.5px",color:T.mutedFg,marginBottom:"4px"}}>{l}</div>
+                          <div style={{fontFamily:"var(--font-display)",fontSize:"18px",fontWeight:"700",color:T.fg,lineHeight:1}}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Shot history */}
+                {rangeHistory.length>0&&(
+                  <div>
+                    <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg,marginBottom:"10px"}}>Shot history</div>
+                    <div className="row-list">
+                      {(showAllShots?rangeHistory:rangeHistory.slice(0,5)).map((s,i)=>(
+                        <div key={i} style={{display:"flex",alignItems:"center",gap:"12px",padding:"11px 14px"}}>
+                          <div style={{width:"36px",height:"36px",borderRadius:"10px",background:T.primaryDim,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                            <span style={{fontFamily:"var(--font-display)",fontSize:"11px",fontWeight:"700",color:T.primary}}>{s.club?.split("-")[0]||"?"}</span>
                           </div>
-                          <div style={{textAlign:"right"}}>
-                            <div style={{fontSize:"12px",color:D.muted}}>{cs.minCarry}–{cs.maxCarry}y</div>
-                            <div style={{fontSize:"11px",color:cs.consistencyStars>=4?D.green:cs.consistencyStars>=3?D.gold:D.red,marginTop:"2px"}}>{cs.consistency}</div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>{s.club||"Shot"}</div>
+                            <div style={{fontSize:"11px",color:T.mutedFg,marginTop:"2px"}}>{s.shape||"straight"} · {s.carry||0}y</div>
+                          </div>
+                          <span style={{fontSize:"11px",color:T.mutedFg,flexShrink:0}}>{fmtDateShort(s.created_at)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {rangeHistory.length>5&&(
+                      <button onClick={()=>setShowAllShots(s=>!s)} style={{...S.btnGhost,width:"100%",marginTop:"8px",padding:"10px",border:"1px solid "+T.border,borderRadius:"12px"}}>
+                        {showAllShots?"Show less ^":"Show all "+rangeHistory.length+" shots v"}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </React.Fragment>
+            )}
+          </div>
+        )}
+
+        {/* ══ SOCIAL TAB ══════════════════════════════════════════ */}
+        {tab==="social"&&(
+          <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:"16px",paddingBottom:"24px"}}>
+
+            {/* Header */}
+            <div>
+              <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg}}>Social</div>
+              <div style={{fontFamily:"var(--font-display)",fontSize:"26px",fontWeight:"700",color:T.fg,letterSpacing:"-0.02em",marginTop:"2px"}}>Your crew.</div>
+            </div>
+
+            {/* Sub-tabs */}
+            <div className="tab-pill">
+              <button className={socialView==="feed"?"active":""} onClick={()=>setSocialView("feed")}>Feed</button>
+              <button className={socialView==="rounds"?"active":""} onClick={()=>setSocialView("rounds")}>My Rounds</button>
+              <button className={socialView==="friends"?"active":""} onClick={()=>setSocialView("friends")}>
+                Friends{friendReqs.length>0&&<span style={{marginLeft:"4px",background:T.red,color:"#fff",borderRadius:"99px",padding:"1px 5px",fontSize:"9px"}}>{friendReqs.length}</span>}
+              </button>
+            </div>
+
+            {/* Feed */}
+            {socialView==="feed"&&(
+              <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+                {feed.length===0&&(
+                  <div style={{...S.card,textAlign:"center",padding:"40px 20px"}}>
+                    <div style={{fontSize:"32px",marginBottom:"12px"}}>👥</div>
+                    <div style={{fontFamily:"var(--font-display)",fontSize:"15px",fontWeight:"700",color:T.fg}}>No rounds yet</div>
+                    <div style={{fontSize:"13px",color:T.mutedFg,marginTop:"6px"}}>Add friends to see their activity</div>
+                  </div>
+                )}
+                {(showAllFeed?feed:feed.slice(0,5)).map((r,i)=>{
+                  const isYou=r.user_id===user?.id;
+                  const pname=isYou?name:(r.profiles?.full_name||"Golfer");
+                  const initials=pname.split(" ").map(x=>x[0]).join("").toUpperCase().slice(0,2);
+                  const diff=r.score_vs_par||0;
+                  return(
+                    <article key={r.id||i} style={S.card}>
+                      <div style={{display:"flex",alignItems:"center",gap:"10px",marginBottom:"12px"}}>
+                        <Avatar url={isYou?avatarUrl:r.profiles?.avatar_url} name={pname} size={38}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>{pname}{isYou&&<span style={{fontSize:"10px",color:T.primary,marginLeft:"6px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>you</span>}</div>
+                          <div style={{fontSize:"11px",color:T.mutedFg,marginTop:"2px",display:"flex",alignItems:"center",gap:"4px"}}>
+                            <span>📍</span>{r.course_name||"Unknown"} · {fmtDateShort(r.played_at)}
                           </div>
                         </div>
-                        {showClubProfile===club&&(
-                          <div style={{marginTop:"14px",paddingTop:"14px",borderTop:`1px solid ${D.border}`}}>
-                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px"}}>
-                              <div>
-                                <div style={{fontSize:"11px",color:D.muted,marginBottom:"6px",textTransform:"uppercase",letterSpacing:"1px"}}>Shot Shapes</div>
-                                {Object.entries(cs.shapes).sort((a,b)=>b[1]-a[1]).map(([shape,count])=>(
-                                  <div key={shape} style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
-                                    <span style={{fontSize:"12px",color:D.text,textTransform:"capitalize"}}>{shape}</span>
-                                    <span style={{fontSize:"12px",color:D.muted}}>{count} ({Math.round((count/cs.count)*100)}%)</span>
-                                  </div>
-                                ))}
-                              </div>
-                              <div>
-                                <div style={{fontSize:"11px",color:D.muted,marginBottom:"6px",textTransform:"uppercase",letterSpacing:"1px"}}>Launch Angles</div>
-                                {Object.entries(cs.launches).sort((a,b)=>b[1]-a[1]).map(([launch,count])=>(
-                                  <div key={launch} style={{display:"flex",justifyContent:"space-between",marginBottom:"4px"}}>
-                                    <span style={{fontSize:"12px",color:D.text,textTransform:"capitalize"}}>{launch}</span>
-                                    <span style={{fontSize:"12px",color:D.muted}}>{count} ({Math.round((count/cs.count)*100)}%)</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                            <div style={{marginTop:"12px",fontSize:"13px",color:D.muted,fontStyle:"italic"}}>
-                              Distance range: {cs.minCarry}y (min) — {cs.avgCarry}y (avg) — {cs.maxCarry}y (max)
-                            </div>
-                          </div>
+                        <div style={{textAlign:"right"}}>
+                          <div style={{fontFamily:"var(--font-display)",fontSize:"22px",fontWeight:"700",color:diff<=0?T.primary:T.red,lineHeight:1}}>{r.total_score}</div>
+                          <div style={{fontSize:"10px",color:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700",marginTop:"2px"}}>{diff===0?"E":diff>0?"+"+diff:""+diff}</div>
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:"8px",paddingTop:"10px",borderTop:"1px solid "+T.border}}>
+                        <button onClick={()=>setShowCard(r)} style={S.pill}>📊 View</button>
+                        {isYou&&(
+                          <button onClick={()=>{const j=randJab();setJabPost(j);}} style={S.pill}>😂 Jab</button>
                         )}
                       </div>
+                    </article>
+                  );
+                })}
+                {feed.length>5&&(
+                  <button onClick={()=>setShowAllFeed(s=>!s)} style={{...S.btnGhost,width:"100%",padding:"10px",border:"1px solid "+T.border,borderRadius:"12px"}}>
+                    {showAllFeed?"Show less ^":"View more v"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* My Rounds */}
+            {socialView==="rounds"&&(
+              <div style={{display:"flex",flexDirection:"column",gap:"10px"}}>
+                {rounds.length===0&&(
+                  <div style={{...S.card,textAlign:"center",padding:"40px 20px"}}>
+                    <div style={{fontSize:"32px",marginBottom:"12px"}}>⛳</div>
+                    <div style={{fontFamily:"var(--font-display)",fontSize:"15px",fontWeight:"700",color:T.fg}}>No rounds saved yet</div>
+                    <div style={{fontSize:"13px",color:T.mutedFg,marginTop:"6px"}}>Save a round from the Caddie tab</div>
+                  </div>
+                )}
+                {rounds.map((r,i)=>{
+                  const diff=r.score_vs_par||0;
+                  return(
+                    <button key={r.id||i} onClick={()=>setShowCard(r)}
+                      style={{...S.card,display:"flex",alignItems:"center",gap:"12px",width:"100%",textAlign:"left",cursor:"pointer"}}>
+                      <div style={{width:"40px",height:"40px",borderRadius:"10px",background:T.surface,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        <span style={{fontSize:"18px"}}>⛳</span>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontFamily:"var(--font-display)",fontSize:"14px",fontWeight:"700",color:T.fg,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.course_name||"Unknown"}</div>
+                        <div style={{fontSize:"11px",color:T.mutedFg,marginTop:"2px"}}>{fmtDate(r.played_at)} · {r.holes_played||18} holes</div>
+                      </div>
+                      <div style={{textAlign:"right",flexShrink:0}}>
+                        <div style={{fontFamily:"var(--font-display)",fontSize:"22px",fontWeight:"700",color:diff<=0?T.primary:diff>4?T.red:T.fg,lineHeight:1}}>{r.total_score}</div>
+                        <div style={{fontSize:"10px",color:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700",marginTop:"2px"}}>{diff===0?"E":diff>0?"+"+diff:""+diff}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Friends */}
+            {socialView==="friends"&&(
+              <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
+                {/* Search */}
+                <div style={{display:"flex",gap:"8px"}}>
+                  <input placeholder="Search players..." value={friendSearch} onChange={e=>setFriendSearch(e.target.value)}
+                    onKeyDown={e=>e.key==="Enter"&&searchFriends()}
+                    style={{...S.input,flex:1}}/>
+                  <button onClick={searchFriends} style={{...S.btnPrimary,padding:"11px 16px",flexShrink:0}}>Search</button>
+                </div>
+                {friendResults.length>0&&(
+                  <div className="row-list">
+                    {friendResults.map(u=>(
+                      <div key={u.id} style={{display:"flex",alignItems:"center",gap:"10px",padding:"12px 14px"}}>
+                        <Avatar url={u.avatar_url} name={u.full_name} size={36}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>{u.full_name}</div>
+                          <div style={{fontSize:"11px",color:T.mutedFg}}>HCP {u.handicap_index||"--"}</div>
+                        </div>
+                        <button onClick={()=>sendFriendReq(u.id)} style={{...S.btnPrimary,padding:"7px 14px",fontSize:"12px"}}>Add</button>
+                      </div>
                     ))}
+                  </div>
+                )}
+                {/* Pending requests */}
+                {friendReqs.length>0&&(
+                  <div>
+                    <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg,marginBottom:"10px"}}>Pending requests</div>
+                    <div className="row-list">
+                      {friendReqs.map(f=>{
+                        const other=f.requester_id===user?.id?f.addressee:f.requester;
+                        return(
+                          <div key={f.id} style={{display:"flex",alignItems:"center",gap:"10px",padding:"12px 14px"}}>
+                            <Avatar url={other?.avatar_url} name={other?.full_name} size={36}/>
+                            <div style={{flex:1}}>
+                              <div style={{fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>{other?.full_name||"Player"}</div>
+                            </div>
+                            <button onClick={()=>acceptFriend(f.id)} style={{...S.btnPrimary,padding:"7px 14px",fontSize:"12px"}}>Accept</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {/* Friends list */}
+                {friends.length>0&&(
+                  <div>
+                    <div style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg,marginBottom:"10px"}}>Friends ({friends.length})</div>
+                    <div className="row-list">
+                      {friends.map(f=>{
+                        const other=f.requester_id===user?.id?f.addressee:f.requester;
+                        return(
+                          <div key={f.id} style={{display:"flex",alignItems:"center",gap:"10px",padding:"12px 14px"}}>
+                            <Avatar url={other?.avatar_url} name={other?.full_name} size={36}/>
+                            <div style={{flex:1}}>
+                              <div style={{fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>{other?.full_name||"Player"}</div>
+                              <div style={{fontSize:"11px",color:T.mutedFg}}>HCP {other?.handicap_index||"--"}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1982,258 +1289,217 @@ launch_angle: low/mid-low/mid/mid-high/high  contact_quality: flush/slightly thi
           </div>
         )}
 
-        {tab==="social"&&(
-          <div style={{display:"flex",flexDirection:"column"}}>
-            <div style={{display:"flex",background:D.dark,borderBottom:`1px solid ${D.border}`,position:"sticky",top:"64px",zIndex:10}}>
-              {[{id:"feed",label:"Feed"},{id:"leaderboard",label:"🏆 Board"},{id:"friends",label:"Friends"},{id:"rounds",label:"My Rounds"}].map(t=>(
-                <button key={t.id} onClick={()=>setSocialTab(t.id)} style={{flex:1,padding:"10px 4px",background:"transparent",border:"none",borderBottom:`2px solid ${socialTab===t.id?D.green:"transparent"}`,color:socialTab===t.id?D.green:D.muted,fontSize:"11px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:socialTab===t.id?"600":"400"}}>{t.label}</button>
+        {/* ══ PROFILE TAB ═════════════════════════════════════════ */}
+        {tab==="profile"&&(
+          <div style={{padding:"16px",display:"flex",flexDirection:"column",gap:"16px",paddingBottom:"24px"}}>
+
+            {/* Profile hero */}
+            <div style={{...S.card,display:"flex",alignItems:"center",gap:"14px"}}>
+              <div style={{position:"relative",flexShrink:0}} onClick={()=>setShowAvatarZoom(avatarUrl)}>
+                <Avatar url={avatarUrl} name={userProfile?.full_name||name} size={56}/>
+                <button onClick={e=>{e.stopPropagation();avatarInputRef.current?.click();}}
+                  style={{position:"absolute",bottom:"-2px",right:"-2px",width:"20px",height:"20px",borderRadius:"99px",background:T.primary,color:"#000",border:"none",fontSize:"10px",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontWeight:"700"}}>
+                  {uploadingAvatar?"⏳":"+"}
+                </button>
+                <input ref={avatarInputRef} type="file" accept="image/*" style={{display:"none"}} onChange={handleAvatarUpload}/>
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontFamily:"var(--font-display)",fontSize:"19px",fontWeight:"700",color:T.fg,letterSpacing:"-0.02em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {userProfile?.full_name||name}
+                </div>
+                <div style={{fontSize:"12px",color:T.mutedFg,marginTop:"4px",display:"flex",alignItems:"center",gap:"6px"}}>
+                  <span style={{width:"6px",height:"6px",borderRadius:"99px",background:T.primary,display:"inline-block",flexShrink:0}}/>
+                  HCP {profile.hcp} · {profile.homeCourse||"No home course"}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick stats */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px"}}>
+              {[
+                ["Rounds",rounds.length],
+                ["Avg",rounds.length>0?Math.round(rounds.slice(0,10).reduce((a,r)=>a+(r.total_score||0),0)/Math.min(rounds.length,10)):"--"],
+                ["Best",rounds.length>0?Math.min(...rounds.map(r=>r.total_score||99)):"--"],
+              ].map(([l,v])=>(
+                <div key={l} className="stat-card" style={{textAlign:"center"}}>
+                  <div style={{fontSize:"9px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"1.5px",color:T.mutedFg,marginBottom:"6px"}}>{l}</div>
+                  <div style={{fontFamily:"var(--font-display)",fontSize:"24px",fontWeight:"700",color:T.fg,lineHeight:1}}>{v}</div>
+                </div>
               ))}
             </div>
-            <div style={{padding:"16px"}}>
-              {socialTab==="feed"&&(
-                <>
-                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"16px"}}>Activity Feed</div>
-                  {feed.length===0?(
-                    <div style={{textAlign:"center",padding:"48px 20px"}}>
-                      <div style={{fontSize:"52px",marginBottom:"14px"}}>👥</div>
-                      <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:D.white,marginBottom:"8px"}}>Find Your Crew</div>
-                      <div style={{color:D.muted,fontSize:"14px",lineHeight:1.6}}>Add friends to see their rounds, trash talk them, and compete on the leaderboard</div>
-                      <button onClick={()=>setSocialTab("friends")} style={{...S.btnPrimary,marginTop:"20px",maxWidth:"200px",margin:"20px auto 0"}}>Find Friends</button>
-                    </div>
-                  ):( showAllFeed?feed:feed.slice(0,5) ).map((r,i)=>{
-                    const diff=r.total_score-r.total_par;
-                    const isMe=r.user_id===user?.id;
-                    return(
-                      <div key={i} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:"14px",marginBottom:"10px",overflow:"hidden"}}>
-                        {/* Header row */}
-                        <div style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 12px"}}>
-                          <Avatar name={r.profile?.full_name} size={34} highlight={isMe} photoUrl={r.profile?.avatar_url} T={D} onClick={()=>r.profile?.avatar_url&&setShowAvatarZoom(r.profile.avatar_url)}/>
-                          <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontWeight:"600",color:D.white,fontSize:"13px",fontFamily:"'Space Grotesk',sans-serif"}}>
-                              {r.profile?.full_name||"Golfer"}{isMe&&<span style={{color:D.accent,fontSize:"10px",marginLeft:"5px"}}>you</span>}
-                            </div>
-                            <div style={{fontSize:"11px",color:D.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.course_name||"Unknown"} · {fmtDateShort(r.played_at)}</div>
-                          </div>
-                          <div style={{textAlign:"right",flexShrink:0}}>
-                            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",fontWeight:"700",color:diff<0?D.accent:diff===0?D.blue:D.red,lineHeight:1}}>{diff>0?`+${diff}`:diff===0?"E":diff}</div>
-                            <div style={{fontSize:"10px",color:D.muted}}>{r.total_score} strokes</div>
-                          </div>
-                        </div>
-                        {/* Actions */}
-                        <div style={{display:"flex",borderTop:`1px solid ${D.border}`}}>
-                          <button onClick={()=>{const j=randJab();setJabPost(j);}} style={{flex:1,background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"7px",display:"flex",alignItems:"center",justifyContent:"center",gap:"4px"}}>😂 Jab</button>
-                          <button onClick={()=>speak(`${r.profile?.full_name||"buddy"} shot ${r.total_score}. ${diff<0?"Birdie machine!":diff===0?"Solid par.":"Keep grinding!"}`)} style={{flex:1,background:"transparent",border:"none",borderLeft:`1px solid ${D.border}`,color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"7px",display:"flex",alignItems:"center",justifyContent:"center",gap:"4px"}}>👏 React</button>
-                          {isMe&&<button onClick={()=>shareRound(r)} style={{flex:1,background:"transparent",border:"none",borderLeft:`1px solid ${D.border}`,color:D.accent,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"7px",fontWeight:"600",display:"flex",alignItems:"center",justifyContent:"center",gap:"4px"}}>📤 Share</button>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {!showAllFeed&&feed.length>5&&(
-                    <button onClick={()=>setShowAllFeed(true)} style={{width:"100%",background:D.surface,border:`1px solid ${D.border}`,borderRadius:"12px",padding:"11px",color:D.muted,fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:"500",marginTop:"4px"}}>
-                      View {feed.length-5} more rounds ↓
-                    </button>
-                  )}
-                  {showAllFeed&&feed.length>5&&(
-                    <button onClick={()=>setShowAllFeed(false)} style={{width:"100%",background:"transparent",border:"none",color:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",padding:"6px",marginTop:"4px"}}>
-                      Show less ↑
-                    </button>
-                  )}
-                </>            )}
-              {socialTab==="leaderboard"&&(
-                <>
-                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"4px"}}>Monthly Board</div>
-                  <div style={{color:D.muted,fontSize:"13px",marginBottom:"16px"}}>Best rounds among you and your friends this month</div>
-                  {leaderboard.length===0?(
-                    <div style={{textAlign:"center",padding:"48px 20px"}}><div style={{fontSize:"52px",marginBottom:"14px"}}>🏆</div><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",color:D.white,marginBottom:"8px"}}>No rounds yet</div><div style={{color:D.muted,fontSize:"14px"}}>Save a round to appear here</div></div>
-                  ):leaderboard.map((r,i)=>{
-                    const diff=r.total_score-r.total_par;
-                    const isMe=r.user_id===user?.id;
-                    const medals=["🥇","🥈","🥉"];
-                    return(
-                      <div key={i} style={{background:i===0?`linear-gradient(135deg,${D.accentDim},${D.surface})`:D.card,border:`1px solid ${i===0?D.green:D.border}`,borderRadius:"16px",padding:"14px 16px",marginBottom:"10px",display:"flex",alignItems:"center",gap:"12px"}}>
-                        <div style={{fontSize:"28px",minWidth:"36px",textAlign:"center"}}>{medals[i]||`${i+1}`}</div>
-                        <Avatar name={r.profile?.full_name} size={40} highlight={isMe} photoUrl={r.profile?.avatar_url}/>
-                        <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"14px"}}>{r.profile?.full_name||"Golfer"}{isMe?" 👈":""}</div><div style={{fontSize:"12px",color:D.muted}}>{r.course_name||"Unknown"} · {fmtDateShort(r.played_at)}</div></div>
-                        <div style={{textAlign:"right"}}><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:diff<0?D.green:diff===0?D.blue:D.red,lineHeight:1}}>{diff>0?`+${diff}`:diff===0?"E":diff}</div><div style={{fontSize:"11px",color:D.muted}}>{r.total_score}</div></div>
-                      </div>
-                    );
-                  })}
-                </>
-              )}
-              {socialTab==="friends"&&(
-                <>
-                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"16px"}}>Friends</div>
-                  {friendReqs.length>0&&(
-                    <div style={{marginBottom:"20px"}}>
-                      <div style={{fontSize:"11px",color:D.gold,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>FRIEND REQUESTS ({friendReqs.length})</div>
-                      {friendReqs.map(req=>(
-                        <div key={req.id} style={{...S.card,display:"flex",alignItems:"center",gap:"12px",marginBottom:"8px"}}>
-                          <Avatar name={req.requester?.full_name} size={44} photoUrl={req.requester?.avatar_url}/>
-                          <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{req.requester?.full_name}</div><div style={{fontSize:"12px",color:D.muted}}>wants to connect</div></div>
-                          <button onClick={()=>acceptFriendReq(req.id,req.user_id)} style={{background:`linear-gradient(135deg,${D.green},#16a34a)`,border:"none",borderRadius:"10px",padding:"8px 16px",color:"#fff",fontWeight:"600",fontSize:"13px",cursor:"pointer"}}>Accept</button>
-                        </div>
+
+            {/* My Game section */}
+            <div>
+              <button onClick={()=>setProfileSection(profileSection==="game"?null:"game")}
+                style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"0 0 10px",background:"none",border:"none",cursor:"pointer"}}>
+                <span style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg}}>My Game</span>
+                <span style={{color:T.mutedFg,fontSize:"12px"}}>{profileSection==="game"?"▲":"▼"}</span>
+              </button>
+              {profileSection==="game"&&(
+                <div className="row-list">
+                  {/* Handicap */}
+                  <div style={{padding:"14px"}}>
+                    <div style={{fontSize:"11px",color:T.mutedFg,marginBottom:"8px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>Handicap</div>
+                    <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                      {[{v:"plus",l:"+HCP"},{v:"scratch",l:"Scratch"},{v:"low",l:"Low (1-9)"},{v:"mid",l:"Mid (10-18)"},{v:"high",l:"High (19+)"}].map(o=>(
+                        <button key={o.v} onClick={()=>setProfile(p=>({...p,handicap:o.v}))}
+                          style={{...S.pill,background:profile.handicap===o.v?T.primary:T.surface,color:profile.handicap===o.v?"#000":T.mutedFg,borderColor:profile.handicap===o.v?T.primary:T.border}}>
+                          {o.l}
+                        </button>
                       ))}
                     </div>
-                  )}
-                  <div style={{marginBottom:"20px"}}>
-                    <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>FIND PLAYERS</div>
-                    <input placeholder="Search by name..." value={searchQ} onChange={e=>{setSearchQ(e.target.value);searchUsers(e.target.value);}} style={{...S.input,marginBottom:"10px"}}/>
-                    {searchRes.map(u=>(
-                      <div key={u.id} style={{...S.card,display:"flex",alignItems:"center",gap:"12px",marginBottom:"8px"}}>
-                        <Avatar name={u.full_name} size={44} photoUrl={u.avatar_url}/>
-                        <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{u.full_name}</div><div style={{fontSize:"12px",color:D.muted}}>HCP {u.handicap_index||"—"} · {u.handicap_category||"golfer"}</div></div>
-                        <button onClick={()=>sendFriendReq(u.id)} style={{background:D.accentDim,border:`1px solid ${D.accent}44`,borderRadius:"10px",padding:"8px 14px",color:D.accent,fontWeight:"600",fontSize:"13px",cursor:"pointer"}}>+ Add</button>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>MY FRIENDS ({friends.length})</div>
-                  {friends.length===0?<div style={{textAlign:"center",padding:"24px",color:D.muted,fontSize:"14px"}}>Search above to add your first friend</div>:friends.map(f=>(
-                    <div key={f.id} style={{...S.card,display:"flex",alignItems:"center",gap:"12px",marginBottom:"8px"}}>
-                      <Avatar name={f.full_name} size={44} photoUrl={f.avatar_url} onClick={()=>f.avatar_url&&setShowAvatarZoom(f.avatar_url)}/>
-                      <div style={{flex:1}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{f.full_name}</div><div style={{fontSize:"12px",color:D.muted}}>HCP {f.handicap_index||"—"} · {f.handicap_category||"golfer"}</div></div>
-                      <div style={{fontSize:"22px"}}>⛳</div>
+                    <div style={{marginTop:"12px",display:"flex",alignItems:"center",gap:"12px"}}>
+                      <label style={{fontSize:"11px",color:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",flexShrink:0}}>Index</label>
+                      <input type="number" step="0.1" value={profile.hcp} onChange={e=>setProfile(p=>({...p,hcp:parseFloat(e.target.value)||0}))}
+                        style={{...S.input,width:"80px",textAlign:"center",fontFamily:"var(--font-display)",fontWeight:"700"}}/>
                     </div>
-                  ))}
-                </>
-              )}
-              {socialTab==="rounds"&&(
-                <>
-                  <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginBottom:"16px"}}>My Rounds</div>
-                  {roundHistory.length===0?<div style={{textAlign:"center",padding:"48px 20px"}}><div style={{fontSize:"52px",marginBottom:"14px"}}>📋</div><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"20px",color:D.white,marginBottom:"8px"}}>No rounds saved yet</div><div style={{color:D.muted,fontSize:"14px"}}>Save a round from the Scorecard tab</div></div>:roundHistory.map((r,i)=>{
-                    const diff=r.total_score-r.total_par;
-                    return(
-                      <div key={i} style={{...S.card,marginBottom:"12px"}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:"8px"}}>
-                          <div><div style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",color:D.white,fontSize:"16px"}}>{r.course_name||"Unknown Course"}</div><div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{fmtDate(r.played_at)} · {r.holes_played} holes</div></div>
-                          <div style={{textAlign:"right"}}><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"32px",fontWeight:"800",color:diff<0?D.green:diff===0?D.blue:D.red,lineHeight:1}}>{r.total_score}</div><div style={{fontSize:"11px",color:D.muted}}>{diff>0?`+${diff}`:diff===0?"even par":`${diff}`}</div></div>
-                        </div>
-                        <div style={{display:"flex",gap:"8px"}}>
-                          <button onClick={()=>setShowCard(r)} style={{...S.pill,flex:1,textAlign:"center"}}>📊 Summary Card</button>
-                          <button onClick={()=>shareRound(r)} style={{background:D.accentDim,border:`1px solid ${D.accent}44`,borderRadius:"99px",padding:"5px 14px",color:D.accent,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif",flex:1,textAlign:"center"}}>📤 Share</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* PROFILE TAB */}
-        {tab==="profile"&&(
-          <div style={{padding:"20px 16px"}}>
-            <div style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:"20px",padding:"24px",marginBottom:"20px",textAlign:"center"}}>
-              {/* Avatar with upload */}
-              <div style={{position:"relative",display:"inline-block",marginBottom:"4px"}}>
-                <Avatar name={userProfile?.full_name||user?.email} size={80} highlight photoUrl={avatarUrl} onClick={()=>avatarUrl&&setShowAvatarZoom(avatarUrl)}/>
-                <button onClick={()=>avatarInputRef.current?.click()} style={{position:"absolute",bottom:0,right:0,width:"28px",height:"28px",borderRadius:"50%",background:D.accent,border:"2px solid "+D.dark,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:"14px"}}>
-                  {uploadingAvatar?"⏳":"📷"}
-                </button>
-                <input ref={avatarInputRef} type="file" accept="image/*" onChange={e=>uploadAvatar(e.target.files[0])} style={{display:"none"}}/>
-              </div>
-              <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"22px",fontWeight:"700",letterSpacing:"-0.3px",color:D.white,marginTop:"10px"}}>{userProfile?.full_name||"Golfer"}</div>
-              <div style={{fontSize:"13px",color:D.muted,marginTop:"4px"}}>{user?.email}</div>
-              <div style={{display:"flex",justifyContent:"center",gap:"28px",marginTop:"20px"}}>
-                {[["Rounds",roundHistory.length,"📋"],["Friends",friends.length,"👥"],["HCP",userProfile?.handicap_index||"—","⛳"]].map(([l,v,icon])=>(
-                  <div key={l} style={{textAlign:"center"}}><div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"24px",fontWeight:"700",letterSpacing:"-0.3px",color:D.accent}}>{v}</div><div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{icon} {l}</div></div>
-                ))}
-              </div>
-            </div>
-            <div style={{fontFamily:"'Space Grotesk',sans-serif",fontSize:"17px",fontWeight:"600",letterSpacing:"-0.2px",color:D.white,marginBottom:"14px"}}>Settings</div>
-
-            {/* Name */}
-            <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Your Name</div>
-              <input
-                placeholder="Enter your full name"
-                defaultValue={userProfile?.full_name||""}
-                id="profile-name-input"
-                style={{...S.input}}
-              />
-            </div>
-
-            {/* Dark / Light mode toggle */}
-            <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Display</div>
-              <button onClick={()=>setDarkMode(d=>!d)} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",background:D.surface,border:`1.5px solid ${D.border}`,borderRadius:"14px",padding:"14px 16px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>
-                <span style={{color:D.text,fontSize:"15px",fontWeight:"500"}}>{darkMode?"🌙 Dark Mode":"☀️ Light Mode"}</span>
-                <div style={{width:"48px",height:"26px",borderRadius:"13px",background:darkMode?D.accentDim:D.border,border:`1.5px solid ${darkMode?D.green:D.border}`,position:"relative",transition:"all 0.2s"}}>
-                  <div style={{position:"absolute",top:"3px",left:darkMode?"24px":"3px",width:"18px",height:"18px",borderRadius:"50%",background:darkMode?D.green:D.muted,transition:"all 0.2s"}}/>
+                  </div>
+                  {/* Miss tendency */}
+                  <div style={{padding:"14px"}}>
+                    <div style={{fontSize:"11px",color:T.mutedFg,marginBottom:"8px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>Miss tendency</div>
+                    <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                      {["straight","slight fade","fade","slice","slight draw","draw","hook"].map(m=>(
+                        <button key={m} onClick={()=>setProfile(p=>({...p,missTend:m}))}
+                          style={{...S.pill,background:profile.missTend===m?T.primary:T.surface,color:profile.missTend===m?"#000":T.mutedFg,borderColor:profile.missTend===m?T.primary:T.border}}>
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Caddie persona */}
+                  <div style={{padding:"14px"}}>
+                    <div style={{fontSize:"11px",color:T.mutedFg,marginBottom:"8px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>Caddie persona</div>
+                    <div style={{display:"flex",gap:"6px",flexWrap:"wrap"}}>
+                      {[{v:"hype",l:"🔥 Hype"},{v:"pro",l:"🎯 Tour Pro"},{v:"coach",l:"📚 Coach"},{v:"savage",l:"💀 Savage"},{v:"oldschool",l:"🪨 Old School"}].map(o=>(
+                        <button key={o.v} onClick={()=>setProfile(p=>({...p,persona:o.v}))}
+                          style={{...S.pill,background:profile.persona===o.v?T.primary:T.surface,color:profile.persona===o.v?"#000":T.mutedFg,borderColor:profile.persona===o.v?T.primary:T.border}}>
+                          {o.l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Dexterity */}
+                  <div style={{padding:"14px"}}>
+                    <div style={{fontSize:"11px",color:T.mutedFg,marginBottom:"8px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>Dexterity</div>
+                    <div style={{display:"flex",gap:"6px"}}>
+                      {["right","left"].map(d=>(
+                        <button key={d} onClick={()=>setProfile(p=>({...p,dexterity:d}))}
+                          style={{...S.pill,background:profile.dexterity===d?T.primary:T.surface,color:profile.dexterity===d?"#000":T.mutedFg,borderColor:profile.dexterity===d?T.primary:T.border}}>
+                          {d.charAt(0).toUpperCase()+d.slice(1)}-handed
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Home course */}
+                  <div style={{padding:"14px"}}>
+                    <div style={{fontSize:"11px",color:T.mutedFg,marginBottom:"8px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>Home course</div>
+                    <input placeholder="e.g. Pebble Beach Golf Links" value={profile.homeCourse}
+                      onChange={e=>setProfile(p=>({...p,homeCourse:e.target.value}))} style={S.input}/>
+                  </div>
+                  <div style={{padding:"14px"}}>
+                    <button onClick={saveProfile} style={{...S.btnPrimary,width:"100%",padding:"13px"}}>Save Game Profile</button>
+                  </div>
                 </div>
+              )}
+            </div>
+
+            {/* My Bag section */}
+            <div>
+              <button onClick={()=>setProfileSection(profileSection==="bag"?null:"bag")}
+                style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"0 0 10px",background:"none",border:"none",cursor:"pointer"}}>
+                <span style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg}}>My Bag ({profile.bag.length} clubs)</span>
+                <span style={{color:T.mutedFg,fontSize:"12px"}}>{profileSection==="bag"?"▲":"▼"}</span>
               </button>
-            </div>
-            <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Caddie Style</div>
-              {PERSONAS.map(p=>(
-                <button key={p.id} onClick={()=>setProfile(prev=>({...prev,persona:p.id}))} style={{display:"flex",alignItems:"center",gap:"14px",width:"100%",background:profile.persona===p.id?D.accentDim:D.surface,border:`1.5px solid ${profile.persona===p.id?D.green:D.border}`,borderRadius:"14px",padding:"14px",marginBottom:"8px",cursor:"pointer"}}>
-                  <span style={{fontSize:"22px"}}>{p.icon}</span>
-                  <div style={{flex:1,textAlign:"left"}}><div style={{fontWeight:"600",color:D.white,fontSize:"15px"}}>{p.label}</div><div style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>{p.desc}</div></div>
-                  {profile.persona===p.id&&<div style={{width:"22px",height:"22px",borderRadius:"50%",background:D.accent,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:"12px"}}>✓</div>}
-                </button>
-              ))}
-            </div>
-            <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Handicap</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
-                {HANDICAPS.map(h=>(
-                  <button key={h.value} onClick={()=>setProfile(p=>({...p,handicap:h.value,hcp:h.hcp}))} style={{background:profile.handicap===h.value?D.accentDim:D.surface,border:`1.5px solid ${profile.handicap===h.value?D.green:D.border}`,borderRadius:"14px",padding:"14px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center"}}>
-                    <span style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"16px",color:profile.handicap===h.value?D.accent:D.text}}>{h.label}</span>
-                    <span style={{fontSize:"12px",color:D.muted,marginTop:"2px"}}>HCP {h.sub}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div style={{marginBottom:"18px"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
-                <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase"}}>My Bag</div>
-                <button onClick={()=>setEditingBag(!editingBag)} style={{background:editingBag?D.accentDim:D.surface,border:`1px solid ${editingBag?D.green:D.border}`,borderRadius:"99px",padding:"5px 14px",color:editingBag?D.green:D.muted,fontSize:"12px",cursor:"pointer",fontFamily:"'Inter',sans-serif"}}>{editingBag?"✓ Done":"Edit Distances"}</button>
-              </div>
-              {profile.bag.map((item,idx)=>(
-                <div key={idx} style={{display:"flex",alignItems:"center",gap:"12px",padding:"9px 14px",background:D.surface,borderRadius:"10px",border:`1px solid ${D.border}`,marginBottom:"4px"}}>
-                  <span style={{color:D.muted,fontSize:"13px",minWidth:"72px"}}>{item.club}</span>
-                  {editingBag?<input type="number" value={item.carry} onChange={e=>{const nb=[...profile.bag];nb[idx]={...nb[idx],carry:parseInt(e.target.value)||0};setProfile(p=>({...p,bag:nb}));}} style={{...S.input,width:"70px",padding:"4px 10px",fontSize:"14px"}}/>:<div style={{flex:1,height:"4px",background:D.border,borderRadius:"2px"}}><div style={{height:"100%",width:`${(item.carry/260)*100}%`,background:`linear-gradient(90deg,${D.green},${D.accent})`,borderRadius:"2px",opacity:0.8}}/></div>}
-                  <span style={{color:D.text,fontSize:"14px",fontWeight:"600",minWidth:"44px",textAlign:"right"}}>{item.carry}y</span>
+              {profileSection==="bag"&&(
+                <div className="row-list">
+                  {profile.bag.map(function(b,i){return(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px"}}>
+                      <div style={{flex:1,fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>{b.club}</div>
+                      <input type="number" value={b.carry}
+                        onChange={e=>{const v=parseInt(e.target.value)||0;setProfile(p=>{const bag=[...p.bag];bag[i]={...bag[i],carry:v};return{...p,bag};});}}
+                        style={{...S.input,width:"72px",textAlign:"center",padding:"7px",fontFamily:"var(--font-display)",fontWeight:"700"}}/>
+                      <span style={{fontSize:"11px",color:T.mutedFg,fontFamily:"var(--font-display)",fontWeight:"700"}}>yds</span>
+                    </div>
+                  );})}
+                  <div style={{padding:"14px"}}>
+                    <button onClick={saveProfile} style={{...S.btnPrimary,width:"100%",padding:"13px"}}>Save Bag</button>
+                  </div>
                 </div>
-              ))}
-            </div>
-            {/* Dexterity */}
-            <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Dexterity</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px"}}>
-                {[{v:"right",label:"Right Handed",icon:"🏌️"},{v:"left",label:"Left Handed",icon:"🏌️‍♂️"}].map(dx=>(
-                  <button key={dx.v} onClick={()=>setProfile(p=>({...p,dexterity:dx.v}))} style={{background:profile.dexterity===dx.v?D.accentDim:D.surface,border:`1.5px solid ${profile.dexterity===dx.v?D.green:D.border}`,borderRadius:"14px",padding:"14px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:"6px"}}>
-                    <span style={{fontSize:"24px"}}>{dx.icon}</span>
-                    <span style={{fontFamily:"'Space Grotesk',sans-serif",fontWeight:"700",fontSize:"13px",color:profile.dexterity===dx.v?D.accent:D.text}}>{dx.label}</span>
-                  </button>
-                ))}
-              </div>
+              )}
             </div>
 
-            {/* Home Course */}
-            <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Home Course</div>
-              <input placeholder="e.g. Pebble Beach, Augusta National..." value={profile.homeCourse||""} onChange={e=>setProfile(p=>({...p,homeCourse:e.target.value}))} style={{...S.input}}/>
-              <div style={{fontSize:"11px",color:D.muted,marginTop:"6px"}}>Obi will use this to give you course-specific tips</div>
+            {/* App Settings section */}
+            <div>
+              <button onClick={()=>setProfileSection(profileSection==="app"?null:"app")}
+                style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",padding:"0 0 10px",background:"none",border:"none",cursor:"pointer"}}>
+                <span style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.18em",color:T.mutedFg}}>App Settings</span>
+                <span style={{color:T.mutedFg,fontSize:"12px"}}>{profileSection==="app"?"▲":"▼"}</span>
+              </button>
+              {profileSection==="app"&&(
+                <div className="row-list">
+                  <div style={{padding:"14px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <div>
+                      <div style={{fontFamily:"var(--font-display)",fontSize:"13px",fontWeight:"700",color:T.fg}}>Dark Mode</div>
+                      <div style={{fontSize:"11px",color:T.mutedFg,marginTop:"2px"}}>Currently {isDark?"dark":"light"}</div>
+                    </div>
+                    <button onClick={()=>setIsDark(d=>!d)}
+                      style={{width:"48px",height:"26px",borderRadius:"99px",border:"none",background:isDark?T.primary:T.muted,cursor:"pointer",position:"relative",transition:"background 0.2s"}}>
+                      <div style={{position:"absolute",top:"3px",left:isDark?"24px":"3px",width:"20px",height:"20px",borderRadius:"99px",background:"#fff",transition:"left 0.2s"}}/>
+                    </button>
+                  </div>
+                  <div style={{padding:"14px"}}>
+                    <div style={{fontSize:"11px",color:T.mutedFg,marginBottom:"8px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em"}}>Practice goal</div>
+                    <textarea placeholder="e.g. Reduce over-the-top swing path..." value={profile.practiceGoal}
+                      onChange={e=>setProfile(p=>({...p,practiceGoal:e.target.value}))}
+                      rows={2} style={{...S.input,resize:"none"}}/>
+                  </div>
+                  <div style={{padding:"14px"}}>
+                    <button onClick={handleLogout}
+                      style={{...S.btnSecondary,width:"100%",padding:"13px",color:T.red,borderColor:T.red+"44"}}>
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-
-            <div style={{marginBottom:"18px"}}>
-              <div style={{fontSize:"11px",color:D.muted,letterSpacing:"2px",textTransform:"uppercase",marginBottom:"10px"}}>Typical Miss</div>
-              <div style={{display:"flex",gap:"8px",flexWrap:"wrap"}}>
-                {["straight","fade","slice","draw","hook","pull","push"].map(m=>(
-                  <button key={m} onClick={()=>setProfile(p=>({...p,missTend:m}))} style={{background:profile.missTend===m?D.accentDim:D.surface,border:`1.5px solid ${profile.missTend===m?D.green:D.border}`,color:profile.missTend===m?D.green:D.muted,borderRadius:"99px",padding:"7px 14px",fontSize:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",fontWeight:profile.missTend===m?"600":"400"}}>{m}</button>
-                ))}
-              </div>
-            </div>
-            <button onClick={saveProfile} style={{...S.btnPrimary,marginBottom:"10px"}}>💾 Save Changes</button>
-            <button onClick={fetchWeather} style={{...S.btnSecondary,marginBottom:"10px"}}>{wxLoading?"Refreshing...":"🔄 Refresh Weather"}</button>
-            <button onClick={handleLogout} style={{background:"transparent",border:`1.5px solid ${D.red}44`,borderRadius:"14px",color:D.red,fontSize:"15px",padding:"13px",cursor:"pointer",fontFamily:"'Inter',sans-serif",width:"100%",marginBottom:"20px"}}>Sign Out</button>
           </div>
         )}
+
       </div>
-      <style>{CSS}</style>
+
+      {/* ── BOTTOM NAV ───────────────────────────────────────────── */}
+      <nav style={{flexShrink:0,background:T.bg,borderTop:"1px solid "+T.border,paddingBottom:"env(safe-area-inset-bottom)",zIndex:20}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",padding:"6px 8px 8px"}}>
+          {[
+            {id:"caddie",   label:"Caddie",   emoji:"💬"},
+            {id:"practice", label:"Practice", emoji:"🎯"},
+            {id:"social",   label:"Social",   emoji:"👥", badge:friendReqs.length},
+            {id:"profile",  label:"Profile",  emoji:"👤"},
+          ].map(t=>{
+            const isActive=tab===t.id;
+            return(
+              <button key={t.id} onClick={()=>changeTab(t.id)}
+                style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",padding:"6px 4px",background:"transparent",border:"none",cursor:"pointer",position:"relative"}}>
+                <div style={{width:"44px",height:"28px",borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"center",background:isActive?T.primaryDim:"transparent",color:isActive?T.primary:T.mutedFg,transition:"all 0.15s"}}>
+                  {t.emoji}
+                </div>
+                {isActive&&<div className="nav-pip"/>}
+                <span style={{fontSize:"10px",fontFamily:"var(--font-display)",fontWeight:"700",textTransform:"uppercase",letterSpacing:"0.06em",color:isActive?T.fg:T.mutedFg,lineHeight:1}}>
+                  {t.label}
+                </span>
+                {t.badge>0&&(
+                  <div style={{position:"absolute",top:"4px",right:"calc(50% - 20px)",width:"7px",height:"7px",borderRadius:"99px",background:T.red}}/>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
     </div>
   );
 }
 
-export default function ObiGolf(){ return <ErrorBoundary><ObiGolfApp/></ErrorBoundary>; }
+export default function ObiGolf(){
+  return <ErrorBoundary><ObiGolfApp/></ErrorBoundary>;
+}
