@@ -345,7 +345,7 @@ function ObiGolfApp(){
     const bagStr=profile.bag.map(b=>b.club+":"+b.carry+"y").join(", ");
     const wx=weather?"Wind "+weather.wind+"mph "+windDir(weather.windDeg)+". "+weather.temp+"F.":"No weather.";
     const py=yardage?playingYards(parseInt(yardage),elevation,weather?.wind||0,weather?.windDeg||0):null;
-    const name=firstName(userProfile?.full_name);
+    const name=firstName(userProfile?.full_name)||"Golfer";
     const handed=profile.dexterity==="left"?"left-handed":"right-handed";
     const yardStr=yardage?(yardage+"y actual, ~"+py+"y playing"):"not set";
     const recentStr=shotHistory.slice(-3).map(s=>"H"+s.hole+": "+s.outcome).join(". ")||"none";
@@ -610,11 +610,9 @@ function ObiGolfApp(){
   };
 
   // ── Loading screen ───────────────────────────────────────────────
-  const name = firstName(userProfile?.full_name) || "Golfer";
 
   // ── LOADING ───────────────────────────────────────────────────
 
-  const name = firstName(userProfile?.full_name) || "Golfer";
   const avgScore = rounds.length > 0 ? Math.round(rounds.slice(0,10).reduce((a,r)=>a+(r.total_score||0),0)/Math.min(rounds.length,10)) : null;
   const bestScore = rounds.length > 0 ? Math.min(...rounds.map(r=>r.total_score||99)) : null;
 
