@@ -10,6 +10,43 @@ function cn(...c){return c.filter(Boolean).join(" ");}
 const NAV=[{id:"home",label:"Home",Icon:Home},{id:"practice",label:"Practice",Icon:Target},{id:"caddie",label:"Caddie",Icon:MessageCircle},{id:"social",label:"Social",Icon:Users}];
 const LOGO="data:image/png;base64,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";
 
+// ── Accurate hole data for famous courses ──────────────────────────
+const COURSE_DB={
+  "pebble beach":{name:"Pebble Beach Golf Links",
+    holes:[{par:4,yards:381,si:11},{par:5,yards:502,si:7},{par:4,yards:390,si:9},{par:4,yards:331,si:17},{par:3,yards:188,si:13},{par:5,yards:513,si:3},{par:3,yards:106,si:15},{par:4,yards:418,si:5},{par:4,yards:466,si:1},{par:4,yards:495,si:2},{par:4,yards:380,si:14},{par:3,yards:202,si:16},{par:4,yards:392,si:10},{par:5,yards:573,si:4},{par:4,yards:397,si:8},{par:4,yards:402,si:12},{par:3,yards:178,si:18},{par:5,yards:543,si:6}]},
+  "augusta national":{name:"Augusta National Golf Club",
+    holes:[{par:4,yards:445,si:4},{par:5,yards:575,si:14},{par:4,yards:350,si:16},{par:3,yards:240,si:10},{par:4,yards:455,si:6},{par:3,yards:180,si:18},{par:4,yards:450,si:2},{par:5,yards:570,si:8},{par:4,yards:460,si:12},{par:4,yards:495,si:1},{par:4,yards:520,si:3},{par:3,yards:155,si:17},{par:5,yards:510,si:9},{par:4,yards:440,si:5},{par:5,yards:530,si:11},{par:3,yards:170,si:15},{par:4,yards:440,si:7},{par:4,yards:465,si:13}]},
+  "tpc sawgrass":{name:"TPC Sawgrass (Stadium)",
+    holes:[{par:4,yards:423,si:7},{par:5,yards:532,si:13},{par:3,yards:177,si:15},{par:4,yards:384,si:11},{par:4,yards:466,si:3},{par:4,yards:393,si:9},{par:5,yards:442,si:17},{par:3,yards:237,si:5},{par:5,yards:583,si:1},{par:4,yards:424,si:6},{par:5,yards:558,si:12},{par:4,yards:358,si:16},{par:3,yards:181,si:18},{par:4,yards:467,si:2},{par:4,yards:449,si:4},{par:5,yards:523,si:10},{par:3,yards:137,si:14},{par:4,yards:447,si:8}]},
+  "st andrews":{name:"St Andrews (Old Course)",
+    holes:[{par:4,yards:376,si:15},{par:4,yards:453,si:9},{par:4,yards:397,si:11},{par:4,yards:480,si:3},{par:5,yards:568,si:7},{par:4,yards:416,si:13},{par:4,yards:372,si:17},{par:3,yards:175,si:5},{par:4,yards:356,si:1},{par:4,yards:380,si:16},{par:3,yards:174,si:18},{par:4,yards:348,si:12},{par:4,yards:465,si:4},{par:5,yards:618,si:2},{par:4,yards:456,si:6},{par:4,yards:424,si:10},{par:4,yards:495,si:8},{par:4,yards:357,si:14}]},
+  "torrey pines south":{name:"Torrey Pines (South)",
+    holes:[{par:4,yards:452,si:9},{par:4,yards:389,si:15},{par:3,yards:199,si:13},{par:4,yards:490,si:1},{par:4,yards:454,si:5},{par:5,yards:524,si:11},{par:4,yards:453,si:3},{par:3,yards:171,si:17},{par:5,yards:568,si:7},{par:4,yards:408,si:12},{par:4,yards:225,si:18},{par:4,yards:504,si:2},{par:3,yards:216,si:14},{par:4,yards:450,si:4},{par:4,yards:446,si:6},{par:5,yards:570,si:8},{par:3,yards:223,si:16},{par:5,yards:570,si:10}]},
+  "pinehurst no 2":{name:"Pinehurst No. 2",
+    holes:[{par:4,yards:414,si:11},{par:4,yards:459,si:5},{par:4,yards:335,si:17},{par:4,yards:549,si:1},{par:4,yards:482,si:3},{par:3,yards:216,si:13},{par:4,yards:406,si:9},{par:4,yards:484,si:7},{par:3,yards:165,si:15},{par:5,yards:609,si:6},{par:4,yards:453,si:2},{par:4,yards:442,si:8},{par:4,yards:380,si:4},{par:4,yards:447,si:10},{par:3,yards:207,si:16},{par:4,yards:531,si:14},{par:3,yards:197,si:18},{par:4,yards:445,si:12}]},
+  "bethpage black":{name:"Bethpage (Black Course)",
+    holes:[{par:4,yards:430,si:7},{par:4,yards:389,si:13},{par:3,yards:230,si:5},{par:5,yards:517,si:11},{par:4,yards:451,si:3},{par:4,yards:408,si:9},{par:5,yards:537,si:15},{par:3,yards:210,si:17},{par:4,yards:430,si:1},{par:4,yards:492,si:2},{par:4,yards:435,si:8},{par:4,yards:499,si:4},{par:3,yards:207,si:16},{par:4,yards:161,si:18},{par:4,yards:449,si:10},{par:4,yards:478,si:6},{par:3,yards:207,si:14},{par:4,yards:411,si:12}]},
+  "kiawah island ocean":{name:"Kiawah Island (Ocean Course)",
+    holes:[{par:4,yards:395,si:14},{par:5,yards:543,si:8},{par:4,yards:390,si:10},{par:4,yards:453,si:4},{par:3,yards:207,si:16},{par:5,yards:455,si:6},{par:5,yards:527,si:12},{par:3,yards:197,si:18},{par:4,yards:464,si:2},{par:4,yards:439,si:1},{par:4,yards:562,si:3},{par:4,yards:466,si:5},{par:4,yards:404,si:11},{par:3,yards:194,si:17},{par:4,yards:421,si:9},{par:5,yards:579,si:7},{par:3,yards:221,si:15},{par:4,yards:431,si:13}]},
+  "erin hills":{name:"Erin Hills Golf Course",
+    holes:[{par:4,yards:449,si:5},{par:5,yards:624,si:3},{par:4,yards:438,si:9},{par:4,yards:490,si:1},{par:3,yards:243,si:7},{par:4,yards:488,si:11},{par:5,yards:586,si:15},{par:3,yards:218,si:17},{par:4,yards:509,si:13},{par:4,yards:472,si:2},{par:4,yards:396,si:14},{par:4,yards:456,si:8},{par:3,yards:171,si:18},{par:4,yards:475,si:6},{par:4,yards:428,si:10},{par:5,yards:640,si:4},{par:3,yards:237,si:16},{par:4,yards:427,si:12}]},
+};
+
+function matchCourse(input){
+  if(!input)return null;
+  const k=input.toLowerCase().trim();
+  for(const key of Object.keys(COURSE_DB)){
+    if(k.includes(key)||key.includes(k))return COURSE_DB[key];
+  }
+  // Partial match
+  for(const key of Object.keys(COURSE_DB)){
+    const words=key.split(" ");
+    if(words.some(w=>w.length>3&&k.includes(w)))return COURSE_DB[key];
+  }
+  return null;
+}
+
+
 // ── CSS injected into <head> ───────────────────────────────────────
 const CSS=`
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
@@ -176,6 +213,10 @@ function ObiGolfApp(){
   const [input,setInput]=useState("");
   const [loading,setLoading]=useState(false);
   const [speaking,setSpeaking]=useState(false);
+  const [autoSpeak,setAutoSpeak]=useState(()=>{try{return localStorage.getItem("obi_autospeak")!=="false";}catch{return true;}});
+  const [micActive,setMicActive]=useState(false);
+  const [micSupported]=useState(()=>!!( window.SpeechRecognition||window.webkitSpeechRecognition));
+  const recognizerRef=useRef(null);
   const [shotHistory,setShotHistory]=useState([]);
   const [scorecard,setScorecard]=useState(Array(18).fill(null));
   const [fairways,setFairways]=useState(Array(18).fill(null));   // true/false/null
@@ -403,24 +444,20 @@ function ObiGolfApp(){
     if(!courseName||holeMapLoading)return;
     setHoleMapLoading(true);setHoleMap(null);setOsmError(false);
 
+    // ── STEP 0: Check local DB for accurate par/yardage ─────────────
+    const dbCourse=matchCourse(courseName);
+    const dbHole=dbCourse?.holes?.[holeNum-1];
+    if(dbHole){
+      setYardage(String(dbHole.yards));
+      setHolePars(prev=>{const n=[...prev];n[holeNum-1]=dbHole.par;return n;});
+    }
+
     // ── STEP 1: Try OpenStreetMap Overpass API for real course data ──
     let osmData=null;
     try{
-      const q=`[out:json][timeout:20];
-area["name"~"${courseName}",i]["leisure"="golf_course"]->.c;
-(
-  way["golf"="fairway"]["ref"="${holeNum}"](area.c);
-  way["golf"="green"]["ref"="${holeNum}"](area.c);
-  way["golf"="bunker"]["ref"="${holeNum}"](area.c);
-  way["golf"="water_hazard"]["ref"="${holeNum}"](area.c);
-  way["golf"="tee"]["ref"="${holeNum}"](area.c);
-  way["golf"="fairway"](area.c);
-  way["golf"="green"](area.c);
-  way["golf"="bunker"](area.c);
-  way["golf"="tee"](area.c);
-  way["golf"="water_hazard"](area.c);
-);
-out body;>;out skel qt;`;
+      // Build Overpass query - search by course name first
+      const courseWords=courseName.split(" ").filter(w=>w.length>3).slice(0,2).join("|");
+      const q="[out:json][timeout:25];"+"area["+'"name"~"'+courseName+'",i]["leisure"="golf_course"]->.c;'+"(way["golf"](area.c);node["golf"](area.c););out body;>;out skel qt;";
       const resp=await fetch("https://overpass-api.de/api/interpreter",{
         method:"POST",body:"data="+encodeURIComponent(q),
         headers:{"Content-Type":"application/x-www-form-urlencoded"}
@@ -433,12 +470,22 @@ out body;>;out skel qt;`;
 
     // ── STEP 2: Always get authoritative data from Gemini ────────────
     try{
-      const p="Return ONLY a JSON object, no markdown. Course: "+courseName+" Hole: "+holeNum+
-        ". Include: par (integer), yards (integer from tee to center of green), strokeIndex (handicap index 1-18),"+
-        " description (one sentence), shape (straight/dogleg-left/dogleg-right), "+
-        " tee_lat, tee_lng, green_lat, green_lng (real GPS decimal coordinates),"+
-        " hazards (array of strings), tips (one specific sentence for this hole)."+
-        " Use your knowledge of the actual course. Be precise with yardage and par.";
+      const knownYards=dbHole?dbHole.yards:null;
+      const knownPar=dbHole?dbHole.par:null;
+      const p="Return ONLY valid JSON, no markdown. "+
+        "Golf course: "+courseName+". Hole number: "+holeNum+". "+
+        (knownPar?"Par is "+knownPar+". ":"")+(knownYards?"Yardage is "+knownYards+" yards. ":"")+
+        "Return: {"+
+        '"par":'+( knownPar||"integer")+
+        ',"yards":'+(knownYards||"integer")+
+        ',"strokeIndex":integer 1-18'+
+        ',"description":"one sentence about this specific hole layout and main challenge"'+
+        ',"shape":"straight OR dogleg-left OR dogleg-right OR double-dogleg"'+
+        ',"tee_lat":decimal GPS lat,"tee_lng":decimal GPS lng'+
+        ',"green_lat":decimal GPS lat,"green_lng":decimal GPS lng'+
+        ',"hazards":["short string per hazard e.g. water left, bunker front right"]'+
+        ',"tips":"one actionable strategic sentence for this specific hole"'+
+        '}. Use your knowledge of the real course layout. GPS coords must be accurate.';
       const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({messages:[{role:"user",content:p}],
           system:"Golf course data API. Return only valid JSON. Be accurate with real course data."})});
@@ -447,21 +494,66 @@ out body;>;out skel qt;`;
       const s=t.indexOf("{"),e=t.lastIndexOf("}");
       if(s>=0&&e>s){
         const gd=JSON.parse(t.slice(s,e+1));
-        setHoleMap({...gd,osmFeatures:osmData});
-        if(gd.yards)setYardage(String(gd.yards));
-        if(gd.par)setHolePars(prev=>{const n=[...prev];n[holeNum-1]=gd.par;return n;});
+        // DB data is more reliable than Gemini for par/yardage
+        const finalPar=dbHole?.par||gd.par||4;
+        const finalYards=dbHole?.yards||gd.yards||400;
+        const finalSI=dbHole?.si||gd.strokeIndex||holeNum;
+        setHoleMap({...gd,par:finalPar,yards:finalYards,strokeIndex:finalSI,osmFeatures:osmData});
+        setYardage(String(finalYards));
+        setHolePars(prev=>{const n=[...prev];n[holeNum-1]=finalPar;return n;});
       }
     }catch(e){
       // If Gemini fails but we have OSM, still show map
-      if(osmData){
-        setHoleMap({par:osmData.estimatedPar||4,yards:osmData.estimatedYards||400,
-          description:courseName+" hole "+holeNum,hazards:[],tips:"",osmFeatures:osmData});
+      if(osmData||dbHole){
+        const fallPar=dbHole?.par||osmData?.estimatedPar||4;
+        const fallYards=dbHole?.yards||osmData?.estimatedYards||400;
+        setHoleMap({par:fallPar,yards:fallYards,strokeIndex:dbHole?.si||holeNum,
+          description:courseName+" hole "+holeNum,shape:"straight",hazards:[],tips:"",osmFeatures:osmData});
+        setYardage(String(fallYards));
+        setHolePars(prev=>{const n=[...prev];n[holeNum-1]=fallPar;return n;});
+      }else{
+        // Pure fallback when we have nothing
+        setHoleMap({par:4,yards:400,description:courseName+" hole "+holeNum,
+          shape:"straight",hazards:[],tips:"Play to the center.",osmFeatures:null});
       }
     }
     setHoleMapLoading(false);
   },[holeMapLoading,holePars,yardage]);
 
+  // When course is set, pre-populate all 18 pars from DB
+  useEffect(()=>{
+    const db=matchCourse(course);
+    if(db?.holes){
+      setHolePars(db.holes.map(h=>h.par));
+    }
+  },[course]);
+
   useEffect(()=>{if(course&&showHoleMap)fetchHoleMap(course,hole);},[hole,course]);
+
+  // Auto-brief: when hole changes mid-round, ask Obi for a quick read
+  const prevHoleRef=useRef(1);
+  useEffect(()=>{
+    if(prevHoleRef.current!==hole&&course&&messages.length>0){
+      prevHoleRef.current=hole;
+      const par=holePars[hole-1]||4;
+      const autoMsg="Hole "+hole+", par "+par+(yardage?", "+yardage+"y":"")+". Quick read.";
+      sendMessage(autoMsg);
+    }
+    prevHoleRef.current=hole;
+  },[hole]);
+
+  // Auto-brief from Obi when hole changes (if course is set and player is in a round)
+  const prevHoleRef=useRef(hole);
+  useEffect(()=>{
+    if(prevHoleRef.current!==hole&&course){
+      prevHoleRef.current=hole;
+      // Brief auto-message: ask for the hole briefing
+      const par=holePars[hole-1]||4;
+      const yards=yardage||"unknown";
+      const autoMsg="We\'re on hole "+hole+", par "+par+(yardage?", "+yards+" yards":"")+". Give me a quick briefing.";
+      sendMessage(autoMsg);
+    }
+  },[hole]);
 
   // ── Parse OSM data into renderable features ───────────────────────
   const parseOSMHole=(osmData,holeNum)=>{
@@ -742,10 +834,61 @@ out body;>;out skel qt;`;
       const d=await r.json();
       const reply=d.content[0].text;
       setMessages(m=>[...m,{role:"assistant",content:reply}]);
+      // Auto-speak if enabled
+      if(autoSpeak){
+        setTimeout(()=>speakText(reply),150);
+      }
     }catch(e){
       setMessages(m=>[...m,{role:"assistant",content:"Sorry, having trouble connecting. Try again."}]);
     }
     setLoading(false);
+  };
+
+  // ── Voice output ──────────────────────────────────────────────────
+  const speakText=(text)=>{
+    if(!window.speechSynthesis)return;
+    window.speechSynthesis.cancel();
+    const clean=text.replace(/[*_#]/g,"").replace(/\n/g," ").trim();
+    const utt=new SpeechSynthesisUtterance(clean);
+    utt.rate=0.92;utt.pitch=0.92;utt.volume=1;
+    // Prefer a natural voice
+    const voices=window.speechSynthesis.getVoices();
+    const preferred=voices.find(v=>v.name.includes("Samantha")||v.name.includes("Daniel")||v.name.includes("Alex")||v.name.includes("Google")||v.lang==="en-US");
+    if(preferred)utt.voice=preferred;
+    utt.onstart=()=>setSpeaking(true);
+    utt.onend=()=>setSpeaking(false);
+    utt.onerror=()=>setSpeaking(false);
+    window.speechSynthesis.speakText(utt);
+  };
+
+  const stopSpeak=()=>{
+    if(window.speechSynthesis)window.speechSynthesis.cancel();
+    setSpeaking(false);
+  };
+
+  // ── Voice input (mic) ─────────────────────────────────────────────
+  const startMic=()=>{
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR)return;
+    if(micActive){
+      recognizerRef.current?.stop();
+      setMicActive(false);return;
+    }
+    const r=new SR();
+    r.lang="en-US";r.continuous=false;r.interimResults=true;
+    r.onstart=()=>setMicActive(true);
+    r.onend=()=>setMicActive(false);
+    r.onerror=()=>setMicActive(false);
+    r.onresult=e=>{
+      const transcript=Array.from(e.results).map(r=>r[0].transcript).join("");
+      setInput(transcript);
+      if(e.results[e.results.length-1].isFinal){
+        setMicActive(false);
+        setTimeout(()=>sendMessage(transcript),100);
+      }
+    };
+    recognizerRef.current=r;
+    r.start();
   };
 
   const speak=(text)=>{
@@ -755,7 +898,7 @@ out body;>;out skel qt;`;
     utt.rate=0.93;utt.pitch=0.95;
     utt.onend=()=>setSpeaking(false);
     setSpeaking(true);
-    window.speechSynthesis.speak(utt);
+    window.speechSynthesis.speakText(utt);
   };
 
   useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"});},[messages]);
@@ -1243,7 +1386,7 @@ out body;>;out skel qt;`;
                   <div className="rounded-xl border border-border bg-card p-4 mb-2">
                     <div className="flex items-center justify-between mb-3"><p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Last swing · {swingNotes||"Unknown"}</p><span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Just now</span></div>
                     <p className="text-sm text-muted-foreground leading-relaxed mb-3">{swingAnalysis.slice(0,150)}...</p>
-                    <button onClick={()=>speak(swingAnalysis)} className="display text-[10px] font-bold uppercase tracking-wider border-b-2 border-foreground pb-0.5">See full breakdown</button>
+                    <button onClick={()=>speakText(swingAnalysis)} className="display text-[10px] font-bold uppercase tracking-wider border-b-2 border-foreground pb-0.5">See full breakdown</button>
                   </div>
                   <div className="rounded-xl border border-primary/40 bg-primary/10 p-4">
                     <div className="flex items-center gap-1.5 mb-1"><Sparkles className="h-3 w-3" strokeWidth={2.5}/><p className="display text-[10px] font-bold uppercase tracking-[0.18em]">Obi&apos;s read</p></div>
@@ -1256,7 +1399,7 @@ out body;>;out skel qt;`;
                 <div className="rounded-xl border border-border bg-card p-4 mb-2">
                   <div className="flex items-center justify-between mb-2"><p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Last swing · {swingHistory[0].club_used||"Unknown"}</p><span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{fmtDateShort(swingHistory[0].created_at)}</span></div>
                   <p className="text-sm text-muted-foreground leading-relaxed">{swingHistory[0].analysis?.slice(0,120)}...</p>
-                  <button onClick={()=>speak(swingHistory[0].analysis||"")} className="display text-[10px] font-bold uppercase tracking-wider border-b-2 border-foreground pb-0.5 mt-2">See full breakdown</button>
+                  <button onClick={()=>speakText(swingHistory[0].analysis||"")} className="display text-[10px] font-bold uppercase tracking-wider border-b-2 border-foreground pb-0.5 mt-2">See full breakdown</button>
                 </div>
               )}
             </div>
@@ -1393,18 +1536,21 @@ out body;>;out skel qt;`;
                     {showHoleMap&&(
                       <div className="flex items-center gap-2">
                         {gpsWatcher==null?(
-                          <button onClick={()=>{startGPS();}} className="display text-[10px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-1">
-                            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg>
-                            GPS off
+                          <button onClick={startGPS}
+                            className="display text-[10px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-1.5 border border-primary/30 rounded-lg px-2 py-1 bg-primary/10 hover:bg-primary/20 transition">
+                            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                            Enable GPS rangefinder
                           </button>
                         ):(
-                          <button onClick={stopGPS} className="display text-[10px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-1">
-                            <span className="h-2 w-2 rounded-full bg-primary animate-pulse inline-block"/>
-                            GPS on
+                          <button onClick={stopGPS}
+                            className="display text-[10px] font-bold uppercase tracking-wider text-primary inline-flex items-center gap-1.5 border border-primary/30 rounded-lg px-2 py-1 bg-primary/10">
+                            <span className="h-2 w-2 rounded-full bg-primary inline-block" style={{animation:"pulse-dot 1s infinite"}}/>
+                            GPS live
                           </button>
                         )}
-                        <button onClick={()=>fetchHoleMap(course,hole)} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">
-                          Refresh
+                        <button onClick={()=>fetchHoleMap(course,hole)}
+                          className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition">
+                          ↺ Refresh
                         </button>
                       </div>
                     )}
@@ -1443,19 +1589,35 @@ out body;>;out skel qt;`;
                             <HoleMapCanvas map={holeMap} gps={gpsPos} W={260} H={400}/>
                           </div>
 
-                          {/* GPS distance bar */}
-                          {gpsPos&&holeMap.green_lat&&(
-                            <div className="grid grid-cols-3 gap-px bg-border">
-                              {[
-                                ["To pin",haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)+"y"],
-                                ["From tee",holeMap.tee_lat?haversineYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng)+"y":"--"],
-                                ["Acc",gpsPos.accuracy?Math.round(gpsPos.accuracy)+"m":"--"],
-                              ].map(([l,v])=>(
-                                <div key={l} className="bg-card px-3 py-2 text-center">
-                                  <p className="display text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{l}</p>
-                                  <p className="stat text-[18px] leading-tight text-primary">{v}</p>
+                          {/* GPS rangefinder bar */}
+                          {gpsPos&&(
+                            <div className="border-t border-border">
+                              {holeMap.green_lat?(
+                                <div className="grid grid-cols-3 gap-px bg-border">
+                                  {[
+                                    ["To pin",haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)+"y"],
+                                    ["From tee",holeMap.tee_lat?haversineYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng)+"y":"--"],
+                                    ["GPS acc",gpsPos.acc?"±"+gpsPos.acc+"m":"--"],
+                                  ].map(([l,v])=>(
+                                    <div key={l} className="bg-card px-2 py-2.5 text-center">
+                                      <p className="display text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-0.5">{l}</p>
+                                      <p className="stat text-[22px] leading-none text-primary">{v}</p>
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
+                              ):(
+                                <div className="bg-card px-3 py-2.5 text-center">
+                                  <p className="display text-[11px] font-bold text-muted-foreground">GPS active — waiting for hole coordinates</p>
+                                  <p className="text-[11px] text-muted-foreground mt-0.5">Tap Refresh to load hole map with GPS data</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          {!gpsPos&&(
+                            <div className="border-t border-border bg-primary/5 px-3 py-2.5">
+                              <p className="display text-[10px] font-bold uppercase tracking-wider text-primary/80">
+                                📍 Enable GPS to use as rangefinder — live distances update as you walk
+                              </p>
                             </div>
                           )}
 
@@ -1593,10 +1755,17 @@ out body;>;out skel qt;`;
                   </div>
                   <p className="display text-xl font-bold tracking-tight leading-tight mb-1">{messages[messages.length-1].content.split(".")[0]}.</p>
                   <p className="text-sm text-muted-foreground leading-snug">{messages[messages.length-1].content.split(".").slice(1).join(".").trim()}</p>
-                  <div className="flex gap-3 mt-3">
-                    <button onClick={()=>sendMessage("Why do you recommend that?")} className="display text-[10px] font-bold uppercase tracking-wider text-foreground border-b-2 border-foreground pb-0.5">Why?</button>
-                    <button onClick={()=>sendMessage("What are my alternatives?")} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition pb-0.5">Alternatives</button>
-                    <button onClick={()=>speak(messages[messages.length-1].content)} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition pb-0.5 ml-auto">{speaking?"Stop":"Read"}</button>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <button onClick={()=>sendMessage("Why do you recommend that?")}
+                      className="display text-[10px] font-bold uppercase tracking-wider bg-foreground text-background rounded-lg px-2.5 py-1.5 hover:opacity-80 transition">Why?</button>
+                    <button onClick={()=>sendMessage("What are my alternatives?")}
+                      className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 hover:border-foreground/50 transition text-foreground">Alternatives</button>
+                    <button onClick={()=>sendMessage("What\'s my biggest risk on this hole?")}
+                      className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 hover:border-foreground/50 transition text-foreground">Risk?</button>
+                    <button onClick={()=>{speaking?stopSpeak():speakText(messages[messages.length-1].content);}}
+                      className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 transition ml-auto",speaking?"bg-primary/20 text-primary border border-primary/40":"border border-border text-muted-foreground hover:text-foreground")}>
+                      {speaking?"⏹ Stop":"🔊 Read"}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1634,23 +1803,92 @@ out body;>;out skel qt;`;
             </div>
 
             {/* ── Input bar ────────────────────────────────── */}
-            <div className="px-4 py-2 shrink-0 border-t border-border bg-background/80 backdrop-blur-xl" style={{paddingBottom:"calc(0.5rem + env(safe-area-inset-bottom))"}}>
-              {loading&&(
+            <div className="px-3 shrink-0 border-t border-border bg-background/95 backdrop-blur-xl"
+              style={{paddingBottom:"calc(0.5rem + env(safe-area-inset-bottom))",paddingTop:"8px"}}>
+
+              {/* Obi speaking indicator */}
+              {speaking&&(
+                <div className="flex items-center gap-2 mb-2 px-1">
+                  <div className="flex gap-0.5 items-end h-4">
+                    {[0,1,2,3,4].map(i=>(
+                      <div key={i} className="w-1 rounded-full bg-primary"
+                        style={{height:(4+i%3*4)+"px",animation:"pulse-dot 0.8s "+(i*0.12)+"s infinite"}}/>
+                    ))}
+                  </div>
+                  <span className="display text-[11px] font-bold text-primary uppercase tracking-wider">Obi speaking</span>
+                  <button onClick={stopSpeak} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground ml-auto">Stop ✕</button>
+                </div>
+              )}
+
+              {/* Typing indicator */}
+              {loading&&!speaking&&(
                 <div className="flex items-end gap-2 mb-2">
                   <img src={LOGO} alt="" className="h-5 w-5 object-contain rounded shrink-0"/>
-                  <div className="bubble-ai flex gap-1.5 items-center py-3">
-                    {[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 rounded-full bg-muted-foreground" style={{animation:"pulse-dot 1.2s "+(i*0.15)+"s infinite"}}/>)}
+                  <div className="bubble-ai flex gap-1.5 items-center px-4 py-2.5">
+                    {[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 rounded-full bg-muted-foreground" style={{animation:"pulse-dot 1s "+(i*0.18)+"s infinite"}}/>)}
                   </div>
                 </div>
               )}
-              <div className="flex items-center gap-2 rounded-xl border border-border bg-card p-1.5 pl-3 shadow-sm">
-                <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendMessage()}
-                  placeholder="Ask Obi anything..."
-                  className="flex-1 bg-transparent text-sm placeholder:text-muted-foreground outline-none"/>
-                <button onClick={()=>sendMessage()} disabled={!input.trim()||loading}
-                  className={cn("h-9 w-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center transition",(!input.trim()||loading)?"opacity-40":"hover:opacity-90")}>
-                  <ArrowUp className="h-4 w-4" strokeWidth={3}/>
+
+              {/* Auto-speak + input row */}
+              <div className="flex items-center gap-2">
+                {/* Auto-speak toggle */}
+                <button onClick={()=>{
+                  const next=!autoSpeak;
+                  setAutoSpeak(next);
+                  try{localStorage.setItem("obi_autospeak",String(next));}catch{}
+                  if(!next)stopSpeak();
+                }}
+                  title={autoSpeak?"Obi speaks automatically (tap to mute)":"Obi is muted (tap to unmute)"}
+                  className={cn("h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition border",
+                    autoSpeak?"bg-primary/15 border-primary/40 text-primary":"bg-secondary border-border text-muted-foreground hover:text-foreground")}>
+                  {autoSpeak?(
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                    </svg>
+                  ):(
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                      <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+                    </svg>
+                  )}
                 </button>
+
+                {/* Text input */}
+                <div className="flex-1 flex items-center gap-2 rounded-xl border border-border bg-card pl-3 pr-1.5 py-1.5 shadow-sm">
+                  <input value={input} onChange={e=>setInput(e.target.value)}
+                    onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()}
+                    placeholder={micActive?"Listening...":"Ask Obi anything..."}
+                    className={cn("flex-1 bg-transparent text-[14px] outline-none",
+                      micActive?"text-primary placeholder:text-primary font-medium":"text-foreground placeholder:text-muted-foreground")}
+                  />
+                  {/* Mic button */}
+                  {micSupported&&(
+                    <button onClick={startMic}
+                      className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition",
+                        micActive?"bg-primary text-primary-foreground":"bg-secondary text-muted-foreground hover:text-foreground hover:bg-muted")}>
+                      {micActive?(
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+                          <rect x="9" y="9" width="6" height="6" rx="1"/>
+                          <path fill="none" stroke="currentColor" strokeWidth="2" d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                          <path fill="none" stroke="currentColor" strokeWidth="2" d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
+                        </svg>
+                      ):(
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                          <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
+                        </svg>
+                      )}
+                    </button>
+                  )}
+                  {/* Send */}
+                  <button onClick={()=>sendMessage()} disabled={!input.trim()||loading}
+                    className={cn("h-8 w-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0 transition",
+                      (!input.trim()||loading)?"opacity-35 cursor-not-allowed":"hover:opacity-85 active:scale-95")}>
+                    <ArrowUp className="h-4 w-4" strokeWidth={3}/>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
