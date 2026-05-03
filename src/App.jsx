@@ -5,21 +5,44 @@ import {DARK_THEME,LIGHT_THEME,DEFAULT_BAG,Ball,ScoreBadge,Avatar,
   fmtDate,fmtDateShort,windDir,wxIcon,playingYards,firstName,randJab,
   JABS,QUICK_PROMPTS,analyzeSwing,analyzeSwingVideo,
   ErrorBoundary,ShotShapeDiagram,OnboardingFlow} from "./AppPart1.jsx";
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
+
+// Capacitor plugins — loaded dynamically so web build still works
+let CapGeo=null, CapHaptics=null, CapSpeech=null, CapKeyboard=null, CapStatusBar=null, CapSplash=null;
+(async()=>{
+  try{
+    const isNative=window.Capacitor?.isNativePlatform?.();
+    if(isNative){
+      ({Geolocation:CapGeo}=await import('@capacitor/geolocation'));
+      ({Haptics:CapHaptics}=await import('@capacitor/haptics'));
+      ({SpeechRecognition:CapSpeech}=await import('@capacitor/speech-recognition'));
+      ({Keyboard:CapKeyboard}=await import('@capacitor/keyboard'));
+      ({StatusBar:CapStatusBar}=await import('@capacitor/status-bar'));
+      ({SplashScreen:CapSplash}=await import('@capacitor/splash-screen'));
+      // Hide splash once app is ready
+      setTimeout(()=>CapSplash?.hide({fadeOutDuration:500}),500);
+      // Status bar style
+      CapStatusBar?.setStyle({style:'DARK'});
+      CapStatusBar?.setBackgroundColor({color:'#0d0d12'});
+    }
+  }catch(e){console.log('Capacitor plugins not available (web mode)');}}
+)();
 import { Home, MessageCircle, Target, Users, User, Sun, Moon, Settings, Cloud, ChevronRight, ChevronDown, MapPin, Zap, ArrowUp, Video, Sparkles, Activity, Play, LogOut, Briefcase, BarChart3, Bell, X, TrendingDown, TrendingUp, Trophy } from "lucide-react";
 function cn(...c){return c.filter(Boolean).join(" ");}
 const NAV=[{id:"home",label:"Home",Icon:Home},{id:"practice",label:"Practice",Icon:Target},{id:"caddie",label:"Caddie",Icon:MessageCircle},{id:"social",label:"Social",Icon:Users}];
 function ObiLogo({size=32}){
   return(
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {/* Circle background */}
-      <circle cx="20" cy="20" r="19" fill="currentColor" fillOpacity="0.08" stroke="currentColor" strokeOpacity="0.2" strokeWidth="1.5"/>
       {/* Flag pole */}
-      <line x1="13" y1="10" x2="13" y2="31" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-      {/* Flag */}
-      <path d="M13 10 L25 14.5 L13 19 Z" fill="var(--primary)"/>
-      {/* Ground / hole */}
-      <ellipse cx="16" cy="31" rx="5" ry="1.5" fill="currentColor" fillOpacity="0.15"/>
-      <ellipse cx="16" cy="31" rx="3" ry="1" fill="currentColor" fillOpacity="0.3"/>
+      <line x1="13" y1="10" x2="13" y2="31" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+      {/* Flag — brand accent */}
+      <path d="M13 10 L26 14.5 L13 19 Z" fill="#CFFF04"/>
+      {/* Flag highlight */}
+      <path d="M13 10 L26 14.5 L19 16 Z" fill="white" fillOpacity="0.25"/>
+      {/* Ground */}
+      <ellipse cx="16" cy="31" rx="5" ry="1.5" fill="currentColor" fillOpacity="0.12"/>
+      <ellipse cx="16" cy="31" rx="3" ry="1" fill="currentColor" fillOpacity="0.25"/>
     </svg>
   );
 }
@@ -300,6 +323,40 @@ function ObiGolfApp(){
     return()=>subscription.unsubscribe();
   },[]);
 
+  // ── iOS audio unlock — must happen on first user gesture ──────────
+  useEffect(()=>{
+    const unlock=()=>{
+      if(window._audioUnlocked)return;
+      window._audioUnlocked=true;
+      // Create and immediately stop a silent audio context to unlock iOS
+      try{
+        const ctx=new(window.AudioContext||window.webkitAudioContext)();
+        const buf=ctx.createBuffer(1,1,22050);
+        const src2=ctx.createBufferSource();
+        src2.buffer=buf;src2.connect(ctx.destination);
+        src2.start(0);ctx.resume();
+      }catch{}
+      document.removeEventListener('touchstart',unlock);
+      document.removeEventListener('touchend',unlock);
+    };
+    document.addEventListener('touchstart',unlock,{passive:true});
+    document.addEventListener('touchend',unlock,{passive:true});
+    return()=>{
+      document.removeEventListener('touchstart',unlock);
+      document.removeEventListener('touchend',unlock);
+    };
+  },[]);
+
+  // ── Keyboard height adjustment for iOS ────────────────────────────
+  useEffect(()=>{
+    if(!window.Capacitor?.isNativePlatform?.())return;
+    const onShow=e=>{document.documentElement.style.setProperty('--kb-height',(e.keyboardHeight||300)+'px');};
+    const onHide=()=>{document.documentElement.style.setProperty('--kb-height','0px');};
+    window.addEventListener('keyboardWillShow',onShow);
+    window.addEventListener('keyboardWillHide',onHide);
+    return()=>{window.removeEventListener('keyboardWillShow',onShow);window.removeEventListener('keyboardWillHide',onHide);};
+  },[]);
+
   const loadProfile=async(u)=>{
     const {data}=await supabase.from("profiles").select("*").eq("id",u.id).single();
     if(data){
@@ -433,18 +490,39 @@ function ObiGolfApp(){
   const [gpsPos,setGpsPos]=useState(null);
   const [gpsWatcher,setGpsWatcher]=useState(null);
 
-  const startGPS=useCallback(()=>{
-    if(!navigator.geolocation)return;
-    const id=navigator.geolocation.watchPosition(
-      p=>setGpsPos({lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy)}),
-      err=>console.warn("GPS",err),
-      {enableHighAccuracy:true,maximumAge:2000,timeout:10000}
-    );
-    setGpsWatcher(id);
+  const startGPS=useCallback(async()=>{
+    // Use native Capacitor GPS if available (more accurate, works in background)
+    if(window.Capacitor?.isNativePlatform?.()&&CapGeo){
+      try{
+        await CapGeo.requestPermissions();
+        const id=await CapGeo.watchPosition(
+          {enableHighAccuracy:true,maximumAge:2000,timeout:10000},
+          pos=>{
+            if(pos)setGpsPos({lat:pos.coords.latitude,lng:pos.coords.longitude,acc:Math.round(pos.coords.accuracy)});
+          }
+        );
+        setGpsWatcher(id);
+      }catch(e){console.warn("Native GPS error",e);}
+    }else{
+      // Web fallback
+      if(!navigator.geolocation)return;
+      const id=navigator.geolocation.watchPosition(
+        p=>setGpsPos({lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy)}),
+        err=>console.warn("GPS",err),
+        {enableHighAccuracy:true,maximumAge:2000,timeout:10000}
+      );
+      setGpsWatcher(id);
+    }
   },[]);
 
-  const stopGPS=useCallback(()=>{
-    if(gpsWatcher!=null)navigator.geolocation.clearWatch(gpsWatcher);
+  const stopGPS=useCallback(async()=>{
+    if(gpsWatcher!=null){
+      if(window.Capacitor?.isNativePlatform?.()&&CapGeo){
+        await CapGeo.clearWatch({id:gpsWatcher});
+      }else{
+        navigator.geolocation.clearWatch(gpsWatcher);
+      }
+    }
     setGpsWatcher(null);setGpsPos(null);
   },[gpsWatcher]);
 
@@ -652,192 +730,280 @@ function ObiGolfApp(){
       estimatedYards,estimatedPar:estimatedYards<175?3:estimatedYards<430?4:5};
   };
 
-  // ── Canvas renderer ───────────────────────────────────────────────
-  const HoleMapCanvas=({map,gps,W=280,H=440})=>{
-    const cvRef=useRef(null);
-    useEffect(()=>{
-      const cv=cvRef.current;if(!cv||!map)return;
-      const ctx=cv.getContext("2d");
-      ctx.clearRect(0,0,W,H);
+  // ── MapLibre satellite hole map ─────────────────────────────────
+  const HoleMapCanvas=({map:holeData,gps,W=280,H=380})=>{
+    const containerRef=useRef(null);
+    const mapRef=useRef(null);
+    const playerSourceRef=useRef(null);
+    const lineSourceRef=useRef(null);
 
-      // Rough background
-      ctx.fillStyle="#86efac";
-      ctx.fillRect(0,0,W,H);
+    // Helper: haversine yards
+    const hYards=(lat1,lng1,lat2,lng2)=>{
+      const R=6371000,r=x=>x*Math.PI/180;
+      const dLat=r(lat2-lat1),dLng=r(lng2-lng1);
+      const a=Math.sin(dLat/2)**2+Math.cos(r(lat1))*Math.cos(r(lat2))*Math.sin(dLng/2)**2;
+      return Math.round(2*R*Math.asin(Math.sqrt(a))*1.09361);
+    };
 
-      const px=(x,y)=>[x*W,y*H];
+    // Build GeoJSON from OSM features
+    const buildGeoJSON=(features,type)=>({
+      type:"FeatureCollection",
+      features:(features||[]).filter(f=>f.type===type).map(f=>({
+        type:"Feature",properties:{},
+        geometry:{type:"Polygon",coordinates:[f.pts.map(p=>[
+          holeData.osmFeatures.bounds.minLng+p.x*(holeData.osmFeatures.bounds.maxLng-holeData.osmFeatures.bounds.minLng),
+          holeData.osmFeatures.bounds.minLat+p.y*(holeData.osmFeatures.bounds.maxLat-holeData.osmFeatures.bounds.minLat)
+        ])]}
+      }))
+    });
 
-      const osmF=map.osmFeatures;
-      if(osmF&&osmF.features&&osmF.features.length>0){
-        // ── RENDER REAL OSM POLYGONS ──────────────────────────────
-        const colors={fairway:"#4ade80",green:"#16a34a",tee:"#15803d",
-                      bunker:"#fde68a",water:"#3b82f6"};
-        const strokes={fairway:"#22c55e",green:"#14532d",tee:"#14532d",
-                       bunker:"#b45309",water:"#1d4ed8"};
-
-        // Draw order: fairway first, then water, bunker, green, tee on top
-        ["fairway","water","bunker","green","tee"].forEach(type=>{
-          osmF.features.filter(f=>f.type===type).forEach(f=>{
-            if(!f.pts||f.pts.length<2)return;
-            ctx.beginPath();
-            ctx.moveTo(...px(f.pts[0].x,f.pts[0].y));
-            f.pts.slice(1).forEach(p=>ctx.lineTo(...px(p.x,p.y)));
-            ctx.closePath();
-            ctx.fillStyle=colors[type]||"#ccc";
-            ctx.fill();
-            ctx.strokeStyle=strokes[type]||"#999";
-            ctx.lineWidth=type==="fairway"?2:1.5;
-            ctx.stroke();
-          });
-        });
-
-        // Flag pin on green centroid
-        const greenF=osmF.features.find(f=>f.type==="green");
-        if(greenF&&greenF.pts.length>0){
-          const cx=greenF.pts.reduce((s,p)=>s+p.x,0)/greenF.pts.length;
-          const cy=greenF.pts.reduce((s,p)=>s+p.y,0)/greenF.pts.length;
-          ctx.strokeStyle="#111";ctx.lineWidth=2;
-          ctx.beginPath();ctx.moveTo(cx*W,cy*H+2);ctx.lineTo(cx*W,cy*H-18);ctx.stroke();
-          ctx.beginPath();ctx.moveTo(cx*W,cy*H-18);ctx.lineTo(cx*W+12,cy*H-12);
-          ctx.lineTo(cx*W,cy*H-6);ctx.closePath();
-          ctx.fillStyle="#ef4444";ctx.fill();
-        }
-
-      }else{
-        // ── FALLBACK: Gemini-guided synthetic map ─────────────────
-        const shape=map.shape||"straight";
-
-        // Fairway path based on shape
-        ctx.lineWidth=W*0.18;ctx.lineCap="round";ctx.lineJoin="round";
-        ctx.strokeStyle="#4ade80";
-        ctx.beginPath();
-        if(shape==="dogleg-left"){
-          ctx.moveTo(W*0.5,H*0.9);ctx.lineTo(W*0.52,H*0.55);
-          ctx.lineTo(W*0.3,H*0.2);ctx.lineTo(W*0.3,H*0.1);
-        }else if(shape==="dogleg-right"){
-          ctx.moveTo(W*0.5,H*0.9);ctx.lineTo(W*0.48,H*0.55);
-          ctx.lineTo(W*0.7,H*0.2);ctx.lineTo(W*0.7,H*0.1);
-        }else{
-          ctx.moveTo(W*0.5,H*0.9);ctx.lineTo(W*0.48,H*0.55);
-          ctx.lineTo(W*0.5,H*0.2);ctx.lineTo(W*0.5,H*0.1);
-        }
-        ctx.stroke();
-        // Lighter center
-        ctx.lineWidth=W*0.07;ctx.strokeStyle="#86efac";
-        ctx.beginPath();
-        if(shape==="dogleg-left"){
-          ctx.moveTo(W*0.5,H*0.9);ctx.lineTo(W*0.52,H*0.55);
-          ctx.lineTo(W*0.3,H*0.2);ctx.lineTo(W*0.3,H*0.1);
-        }else if(shape==="dogleg-right"){
-          ctx.moveTo(W*0.5,H*0.9);ctx.lineTo(W*0.48,H*0.55);
-          ctx.lineTo(W*0.7,H*0.2);ctx.lineTo(W*0.7,H*0.1);
-        }else{
-          ctx.moveTo(W*0.5,H*0.9);ctx.lineTo(W*0.48,H*0.55);
-          ctx.lineTo(W*0.5,H*0.2);ctx.lineTo(W*0.5,H*0.1);
-        }
-        ctx.stroke();
-
-        // Green
-        const gx=shape==="dogleg-left"?W*0.3:shape==="dogleg-right"?W*0.7:W*0.5;
-        const gy=H*0.1;
-        ctx.beginPath();ctx.ellipse(gx,gy,W*0.12,H*0.055,0,0,Math.PI*2);
-        ctx.fillStyle="#16a34a";ctx.fill();
-        ctx.strokeStyle="#14532d";ctx.lineWidth=2;ctx.stroke();
-
-        // Bunkers from hazards
-        const hazards=map.hazards||[];
-        hazards.forEach((h,i)=>{
-          const isLeft=h.toLowerCase().includes("left");
-          const isRight=h.toLowerCase().includes("right");
-          const isFront=h.toLowerCase().includes("front");
-          const isBunker=h.toLowerCase().includes("bunker");
-          const isWater=h.toLowerCase().includes("water")||h.toLowerCase().includes("lake")||h.toLowerCase().includes("pond");
-          if(!isBunker&&!isWater)return;
-          const bx=isLeft?gx-W*0.15:isRight?gx+W*0.15:gx+(i%2===0?-1:1)*W*0.13;
-          const by=isFront?gy+H*0.07:gy+(i*H*0.06);
-          if(isWater){
-            ctx.beginPath();ctx.ellipse(bx,by,W*0.1,H*0.04,0,0,Math.PI*2);
-            ctx.fillStyle="rgba(59,130,246,0.7)";ctx.fill();
-            ctx.strokeStyle="#2563eb";ctx.lineWidth=1.5;ctx.stroke();
-          }else{
-            ctx.beginPath();ctx.ellipse(bx,by,W*0.07,H*0.03,0,0,Math.PI*2);
-            ctx.fillStyle="#fde68a";ctx.fill();
-            ctx.strokeStyle="#b45309";ctx.lineWidth=1.5;ctx.stroke();
-          }
-        });
-
-        // Flag
-        ctx.strokeStyle="#111";ctx.lineWidth=2;
-        ctx.beginPath();ctx.moveTo(gx,gy+2);ctx.lineTo(gx,gy-18);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(gx,gy-18);ctx.lineTo(gx+12,gy-12);
-        ctx.lineTo(gx,gy-6);ctx.closePath();
-        ctx.fillStyle="#ef4444";ctx.fill();
-
-        // Tee box
-        ctx.fillStyle="#15803d";ctx.strokeStyle="#14532d";ctx.lineWidth=1.5;
-        ctx.beginPath();ctx.roundRect(W*0.5-11,H*0.87,22,12,3);ctx.fill();ctx.stroke();
+    // Compute map center + bounds
+    const getCenter=()=>{
+      if(holeData?.osmFeatures?.bounds){
+        const{minLat,maxLat,minLng,maxLng}=holeData.osmFeatures.bounds;
+        return{center:[(minLng+maxLng)/2,(minLat+maxLat)/2],
+               bbox:[[minLng-0.0003,minLat-0.0003],[maxLng+0.0003,maxLat+0.0003]]};
       }
+      if(holeData?.tee_lat&&holeData?.green_lat){
+        const cLat=(holeData.tee_lat+holeData.green_lat)/2;
+        const cLng=(holeData.tee_lng+holeData.green_lng)/2;
+        return{center:[cLng,cLat],bbox:null};
+      }
+      return{center:[0,0],bbox:null};
+    };
 
-      // ── Distance markers ──────────────────────────────────────────
-      const yards=map.yards||400;
-      const osmFw=map.osmFeatures?.features?.find(f=>f.type==="fairway");
-      const osmTee=map.osmFeatures?.features?.find(f=>f.type==="tee");
-      const osmGreen=map.osmFeatures?.features?.find(f=>f.type==="green");
+    useEffect(()=>{
+      if(!containerRef.current||!holeData)return;
 
-      [100,150,200].forEach(dist=>{
-        const t=dist/yards;
-        let mx=W*0.5, my=0;
-        if(osmFw&&osmFw.pts.length>1){
-          const idx=Math.min(Math.floor(t*osmFw.pts.length),osmFw.pts.length-1);
-          mx=osmFw.pts[idx].x*W;my=osmFw.pts[idx].y*H;
-        }else{
-          const shape=map.shape||"straight";
-          const gx=shape==="dogleg-left"?W*0.3:shape==="dogleg-right"?W*0.7:W*0.5;
-          my=H*(0.9-t*0.8);
-          mx=t<0.5?W*0.5+(gx-W*0.5)*t*2:gx;
-        }
-        ctx.beginPath();ctx.arc(mx,my,5,0,Math.PI*2);
-        ctx.fillStyle="rgba(255,255,255,0.9)";ctx.fill();
-        ctx.strokeStyle="#374151";ctx.lineWidth=1;ctx.stroke();
-        ctx.fillStyle="#111";ctx.font="bold 8px Inter,sans-serif";
-        ctx.textAlign="center";ctx.fillText(dist+"y",mx,my-8);
+      const{center,bbox}=getCenter();
+
+      const m=new maplibregl.Map({
+        container:containerRef.current,
+        style:{
+          version:8,
+          glyphs:"https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+          sources:{
+            satellite:{
+              type:"raster",
+              tiles:["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"],
+              tileSize:256,
+              attribution:"© EOX IT Services GmbH"
+            }
+          },
+          layers:[{id:"satellite",type:"raster",source:"satellite",paint:{"raster-brightness-min":0.05}}]
+        },
+        center,
+        zoom:17.5,
+        bearing:0,
+        pitch:0,
+        interactive:true,
+        attributionControl:false,
       });
 
-      // ── GPS player dot ────────────────────────────────────────────
-      if(gps&&map.tee_lat&&map.green_lat){
-        const b=map.osmFeatures?.bounds;
-        let px_,py_;
-        if(b){
-          px_=((gps.lng-b.minLng)/(b.maxLng-b.minLng))*W;
-          py_=(1-(gps.lat-b.minLat)/(b.maxLat-b.minLat))*H;
-        }else{
-          const latSpan=map.tee_lat-map.green_lat||0.001;
-          const lngSpan=map.green_lng-map.tee_lng||0.001;
-          const osmFwRef=map.osmFeatures?.features?.find(f=>f.type==="fairway");
-          const shape=map.shape||"straight";
-          const gx=shape==="dogleg-left"?W*0.3:shape==="dogleg-right"?W*0.7:W*0.5;
-          const relY=(map.tee_lat-gps.lat)/latSpan;
-          const relX=(gps.lng-map.tee_lng)/lngSpan;
-          px_=W*0.5+relX*W*0.4;
-          py_=H*(0.9-relY*0.8);
-        }
-        if(px_>0&&px_<W&&py_>0&&py_<H){
-          // Accuracy circle
-          ctx.beginPath();ctx.arc(px_,py_,16,0,Math.PI*2);
-          ctx.fillStyle="rgba(59,130,246,0.12)";ctx.fill();
-          // Dot
-          ctx.beginPath();ctx.arc(px_,py_,8,0,Math.PI*2);
-          ctx.fillStyle="#2563eb";ctx.fill();
-          ctx.strokeStyle="#fff";ctx.lineWidth=2.5;ctx.stroke();
-          // Pulse ring
-          ctx.beginPath();ctx.arc(px_,py_,13,0,Math.PI*2);
-          ctx.strokeStyle="rgba(59,130,246,0.5)";ctx.lineWidth=2;ctx.stroke();
-        }
-      }
+      mapRef.current=m;
 
-    },[map,gps,W,H]);
+      m.on("load",()=>{
+        // Fit to bounds if we have them
+        if(bbox){
+          m.fitBounds(bbox,{padding:40,duration:0});
+        }
+
+        const osm=holeData?.osmFeatures;
+
+        if(osm?.features?.length>0){
+          // ── REAL OSM POLYGONS ───────────────────────────────────
+          const types=[
+            {type:"fairway", fillColor:"#4ade80", fillOpacity:0.3, lineColor:"#22c55e", lineWidth:2},
+            {type:"green",   fillColor:"#16a34a", fillOpacity:0.75,lineColor:"#4ade80", lineWidth:2.5},
+            {type:"tee",     fillColor:"#15803d", fillOpacity:0.8, lineColor:"#14532d", lineWidth:1.5},
+            {type:"bunker",  fillColor:"#fde68a", fillOpacity:0.8, lineColor:"#b45309", lineWidth:1.5},
+            {type:"water",   fillColor:"#3b82f6", fillOpacity:0.65,lineColor:"#1d4ed8", lineWidth:1.5},
+          ];
+
+          types.forEach(({type,fillColor,fillOpacity,lineColor,lineWidth})=>{
+            const gj=buildGeoJSON(osm.features,type);
+            if(!gj.features.length)return;
+            m.addSource(type,{type:"geojson",data:gj});
+            m.addLayer({id:type+"-fill",type:"fill",source:type,
+              paint:{"fill-color":fillColor,"fill-opacity":fillOpacity}});
+            m.addLayer({id:type+"-line",type:"line",source:type,
+              paint:{"line-color":lineColor,"line-width":lineWidth,"line-opacity":0.9}});
+          });
+
+          // Distance markers along the fairway midline
+          const fw=osm.features.filter(f=>f.type==="fairway")[0];
+          if(fw&&fw.pts.length>2&&holeData.yards){
+            const yards=holeData.yards;
+            const markerFeats=[75,100,125,150,175,200].filter(y=>y<yards).map(y=>{
+              const t=y/yards;
+              const idx=Math.min(Math.floor(t*(fw.pts.length-1)),fw.pts.length-2);
+              const frac=t*(fw.pts.length-1)-idx;
+              const p1=fw.pts[idx],p2=fw.pts[Math.min(idx+1,fw.pts.length-1)];
+              const px=p1.x+(p2.x-p1.x)*frac;
+              const py=p1.y+(p2.y-p1.y)*frac;
+              const lng=osm.bounds.minLng+px*(osm.bounds.maxLng-osm.bounds.minLng);
+              const lat=osm.bounds.minLat+py*(osm.bounds.maxLat-osm.bounds.minLat);
+              return{type:"Feature",properties:{label:y+"y"},
+                geometry:{type:"Point",coordinates:[lng,lat]}};
+            });
+
+            if(markerFeats.length>0){
+              m.addSource("dist-markers",{type:"geojson",data:{type:"FeatureCollection",features:markerFeats}});
+              m.addLayer({id:"dist-dots",type:"circle",source:"dist-markers",
+                paint:{"circle-radius":5,"circle-color":"rgba(255,255,255,0.85)",
+                       "circle-stroke-color":"#374151","circle-stroke-width":1.5}});
+              m.addLayer({id:"dist-labels",type:"symbol",source:"dist-markers",
+                layout:{"text-field":["get","label"],"text-font":["Open Sans Bold"],
+                        "text-size":10,"text-offset":[0,-1.2],"text-anchor":"bottom"},
+                paint:{"text-color":"#ffffff","text-halo-color":"rgba(0,0,0,0.8)","text-halo-width":1.5}});
+            }
+          }
+        }else{
+          // ── SYNTHETIC FALLBACK (no OSM data) ─────────────────────
+          const shape=holeData?.shape||"straight";
+          const tee=holeData?.tee_lat?[holeData.tee_lng,holeData.tee_lat]:null;
+          const green=holeData?.green_lat?[holeData.green_lng,holeData.green_lat]:null;
+
+          if(tee&&green){
+            // Draw approximate fairway line
+            const mid=[
+              tee[0]+(green[0]-tee[0])*(shape==="dogleg-left"?0.5:0.5),
+              tee[1]+(green[1]-tee[1])*(shape==="dogleg-left"?0.5:0.5)
+            ];
+            const offset=0.00015;
+            const dogOff=shape==="dogleg-left"?-offset*2:shape==="dogleg-right"?offset*2:0;
+
+            const fwLine={type:"Feature",geometry:{type:"LineString",
+              coordinates:[tee,[mid[0]+dogOff,mid[1]],green]}};
+
+            m.addSource("fw-line",{type:"geojson",data:fwLine});
+            m.addLayer({id:"fw-stroke",type:"line",source:"fw-line",
+              paint:{"line-color":"#4ade80","line-width":22,"line-opacity":0.3,
+                     "line-cap":"round","line-join":"round"}});
+            m.addLayer({id:"fw-center",type:"line",source:"fw-line",
+              paint:{"line-color":"#86efac","line-width":8,"line-opacity":0.5,
+                     "line-cap":"round","line-join":"round"}});
+
+            // Green circle
+            const greenGJ={type:"FeatureCollection",features:[{type:"Feature",
+              geometry:{type:"Point",coordinates:green},properties:{}}]};
+            m.addSource("green-pt",{type:"geojson",data:greenGJ});
+            m.addLayer({id:"green-circle",type:"circle",source:"green-pt",
+              paint:{"circle-radius":20,"circle-color":"#16a34a","circle-opacity":0.8,
+                     "circle-stroke-color":"#4ade80","circle-stroke-width":2.5}});
+
+            // Tee marker
+            const teeGJ={type:"FeatureCollection",features:[{type:"Feature",
+              geometry:{type:"Point",coordinates:tee},properties:{}}]};
+            m.addSource("tee-pt",{type:"geojson",data:teeGJ});
+            m.addLayer({id:"tee-circle",type:"circle",source:"tee-pt",
+              paint:{"circle-radius":8,"circle-color":"#1f2937","circle-opacity":0.9,
+                     "circle-stroke-color":"#eeeef5","circle-stroke-width":2}});
+
+            // Hazard labels
+            (holeData.hazards||[]).slice(0,3).forEach((hz,i)=>{
+              const t=0.3+i*0.2;
+              const hPos=[
+                tee[0]+(green[0]-tee[0])*t + (i%2===0?offset:-offset)*3,
+                tee[1]+(green[1]-tee[1])*t
+              ];
+              const isWater=/(water|lake|pond|ocean|creek)/i.test(hz);
+              const hGJ={type:"FeatureCollection",features:[{type:"Feature",
+                geometry:{type:"Point",coordinates:hPos},properties:{}}]};
+              m.addSource("haz-"+i,{type:"geojson",data:hGJ});
+              m.addLayer({id:"haz-c-"+i,type:"circle",source:"haz-"+i,
+                paint:{"circle-radius":14,"circle-color":isWater?"rgba(59,130,246,0.6)":"rgba(253,230,138,0.7)",
+                       "circle-stroke-color":isWater?"#2563eb":"#b45309","circle-stroke-width":1.5}});
+            });
+
+            // Distance markers
+            const yards=holeData.yards||400;
+            const distFeats=[100,150,200].filter(y=>y<yards).map(y=>{
+              const t=y/yards;
+              const dogX=shape==="dogleg-left"?dogOff*(t<0.5?t*2:1):shape==="dogleg-right"?dogOff*(t<0.5?t*2:1):0;
+              return{type:"Feature",properties:{label:y+"y"},
+                geometry:{type:"Point",coordinates:[
+                  tee[0]+(green[0]-tee[0])*t+dogX,
+                  tee[1]+(green[1]-tee[1])*t
+                ]}};
+            });
+            if(distFeats.length>0){
+              m.addSource("dist-m",{type:"geojson",data:{type:"FeatureCollection",features:distFeats}});
+              m.addLayer({id:"dist-d",type:"circle",source:"dist-m",
+                paint:{"circle-radius":5,"circle-color":"rgba(255,255,255,0.85)",
+                       "circle-stroke-color":"#374151","circle-stroke-width":1.5}});
+            }
+          }
+        }
+
+        // ── Flag marker ─────────────────────────────────────────────
+        const pinCoord=holeData?.green_lat?[holeData.green_lng,holeData.green_lat]:null;
+        if(pinCoord){
+          const flagEl=document.createElement("div");
+          flagEl.innerHTML="🚩";
+          flagEl.style.cssText="font-size:20px;cursor:default;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6))";
+          new maplibregl.Marker({element:flagEl,anchor:"bottom"}).setLngLat(pinCoord).addTo(m);
+        }
+
+        // ── Player GPS dot + distance line ──────────────────────────
+        const playerGJ={type:"Feature",geometry:{type:"Point",coordinates:[0,0]},properties:{}};
+        const lineGJ={type:"Feature",geometry:{type:"LineString",coordinates:[[0,0],[0,0]]},properties:{}};
+
+        m.addSource("player",{type:"geojson",data:playerGJ});
+        m.addSource("dist-line",{type:"geojson",data:lineGJ});
+
+        // Dashed distance line
+        m.addLayer({id:"dist-line",type:"line",source:"dist-line",
+          paint:{"line-color":"#ffffff","line-width":2,"line-opacity":0.7,
+                 "line-dasharray":[4,3]}});
+
+        // Accuracy ring
+        m.addLayer({id:"player-ring",type:"circle",source:"player",
+          paint:{"circle-radius":18,"circle-color":"rgba(59,130,246,0.12)",
+                 "circle-stroke-color":"rgba(59,130,246,0.35)","circle-stroke-width":2}});
+        // Player dot
+        m.addLayer({id:"player-dot",type:"circle",source:"player",
+          paint:{"circle-radius":9,"circle-color":"#3b82f6",
+                 "circle-stroke-color":"#ffffff","circle-stroke-width":2.5}});
+
+        playerSourceRef.current=m.getSource("player");
+        lineSourceRef.current=m.getSource("dist-line");
+
+        // Set initial GPS position if available
+        if(gps?.lat){
+          playerSourceRef.current.setData({type:"Feature",
+            geometry:{type:"Point",coordinates:[gps.lng,gps.lat]},properties:{}});
+          if(pinCoord){
+            lineSourceRef.current.setData({type:"Feature",
+              geometry:{type:"LineString",coordinates:[[gps.lng,gps.lat],pinCoord]},properties:{}});
+          }
+        }
+      });
+
+      return()=>{
+        m.remove();
+        mapRef.current=null;
+        playerSourceRef.current=null;
+        lineSourceRef.current=null;
+      };
+    },[holeData?.osmFeatures,holeData?.tee_lat,holeData?.green_lat]);
+
+    // Update GPS dot without re-rendering map
+    useEffect(()=>{
+      if(!playerSourceRef.current||!gps?.lat)return;
+      const coord=[gps.lng,gps.lat];
+      playerSourceRef.current.setData({type:"Feature",
+        geometry:{type:"Point",coordinates:coord},properties:{}});
+      const pinCoord=holeData?.green_lat?[holeData.green_lng,holeData.green_lat]:null;
+      if(pinCoord&&lineSourceRef.current){
+        lineSourceRef.current.setData({type:"Feature",
+          geometry:{type:"LineString",coordinates:[coord,pinCoord]},properties:{}});
+      }
+    },[gps]);
+
     return(
-      <canvas ref={cvRef} width={W} height={H}
-        style={{width:"100%",height:"auto",display:"block",borderRadius:"8px"}}/>
+      <div ref={containerRef} style={{width:"100%",height:H+"px"}}
+        className="bg-emerald-950/20"/>
     );
   };
 
@@ -909,28 +1075,56 @@ function ObiGolfApp(){
   };
 
   // ── Voice input (mic) ─────────────────────────────────────────────
-  const startMic=()=>{
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR)return;
+  const startMic=async()=>{
     if(micActive){
-      recognizerRef.current?.stop();
+      if(window.Capacitor?.isNativePlatform?.()&&CapSpeech){
+        await CapSpeech.stop().catch(()=>{});
+      }else{
+        recognizerRef.current?.stop();
+      }
       setMicActive(false);return;
     }
-    const r=new SR();
-    r.lang="en-US";r.continuous=false;r.interimResults=true;
-    r.onstart=()=>setMicActive(true);
-    r.onend=()=>setMicActive(false);
-    r.onerror=()=>setMicActive(false);
-    r.onresult=e=>{
-      const transcript=Array.from(e.results).map(r=>r[0].transcript).join("");
-      setInput(transcript);
-      if(e.results[e.results.length-1].isFinal){
-        setMicActive(false);
-        setTimeout(()=>sendMessage(transcript),100);
-      }
-    };
-    recognizerRef.current=r;
-    r.start();
+    // Native Capacitor speech recognition (more reliable on iOS)
+    if(window.Capacitor?.isNativePlatform?.()&&CapSpeech){
+      try{
+        await CapSpeech.requestPermissions();
+        const avail=await CapSpeech.available();
+        if(!avail.available)return;
+        setMicActive(true);
+        CapSpeech.start({
+          language:"en-US",maxResults:1,prompt:"Ask Obi anything...",
+          partialResults:true,popup:false
+        });
+        CapSpeech.addListener('partialResults',data=>{
+          if(data.matches?.[0])setInput(data.matches[0]);
+        });
+        CapSpeech.addListener('listeningState',state=>{
+          if(state.status==="stopped"){
+            setMicActive(false);
+            if(input.trim())setTimeout(()=>sendMessage(input),100);
+          }
+        });
+      }catch{setMicActive(false);}
+    }else{
+      // Web fallback
+      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+      if(!SR)return;
+      const r=new SR();
+      r.lang="en-US";r.continuous=false;r.interimResults=true;
+      r.onstart=()=>setMicActive(true);
+      r.onend=()=>setMicActive(false);
+      r.onerror=()=>setMicActive(false);
+      r.onresult=e=>{
+        const transcript=Array.from(e.results).map(r=>r[0].transcript).join("");
+        setInput(transcript);
+        if(e.results[e.results.length-1].isFinal){
+          setMicActive(false);
+          setTimeout(()=>sendMessage(transcript),100);
+        }
+      };
+      recognizerRef.current=r;
+      r.start();
+    }
   };
 
   const speak=(text)=>{
@@ -1475,11 +1669,13 @@ function ObiGolfApp(){
           </div>
         </div>
       )}
-      <header className="shrink-0 sticky top-0 z-30 bg-background/85 backdrop-blur-xl border-b border-border pt-safe">
+      <header className="header-brand shrink-0 sticky top-0 z-30 backdrop-blur-xl pt-safe">
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2.5">
-            <ObiLogo size={36}/>
-            <span className="display font-semibold tracking-tight text-[15px]">Obi Golf</span>
+            <ObiLogo size={32}/>
+            <span className="display font-bold tracking-tight text-[16px]" style={{color:"#CFFF04",textShadow:isDark?"0 0 20px rgba(207,255,4,0.4)":"none",letterSpacing:"-0.02em"}}>
+              Obi Golf
+            </span>
           </div>
           <div className="flex items-center gap-1.5">
             {tab==="caddie"&&weather&&(
@@ -1813,9 +2009,7 @@ function ObiGolfApp(){
                               )}
                             </div>
                           </div>
-                          <div className="bg-emerald-950/20 p-2">
-                            <HoleMapCanvas map={holeMap} gps={gpsPos} W={260} H={380}/>
-                          </div>
+                          <HoleMapCanvas map={holeMap} gps={gpsPos} W={360} H={340}/>
                           {(()=>{
                             const pin=manualPins[hole]||{lat:holeMap.green_lat,lng:holeMap.green_lng};
                             return(
@@ -2454,14 +2648,21 @@ function ObiGolfApp(){
           </div>
         )}
       </div>
-      <nav className="shrink-0 sticky bottom-0 z-30 bg-background/90 backdrop-blur-xl border-t border-border pb-safe">
+      <nav className="nav-brand shrink-0 sticky bottom-0 z-30 backdrop-blur-xl pb-safe">
         <div className="grid grid-cols-4 px-2 pt-1.5 pb-1.5 max-w-md mx-auto">
           {NAV.map(({id,label,Icon})=>{
             const isActive=tab===id;
             return(
-              <button key={id} onClick={()=>changeTab(id)} className={cn("flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg transition",isActive?"text-foreground":"text-muted-foreground hover:text-foreground")}>
-                <div className={cn("h-7 w-12 flex items-center justify-center rounded-lg transition",isActive&&"bg-primary text-primary-foreground")}><Icon className="h-[18px] w-[18px]" strokeWidth={isActive?2.25:1.75}/></div>
-                <span className="display text-[10px] font-bold uppercase tracking-wider">{label}</span>
+              <button key={id} onClick={()=>changeTab(id)}
+                className={cn("flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg transition",
+                  isActive?"text-foreground":"text-muted-foreground hover:text-foreground")}>
+                <div className={cn("h-7 w-12 flex items-center justify-center rounded-lg transition",
+                  isActive?"nav-pill-brand":"")}>
+                  <Icon className="h-[18px] w-[18px]" strokeWidth={isActive?2.5:1.75}
+                    style={isActive?{color:"#0d1200"}:{}}/>
+                </div>
+                <span className="display text-[10px] font-bold uppercase tracking-wider"
+                  style={isActive?{color:"#CFFF04"}:{}}>{label}</span>
               </button>
             );
           })}
