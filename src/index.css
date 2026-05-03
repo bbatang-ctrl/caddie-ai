@@ -1,3 +1,4 @@
+@import "maplibre-gl/dist/maplibre-gl.css";
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
 @tailwind base;
 @tailwind components;
@@ -15,6 +16,9 @@
   --card-border: #e4e4ef;
   --muted-fg: #6b6b8a;
 
+  --accent-brand: #CFFF04;
+  --accent-brand-fg: #1a1a00;
+  --accent-brand-muted: rgba(207,255,4,0.12);
   --background: #ffffff;
   --foreground: #1a1a28;
   --card: #fafafa;
@@ -44,6 +48,9 @@
    DARK THEME
    ============================================================ */
 .dark {
+  --accent-brand: #CFFF04;
+  --accent-brand-fg: #0d1200;
+  --accent-brand-muted: rgba(207,255,4,0.12);
   --background: #0d0d12;
   --foreground: #eeeef5;
   --card: #14141c;
@@ -287,3 +294,28 @@ html {
 .dark [class*="bg-white"] {
   background-color: var(--card) !important;
 }
+
+/* ── Brand accent (#CFFF04) ───────────────────────────────────── */
+.header-brand {
+  background: linear-gradient(135deg, #0d0d12 0%, #141a00 100%);
+  border-bottom: 1px solid rgba(207,255,4,0.2);
+}
+.light .header-brand {
+  background: linear-gradient(135deg, #ffffff 0%, #f8ffe0 100%);
+  border-bottom: 1px solid rgba(140,173,0,0.25);
+}
+.nav-brand {
+  background: linear-gradient(180deg, #0d0d12 0%, #0d1000 100%);
+  border-top: 1px solid rgba(207,255,4,0.2);
+}
+.light .nav-brand {
+  background: linear-gradient(180deg, #ffffff 0%, #f8ffe0 100%);
+  border-top: 1px solid rgba(140,173,0,0.2);
+}
+/* Active nav pill with brand accent */
+.nav-pill-brand {
+  background: #CFFF04;
+  color: #0d1200 !important;
+}
+/* Logo flag uses brand accent */
+.obi-flag { fill: #CFFF04 !important; }
