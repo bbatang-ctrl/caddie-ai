@@ -9,24 +9,15 @@
     "cap:ios": "npm run build && cap sync ios && cap open ios",
     "cap:android": "npm run build && cap sync android && cap open android",
     "cap:run:ios": "npm run build && cap run ios",
-    "cap:run:android": "npm run build && cap run android"
+    "cap:run:android": "npm run build && cap run android",
+    "vercel-install": "npm install --legacy-peer-deps"
   },
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "@supabase/supabase-js": "^2.39.0",
     "lucide-react": "^0.462.0",
-    "maplibre-gl": "^4.7.1",
-    "@capacitor/core": "^6.2.0",
-    "@capacitor/app": "^6.0.1",
-    "@capacitor/camera": "^6.0.2",
-    "@capacitor/geolocation": "^6.0.1",
-    "@capacitor/haptics": "^6.0.1",
-    "@capacitor/keyboard": "^6.0.2",
-    "@capacitor/network": "^6.0.3",
-    "@capacitor/splash-screen": "^6.0.2",
-    "@capacitor/status-bar": "^6.0.1",
-    "@capacitor-community/speech-recognition": "^5.0.1"
+    "maplibre-gl": "^4.7.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "4.0.4",
@@ -36,7 +27,16 @@
     "autoprefixer": "^10.4.20",
     "@capacitor/cli": "^6.1.2",
     "@capacitor/ios": "^6.1.2",
-    "@capacitor/android": "^6.1.2"
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/app": "^6.0.1",
+    "@capacitor/camera": "^6.0.2",
+    "@capacitor/geolocation": "^6.0.1",
+    "@capacitor/haptics": "^6.0.1",
+    "@capacitor/keyboard": "^6.0.2",
+    "@capacitor/network": "^6.0.3",
+    "@capacitor/splash-screen": "^6.0.2",
+    "@capacitor/status-bar": "^6.0.1"
   },
   "type": "module"
 }
