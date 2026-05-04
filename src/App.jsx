@@ -1373,6 +1373,80 @@ function ObiGolfApp(){
     const diff=round.score_vs_par||0;
     const diffStr=diff===0?"E":diff>0?"+"+diff:""+diff;
     const diffColor=diff>0?T.red:diff<0?T.primary:"var(--fg)";
+
+  // Helper: render swing analysis text as structured sections
+  const renderSwingAnalysis=(text,thumb,noteLabel,isCollapsible,expandedKey,expandedState,setExpandedState)=>{
+    if(!text)return null;
+    const sentences=(text.match(new RegExp("[^.!?]+[.!?]+","g"))||[text]).map(s2=>s2.trim()).filter(Boolean);
+    const g={summary:[],strengths:[],fixes:[],drills:[],other:[]};
+    sentences.forEach(s2=>{
+      if(new RegExp("overall|summary|assessment|your swing|shows|demonstrates","i").test(s2))g.summary.push(s2);
+      else if(new RegExp("good|well done|strength|positive|excellent|nice|solid|great job","i").test(s2))g.strengths.push(s2);
+      else if(new RegExp("drill|practice|try|work on|focus on|exercise|repeat","i").test(s2))g.drills.push(s2);
+      else if(new RegExp("need|should|must|improve|fix|adjust|lack|issue|problem|fault|tend to|too much|too little","i").test(s2))g.fixes.push(s2);
+      else g.other.push(s2);
+    });
+    if(!g.summary.length)g.summary=g.other.splice(0,2);
+    const secs=[
+      {label:"Overview",icon:"Golf",items:g.summary,color:"border-primary/30 bg-primary/5"},
+      {label:"Strengths",items:g.strengths,color:"border-green-500/30 bg-green-500/5"},
+      {label:"Fix These",items:g.fixes,color:"border-amber-500/30 bg-amber-500/5"},
+      {label:"Drills",items:g.drills,color:"border-blue-500/30 bg-blue-500/5"},
+      {label:"Notes",items:g.other,color:"border-border bg-secondary/20"},
+    ].filter(s2=>s2.items.length>0);
+    const icons={"Overview":"golf","Strengths":"check","Fix These":"wrench","Drills":"target","Notes":"note"};
+    const emojis={"Overview":"Golf","Strengths":"OK","Fix These":"Fix","Drills":"Target","Notes":"Notes"};
+    return(
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        {isCollapsible?(
+          <button onClick={()=>setExpandedState(e=>!e)}
+            className="w-full flex items-center gap-2 px-4 py-3 border-b border-border bg-foreground text-background hover:opacity-90 transition">
+            {thumb&&<img src={thumb} alt="" className="h-8 w-12 object-cover rounded shrink-0"/>}
+            <p className="display text-[13px] font-bold flex-1 text-left">Obi Analysis</p>
+            <span className="display text-[10px] font-bold opacity-50 mr-1">{noteLabel||"Swing"}</span>
+            <ChevronDown className={cn("h-4 w-4 transition-transform shrink-0",expandedState&&"rotate-180")} strokeWidth={2.5}/>
+          </button>
+        ):(
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-foreground text-background">
+            <p className="display text-[13px] font-bold flex-1">Obi Analysis</p>
+            <span className="display text-[10px] font-bold opacity-50">{noteLabel||"Swing"}</span>
+          </div>
+        )}
+        {(!isCollapsible||expandedState)&&(
+          <React.Fragment>
+            <div className="p-3 space-y-2">
+              {secs.map(sec=>(
+                <div key={sec.label} className={"rounded-xl border p-3 "+sec.color}>
+                  <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">{sec.label}</p>
+                  <ul className="space-y-1.5">
+                    {sec.items.map((item,idx)=>(
+                      <li key={idx} className="flex gap-2 text-[13px] text-foreground leading-snug">
+                        <span className="text-muted-foreground shrink-0 mt-0.5">*</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 px-3 pb-3">
+              <button onClick={()=>speakText(text)}
+                className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 border transition",speaking?"bg-primary/20 border-primary/40 text-primary":"border-border text-muted-foreground hover:text-foreground")}>
+                {speaking?"Stop":"Read"}
+              </button>
+              {isCollapsible&&(
+                <button onClick={()=>{setSwingAnalysis("");setSwingFile(null);setSwingNotes("");setSwingThumb(null);}}
+                  className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 text-muted-foreground hover:text-foreground ml-auto">
+                  + New swing
+                </button>
+              )}
+            </div>
+          </React.Fragment>
+        )}
+      </div>
+    );
+  };
+
     return(
       <div onClick={()=>setShowCard(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
         <div onClick={e=>e.stopPropagation()} style={{...S.card,maxWidth:"380px",width:"100%",maxHeight:"80vh",overflowY:"auto"}}>
@@ -2374,67 +2448,7 @@ function ObiGolfApp(){
                   )}
 
                   {/* Current analysis - collapsible */}
-                  {swingAnalysis&&(()=>{
-                    const sentences=(swingAnalysis.match(new RegExp("[^.!?]+[.!?]+","g"))||[swingAnalysis]).map(sent=>sent.trim()).filter(Boolean);
-                    const groups={summary:[],strengths:[],fixes:[],drills:[],other:[]};
-                    sentences.forEach(sent=>{
-                      if(new RegExp("overall|summary|assessment|your swing|shows|demonstrates","i").test(sent))groups.summary.push(sent);
-                      else if(new RegExp("good|well done|strength|positive|excellent|nice|solid|great job","i").test(sent))groups.strengths.push(sent);
-                      else if(new RegExp("drill|practice|try|work on|focus on|exercise|repeat","i").test(sent))groups.drills.push(sent);
-                      else if(new RegExp("need|should|must|improve|fix|adjust|lack|issue|problem|fault|tend to|too much|too little","i").test(sent))groups.fixes.push(sent);
-                      else groups.other.push(sent);
-                    });
-                    if(!groups.summary.length)groups.summary=groups.other.splice(0,2);
-                    const sections=[
-                      {label:"Overview",icon:"  ",items:groups.summary,color:"border-primary/30 bg-primary/5"},
-                      {label:"Strengths",icon:" ",items:groups.strengths,color:"border-green-500/30 bg-green-500/5"},
-                      {label:"Fix These",icon:" ",items:groups.fixes,color:"border-amber-500/30 bg-amber-500/5"},
-                      {label:"Drills",icon:" ",items:groups.drills,color:"border-blue-500/30 bg-blue-500/5"},
-                      {label:"Notes",icon:" ",items:groups.other,color:"border-border bg-secondary/30"},
-                    ].filter(sec=>sec.items.length>0);
-                    return(
-                      <div className="rounded-xl border border-border bg-card overflow-hidden">
-                        {/* Header with expand/collapse */}
-                        <button onClick={()=>setAnalysisExpanded(e=>!e)}
-                          className="w-full flex items-center gap-2 px-4 py-3 border-b border-border bg-foreground text-background hover:opacity-90 transition">
-                          {swingThumb&&<img src={swingThumb} alt="" className="h-8 w-12 object-cover rounded shrink-0"/>}
-                          <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" strokeWidth={2.5}/>
-                          <p className="display text-[13px] font-bold flex-1 text-left">Obi&apos;s Analysis</p>
-                          <span className="display text-[10px] font-bold opacity-50 mr-1">{swingNotes||"Swing"}</span>
-                          <ChevronDown className={cn("h-4 w-4 transition-transform shrink-0",analysisExpanded&&"rotate-180")} strokeWidth={2.5}/>
-                        </button>
-                        {analysisExpanded&&(
-                          <React.Fragment>
-                            <div className="p-3 space-y-2">
-                              {sections.map(({label,icon,items,color})=>(
-                                <div key={label} className={"rounded-xl border p-3 "+color}>
-                                  <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">{icon} {label}</p>
-                                  <ul className="space-y-1.5">
-                                    {items.map((item,i)=>(
-                                      <li key={i} className="flex gap-2 text-[13px] text-foreground leading-snug">
-                                        <span className="text-muted-foreground shrink-0 mt-0.5"> </span>
-                                        <span>{item}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              ))}
-                            </div>
-                            <div className="flex gap-2 px-3 pb-3">
-                              <button onClick={()=>speakText(swingAnalysis)}
-                                className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 border transition",speaking?"bg-primary/20 border-primary/40 text-primary":"border-border text-muted-foreground hover:text-foreground")}>
-                                {speaking?"  Stop":"  Read"}
-                              </button>
-                              <button onClick={()=>swingInputRef.current?.click()}
-                                className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 text-muted-foreground hover:text-foreground ml-auto">
-                                + New swing
-                              </button>
-                            </div>
-                          </React.Fragment>
-                        )}
-                      </div>
-                    );
-                  })()}
+                  {swingAnalysis&&renderSwingAnalysis(swingAnalysis,swingThumb,swingNotes,true,null,analysisExpanded,setAnalysisExpanded)}
 
                   {/* - Swing history - */}
                   {swingHistory.length>0&&(
@@ -2480,49 +2494,7 @@ function ObiGolfApp(){
                                 </div>
                               </div>
                               {/* Expanded analysis */}
-                              {isExpanded&&(()=>{
-                                const text=s.analysis||"";
-                                const sentences=(text.match(new RegExp("[^.!?]+[.!?]+","g"))||[text]).map(tx=>tx.trim()).filter(Boolean);
-                                const g={summary:[],strengths:[],fixes:[],drills:[],other:[]};
-                                sentences.forEach(tx=>{
-                                  if(new RegExp("overall|summary|assessment|your swing|shows|demonstrates","i").test(tx))g.summary.push(tx);
-                                  else if(new RegExp("good|well done|strength|positive|excellent|nice|solid|great job","i").test(tx))g.strengths.push(tx);
-                                  else if(new RegExp("drill|practice|try|work on|focus on|exercise|repeat","i").test(tx))g.drills.push(tx);
-                                  else if(new RegExp("need|should|must|improve|fix|adjust|lack|issue|problem|fault|tend to|too much|too little","i").test(tx))g.fixes.push(tx);
-                                  else g.other.push(tx);
-                                });
-                                if(!g.summary.length)g.summary=g.other.splice(0,2);
-                                const secs=[
-                                  {label:"Overview",icon:"  ",items:g.summary,color:"border-primary/30 bg-primary/5"},
-                                  {label:"Strengths",icon:" ",items:g.strengths,color:"border-green-500/30 bg-green-500/5"},
-                                  {label:"Fix These",icon:" ",items:g.fixes,color:"border-amber-500/30 bg-amber-500/5"},
-                                  {label:"Drills",icon:" ",items:g.drills,color:"border-blue-500/30 bg-blue-500/5"},
-                                  {label:"Notes",icon:" ",items:g.other,color:"border-border bg-secondary/20"},
-                                ].filter(x=>x.items.length>0);
-                                return(
-                                  <div className="px-3 pb-3 border-t border-border bg-background/50">
-                                    <div className="pt-3 space-y-2">
-                                      {secs.map(({label,icon,items,color})=>(
-                                        <div key={label} className={"rounded-xl border p-2.5 "+color}>
-                                          <p className="display text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{icon} {label}</p>
-                                          <ul className="space-y-1">
-                                            {items.map((item,j)=>(
-                                              <li key={j} className="flex gap-2 text-[12px] text-foreground leading-snug">
-                                                <span className="text-muted-foreground shrink-0"> </span>
-                                                <span>{item}</span>
-                                              </li>
-                                            ))}
-                                          </ul>
-                                        </div>
-                                      ))}
-                                    </div>
-                                    <button onClick={()=>speakText(s.analysis||"")}
-                                      className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground mt-2">
-                                        Read aloud
-                                    </button>
-                                  </div>
-                                );
-                              })()}
+                              {isExpanded&&renderSwingAnalysis(s.analysis||"",null,s.club_used||"Swing",false,null,true,()=>{})}
                             </div>
                           );
                         })}
