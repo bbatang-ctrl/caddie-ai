@@ -599,7 +599,7 @@ function ObiGolfApp(){
         body:JSON.stringify({messages:[{role:"user",content:p}],
           system:"Golf course data API. Return only valid JSON. Be accurate with real course data."})});
       const d=await r.json();
-      const t=(d?.content?.[0]?.text||"").replace(new RegExp("```json","g"),"").replace(new RegExp("```","g"),"").trim();
+      const raw=d?.content?.[0]?.text||""; const t=raw.split("```json").join("").split("```").join("").trim();
       const s=t.indexOf("{"),e=t.lastIndexOf("}");
       if(s>=0&&e>s){
         const gd=JSON.parse(t.slice(s,e+1));
@@ -1072,7 +1072,7 @@ function ObiGolfApp(){
     if(!window.speechSynthesis||!text)return;
     window.speechSynthesis.cancel();
     setSpeaking(false);
-    const clean=text.replace(new RegExp("[*_#`]","g"),"").replace(new RegExp("\n","g")," ").replace(new RegExp("\\s+","g")," ").trim();
+    const clean=text.replace(new RegExp("[*_#]","g"),"").replace(new RegExp("\n","g")," ").trim();
     if(!clean)return;
     const doSpeak=()=>{
       const utt=new SpeechSynthesisUtterance(clean);
