@@ -2533,27 +2533,6 @@ function ObiGolfApp(){
                 </React.Fragment>
               )}
 
-
-                                </button>
-                                <button onClick={async()=>{
-                                  if(!window.confirm("Delete this analysis?"))return;
-                                  if(s.id){await supabase.from("swing_analyses").delete().eq("id",s.id);}
-                                  setSwingHistory(h=>h.filter((_,j)=>j!==i));
-                                }}
-                                  className="display text-[9px] font-bold uppercase tracking-wider border border-destructive/30 rounded-lg px-2 py-1 text-destructive hover:bg-destructive/10 transition">
-                                  Delete
-                                </button>
-                              </div>
-                            </div>
-                            <p className="text-[12px] text-muted-foreground leading-relaxed line-clamp-3">{s.analysis?.slice(0,200)}{s.analysis?.length>200?"...":""}</p>
-                            <button onClick={()=>speakText(s.analysis||"")}
-                              className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground mt-2">
-                              🔊 Read aloud
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   )}
                 </React.Fragment>
               )}
