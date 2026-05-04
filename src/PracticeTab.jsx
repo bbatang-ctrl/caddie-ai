@@ -31,15 +31,15 @@ export default function PracticeTab({
 
       <div className="flex-1 overflow-y-auto px-4 pb-8 space-y-4">
 
-        {/* Upload button */}
-        {!swingAnalysis&&(
+        {/* Upload button - always visible */}
+        {(
           <button onClick={()=>swingInputRef.current&&swingInputRef.current.click()}
             className="w-full rounded-xl bg-foreground text-background p-4 flex items-center gap-3 hover:opacity-95 transition">
             <div className="h-11 w-11 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0">
               <Video className="h-5 w-5" strokeWidth={2.5}/>
             </div>
             <div className="text-left flex-1">
-              <p className="display text-[15px] font-bold tracking-tight">Record or upload a swing</p>
+              <p className="display text-[15px] font-bold tracking-tight">{swingAnalysis?"Upload another swing":"Record or upload a swing"}</p>
               <p className="text-[12px] opacity-60 mt-0.5">Video or photo - AI breakdown</p>
             </div>
             <ChevronRight className="h-5 w-5 shrink-0 opacity-60" strokeWidth={2.5}/>
