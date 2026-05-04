@@ -1273,13 +1273,13 @@ function ObiGolfApp(){
       else{result=await analyzeSwing(swingFile,swingNotes,profile);}
       setSwingAnalysis(result);
       if(user){
-        const{data}=await supabase.from("swing_analyses").insert({
+      if(user){
         const{data}=await supabase.from("swing_analyses").insert({
           user_id:user.id,notes:swingNotes,analysis:result,
           club_used:swingNotes||"unknown",thumbnail:swingThumb||null,created_at:new Date().toISOString(),
-        if(data)setSwingHistory(h=>[data,...h]);
+        }).select().single();
         if(data)setSwingHistory(h=>[{...data,thumbnail:swingThumb||null},...h]);
-    }catch(e){setSwingAnalysis("Analysis failed. Please try again.");}
+      }
     setSwingLoading(false);
   };
 
