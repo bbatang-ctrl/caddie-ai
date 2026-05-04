@@ -273,6 +273,9 @@ function ObiGolfApp(){
   const [swingFile,setSwingFile]=useState(null);
   const [swingNotes,setSwingNotes]=useState("");
   const [swingAnalysis,setSwingAnalysis]=useState("");
+  const [swingThumb,setSwingThumb]=useState(null);      // thumbnail of current swing
+  const [expandedSwing,setExpandedSwing]=useState(null); // id of expanded history item
+  const [analysisExpanded,setAnalysisExpanded]=useState(true);
   const [swingLoading,setSwingLoading]=useState(false);
   const [swingHistory,setSwingHistory]=useState([]);
   const [rangeClub,setRangeClub]=useState("7-iron");
@@ -604,7 +607,22 @@ function ObiGolfApp(){
         const finalPar=dbHole?.par||gd.par||4;
         const finalYards=dbHole?.yards||gd.yards||400;
         const finalSI=dbHole?.si||gd.strokeIndex||holeNum;
-        setHoleMap({...gd,par:finalPar,yards:finalYards,strokeIndex:finalSI,osmFeatures:osmData});
+        // Validate Gemini GPS coords — if they're clearly wrong, null them out
+        let validatedGd={...gd,par:finalPar,yards:finalYards,strokeIndex:finalSI,osmFeatures:osmData};
+        if(validatedGd.green_lat&&validatedGd.tee_lat){
+          // Tee→green distance should be between 50 and 700 yards for a real hole
+          const R=6371000,toRad=x=>x*Math.PI/180;
+          const dLat=toRad(validatedGd.green_lat-validatedGd.tee_lat);
+          const dLng=toRad(validatedGd.green_lng-validatedGd.tee_lng);
+          const a=Math.sin(dLat/2)**2+Math.cos(toRad(validatedGd.tee_lat))*Math.cos(toRad(validatedGd.green_lat))*Math.sin(dLng/2)**2;
+          const holeLen=2*R*Math.asin(Math.sqrt(a))*1.09361;
+          if(holeLen<30||holeLen>800){
+            // Clearly wrong — Gemini made up coordinates
+            console.warn("Gemini coords invalid (hole length "+Math.round(holeLen)+"y), nulling out");
+            validatedGd={...validatedGd,tee_lat:null,tee_lng:null,green_lat:null,green_lng:null};
+          }
+        }
+        setHoleMap(validatedGd);
         setYardage(String(finalYards));
         setHolePars(prev=>{const n=[...prev];n[holeNum-1]=finalPar;return n;});
       }
@@ -759,23 +777,41 @@ function ObiGolfApp(){
 
     // Compute map center + bounds
     const getCenter=()=>{
+      // OSM bounds are always reliable — use them if available
       if(holeData?.osmFeatures?.bounds){
         const{minLat,maxLat,minLng,maxLng}=holeData.osmFeatures.bounds;
         return{center:[(minLng+maxLng)/2,(minLat+maxLat)/2],
-               bbox:[[minLng-0.0003,minLat-0.0003],[maxLng+0.0003,maxLat+0.0003]]};
+               bbox:[[minLng-0.0003,minLat-0.0003],[maxLng+0.0003,maxLat+0.0003]],reliable:true};
       }
+      // Validate Gemini coords vs player GPS — reject if >2000y away
       if(holeData?.tee_lat&&holeData?.green_lat){
         const cLat=(holeData.tee_lat+holeData.green_lat)/2;
         const cLng=(holeData.tee_lng+holeData.green_lng)/2;
-        return{center:[cLng,cLat],bbox:null};
+        // If we have GPS, check Gemini coords are in the right ballpark
+        if(gps?.lat){
+          const R=6371000,toRad=x=>x*Math.PI/180;
+          const dLat=toRad(cLat-gps.lat),dLng=toRad(cLng-gps.lng);
+          const a=Math.sin(dLat/2)**2+Math.cos(toRad(gps.lat))*Math.cos(toRad(cLat))*Math.sin(dLng/2)**2;
+          const distYards=2*R*Math.asin(Math.sqrt(a))*1.09361;
+          if(distYards>3000){
+            // Gemini coords are wrong — center on player GPS instead
+            return{center:[gps.lng,gps.lat],bbox:null,reliable:false,gpsOnly:true};
+          }
+        }
+        return{center:[cLng,cLat],bbox:null,reliable:true};
       }
-      return{center:[0,0],bbox:null};
+      // Fallback to player GPS if nothing else
+      if(gps?.lat)return{center:[gps.lng,gps.lat],bbox:null,reliable:false,gpsOnly:true};
+      return{center:[0,0],bbox:null,reliable:false};
     };
 
     useEffect(()=>{
       if(!containerRef.current||!holeData)return;
 
-      const{center,bbox}=getCenter();
+      const{center,bbox,reliable,gpsOnly}=getCenter();
+
+      // Don't render map if we have no valid center
+      if(center[0]===0&&center[1]===0)return;
 
       const m=new maplibregl.Map({
         container:containerRef.current,
@@ -793,7 +829,7 @@ function ObiGolfApp(){
           layers:[{id:"satellite",type:"raster",source:"satellite",paint:{"raster-brightness-min":0.05}}]
         },
         center,
-        zoom:17.5,
+        zoom: gpsOnly ? 17 : 17.5,
         bearing:0,
         pitch:0,
         interactive:true,
@@ -1238,11 +1274,11 @@ function ObiGolfApp(){
       setSwingAnalysis(result);
       if(user){
         const{data}=await supabase.from("swing_analyses").insert({
+        const{data}=await supabase.from("swing_analyses").insert({
           user_id:user.id,notes:swingNotes,analysis:result,
-          club_used:swingNotes||"unknown",created_at:new Date().toISOString(),
-        }).select().single();
+          club_used:swingNotes||"unknown",thumbnail:swingThumb||null,created_at:new Date().toISOString(),
         if(data)setSwingHistory(h=>[data,...h]);
-      }
+        if(data)setSwingHistory(h=>[{...data,thumbnail:swingThumb||null},...h]);
     }catch(e){setSwingAnalysis("Analysis failed. Please try again.");}
     setSwingLoading(false);
   };
@@ -2255,60 +2291,75 @@ function ObiGolfApp(){
             <div className="px-4 pt-5 pb-3 shrink-0">
               <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Practice</p>
               <h1 className="display text-[24px] font-bold tracking-tight leading-tight mt-0.5 mb-4">Sharpen your game.</h1>
-              <div className="flex gap-1 bg-secondary rounded-xl p-1">
-                {[["swing","🎬 Swing Lab"],["range","🎯 Range Mode"]].map(([id,label])=>(
-                  <button key={id} onClick={()=>setPracticeSubTab(id)}
-                    className={cn("flex-1 py-2.5 rounded-[10px] display text-[12px] font-bold uppercase tracking-wider transition-all",
-                      practiceSubTab===id?"nav-pill-active":"text-muted-foreground hover:text-foreground")}>
-                    {label}
-                  </button>
-                ))}
-              </div>
+              {/* Range mode removed — Swing Lab only for now */}
             </div>
-
-            {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto px-4 pb-8 space-y-4">
 
               {/* ══ SWING LAB ══════════════════════════════════════ */}
               {practiceSubTab==="swing"&&(
                 <React.Fragment>
-                  {/* Upload CTA */}
-                  <button onClick={()=>swingInputRef.current?.click()}
-                    className="w-full rounded-xl bg-foreground text-background p-4 flex items-center gap-3 hover:opacity-95 transition">
-                    <div className="h-11 w-11 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0">
-                      <Video className="h-5 w-5" strokeWidth={2.5}/>
-                    </div>
-                    <div className="text-left flex-1">
-                      <p className="display text-[16px] font-bold tracking-tight">Record or upload a swing</p>
-                      <p className="text-[12px] opacity-60 font-medium mt-0.5">Video or photo · AI breakdown · plane, tempo, face angle</p>
-                    </div>
-                    <ChevronRight className="h-5 w-5 shrink-0 opacity-60" strokeWidth={2.5}/>
-                  </button>
-                  <input ref={swingInputRef} type="file" accept="video/*,image/*" className="hidden"
-                    onChange={e=>{const f=e.target.files?.[0];if(f)setSwingFile(f);}}/>
+
+                  {/* Upload CTA — only show if no current analysis */}
+                  {!swingAnalysis&&(
+                    <button onClick={()=>swingInputRef.current?.click()}
+                      className="w-full rounded-xl bg-foreground text-background p-4 flex items-center gap-3 hover:opacity-95 transition">
+                      <div className="h-11 w-11 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0">
+                        <Video className="h-5 w-5" strokeWidth={2.5}/>
+                      </div>
+                      <div className="text-left flex-1">
+                        <p className="display text-[15px] font-bold tracking-tight">Record or upload a swing</p>
+                        <p className="text-[12px] opacity-60 mt-0.5">Video or photo · AI breakdown</p>
+                      </div>
+                      <ChevronRight className="h-5 w-5 shrink-0 opacity-60" strokeWidth={2.5}/>
+                    </button>
+                  )}
+                  <input ref={swingInputRef} type="file" accept="video/*,image/*" capture="environment" className="hidden"
+                    onChange={e=>{
+                      const f=e.target.files?.[0];
+                      if(!f)return;
+                      setSwingFile(f);
+                      if(f.type.startsWith('image/')){
+                        setSwingThumb(URL.createObjectURL(f));
+                      }else if(f.type.startsWith('video/')){
+                        const video=document.createElement('video');
+                        video.src=URL.createObjectURL(f);
+                        video.currentTime=0.5;
+                        video.onloadeddata=()=>{
+                          const cv=document.createElement('canvas');
+                          cv.width=120;cv.height=90;
+                          cv.getContext('2d').drawImage(video,0,0,120,90);
+                          setSwingThumb(cv.toDataURL('image/jpeg',0.7));
+                        };
+                      }
+                    }}/>
 
                   {/* File selected — notes + analyze */}
                   {swingFile&&!swingAnalysis&&!swingLoading&&(
-                    <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                          <Video className="h-4 w-4" strokeWidth={2.5}/>
-                        </div>
+                    <div className="rounded-xl border border-border bg-card overflow-hidden">
+                      <div className="flex items-center gap-3 p-3.5 border-b border-border">
+                        {swingThumb?(
+                          <img src={swingThumb} alt="swing" className="h-14 w-20 object-cover rounded-lg shrink-0 bg-muted"/>
+                        ):(
+                          <div className="h-14 w-20 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                            <Video className="h-6 w-6 text-primary" strokeWidth={2}/>
+                          </div>
+                        )}
                         <div className="min-w-0 flex-1">
                           <p className="display text-[13px] font-bold truncate">{swingFile.name}</p>
-                          <p className="text-[11px] text-muted-foreground">{swingFile.type.startsWith("video")?"Video":"Photo"} · {Math.round(swingFile.size/1024)}KB</p>
+                          <p className="text-[11px] text-muted-foreground">{Math.round(swingFile.size/1024)}KB · {swingFile.type.startsWith("video")?"Video":"Photo"}</p>
                         </div>
-                        <button onClick={()=>setSwingFile(null)} className="text-muted-foreground hover:text-foreground">
+                        <button onClick={()=>{setSwingFile(null);setSwingThumb(null);}} className="text-muted-foreground hover:text-foreground shrink-0">
                           <X className="h-4 w-4" strokeWidth={2.5}/>
                         </button>
                       </div>
-                      <textarea placeholder="Notes (optional) — club, what to improve, feel..." value={swingNotes}
-                        onChange={e=>setSwingNotes(e.target.value)} rows={2}
-                        className="w-full bg-input border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none focus:border-foreground/40 transition"/>
-                      <button onClick={handleSwingAnalyze}
-                        className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 display text-[13px] font-bold uppercase tracking-wider hover:opacity-90 transition">
-                        Analyze with Obi
-                      </button>
+                      <div className="p-3.5 space-y-3">
+                        <textarea placeholder="Notes — club, what to work on..." value={swingNotes}
+                          onChange={e=>setSwingNotes(e.target.value)} rows={2}
+                          className="w-full bg-input border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none focus:border-foreground/40 transition"/>
+                        <button onClick={handleSwingAnalyze}
+                          className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 display text-[13px] font-bold uppercase tracking-wider hover:opacity-90 transition">
+                          Analyze with Obi →
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -2322,10 +2373,9 @@ function ObiGolfApp(){
                     </div>
                   )}
 
-                  {/* Analysis result — formatted into sections */}
+                  {/* Current analysis — collapsible */}
                   {swingAnalysis&&(()=>{
                     const sentences=(swingAnalysis.match(/[^.!?]+[.!?]+/g)||[swingAnalysis]).map(s=>s.trim()).filter(Boolean);
-                    const sl=s=>s.toLowerCase();
                     const groups={summary:[],strengths:[],fixes:[],drills:[],other:[]};
                     sentences.forEach(s=>{
                       if(/(overall|summary|assessment|your swing|shows|demonstrates)/i.test(s))groups.summary.push(s);
@@ -2336,66 +2386,154 @@ function ObiGolfApp(){
                     });
                     if(!groups.summary.length)groups.summary=groups.other.splice(0,2);
                     const sections=[
-                      {label:"Overview",icon:"🏌️",items:groups.summary,color:"border-primary/30 bg-primary/8"},
-                      {label:"Strengths",icon:"✅",items:groups.strengths,color:"border-green-500/30 bg-green-500/8"},
-                      {label:"Fix These",icon:"🔧",items:groups.fixes,color:"border-amber-500/30 bg-amber-500/8"},
-                      {label:"Drills",icon:"🎯",items:groups.drills,color:"border-blue-500/30 bg-blue-500/8"},
+                      {label:"Overview",icon:"🏌️",items:groups.summary,color:"border-primary/30 bg-primary/5"},
+                      {label:"Strengths",icon:"✅",items:groups.strengths,color:"border-green-500/30 bg-green-500/5"},
+                      {label:"Fix These",icon:"🔧",items:groups.fixes,color:"border-amber-500/30 bg-amber-500/5"},
+                      {label:"Drills",icon:"🎯",items:groups.drills,color:"border-blue-500/30 bg-blue-500/5"},
                       {label:"Notes",icon:"📋",items:groups.other,color:"border-border bg-secondary/30"},
                     ].filter(s=>s.items.length>0);
                     return(
                       <div className="rounded-xl border border-border bg-card overflow-hidden">
-                        <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-foreground text-background">
+                        {/* Header with expand/collapse */}
+                        <button onClick={()=>setAnalysisExpanded(e=>!e)}
+                          className="w-full flex items-center gap-2 px-4 py-3 border-b border-border bg-foreground text-background hover:opacity-90 transition">
+                          {swingThumb&&<img src={swingThumb} alt="" className="h-8 w-12 object-cover rounded shrink-0"/>}
                           <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" strokeWidth={2.5}/>
-                          <p className="display text-[13px] font-bold flex-1">Obi&apos;s Analysis</p>
-                          <span className="display text-[10px] font-bold opacity-50">{swingNotes||"Swing"}</span>
-                        </div>
-                        <div className="p-3 space-y-2">
-                          {sections.map(({label,icon,items,color})=>(
-                            <div key={label} className={"rounded-xl border p-3 "+color}>
-                              <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">{icon} {label}</p>
-                              <ul className="space-y-1.5">
-                                {items.map((item,i)=>(
-                                  <li key={i} className="flex gap-2 text-[13px] text-foreground leading-snug">
-                                    <span className="text-muted-foreground shrink-0">•</span>
-                                    <span>{item}</span>
-                                  </li>
-                                ))}
-                              </ul>
+                          <p className="display text-[13px] font-bold flex-1 text-left">Obi&apos;s Analysis</p>
+                          <span className="display text-[10px] font-bold opacity-50 mr-1">{swingNotes||"Swing"}</span>
+                          <ChevronDown className={cn("h-4 w-4 transition-transform shrink-0",analysisExpanded&&"rotate-180")} strokeWidth={2.5}/>
+                        </button>
+                        {analysisExpanded&&(
+                          <React.Fragment>
+                            <div className="p-3 space-y-2">
+                              {sections.map(({label,icon,items,color})=>(
+                                <div key={label} className={"rounded-xl border p-3 "+color}>
+                                  <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">{icon} {label}</p>
+                                  <ul className="space-y-1.5">
+                                    {items.map((item,i)=>(
+                                      <li key={i} className="flex gap-2 text-[13px] text-foreground leading-snug">
+                                        <span className="text-muted-foreground shrink-0 mt-0.5">•</span>
+                                        <span>{item}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                        <div className="flex gap-2 px-3 pb-3">
-                          <button onClick={()=>speakText(swingAnalysis)}
-                            className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 border transition",speaking?"bg-primary/20 border-primary/40 text-primary":"border-border text-muted-foreground hover:text-foreground")}>
-                            {speaking?"⏹ Stop":"🔊 Read"}
-                          </button>
-                          <button onClick={()=>{setSwingAnalysis("");setSwingFile(null);setSwingNotes("");}}
-                            className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded-lg px-2.5 py-1.5 ml-auto">
-                            New →
-                          </button>
-                        </div>
+                            <div className="flex gap-2 px-3 pb-3">
+                              <button onClick={()=>speakText(swingAnalysis)}
+                                className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 border transition",speaking?"bg-primary/20 border-primary/40 text-primary":"border-border text-muted-foreground hover:text-foreground")}>
+                                {speaking?"⏹ Stop":"🔊 Read"}
+                              </button>
+                              <button onClick={()=>swingInputRef.current?.click()}
+                                className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 text-muted-foreground hover:text-foreground ml-auto">
+                                + New swing
+                              </button>
+                            </div>
+                          </React.Fragment>
+                        )}
                       </div>
                     );
                   })()}
 
-                  {/* Past analyses — expandable with delete */}
+                  {/* ── Swing history ─────────────────────────────── */}
                   {swingHistory.length>0&&(
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Past analyses ({swingHistory.length})</p>
-                      </div>
+                      <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">All swings ({swingHistory.length})</p>
                       <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
-                        {swingHistory.map((s,i)=>(
-                          <div key={s.id||i} className="p-3.5">
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div className="min-w-0">
-                                <p className="display text-[13px] font-bold truncate">{s.club_used||"Swing"}</p>
-                                <p className="display text-[10px] text-muted-foreground font-bold">{fmtDateShort(s.created_at)}</p>
+                        {swingHistory.map((s,i)=>{
+                          const isExpanded=expandedSwing===( s.id||i);
+                          const thumb=s.thumbnail||null;
+                          return(
+                            <div key={s.id||i}>
+                              {/* Row */}
+                              <div className="flex items-center gap-3 p-3">
+                                {/* Thumbnail */}
+                                {thumb?(
+                                  <img src={thumb} alt="swing" className="h-12 w-16 object-cover rounded-lg shrink-0 bg-muted"/>
+                                ):(
+                                  <div className="h-12 w-16 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+                                    <Video className="h-5 w-5 text-muted-foreground" strokeWidth={1.75}/>
+                                  </div>
+                                )}
+                                {/* Info */}
+                                <div className="min-w-0 flex-1">
+                                  <p className="display text-[13px] font-bold truncate">{s.club_used||"Swing"}</p>
+                                  <p className="display text-[10px] text-muted-foreground font-bold">{fmtDateShort(s.created_at)}</p>
+                                  <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{s.analysis?.slice(0,60)}...</p>
+                                </div>
+                                {/* Actions */}
+                                <div className="flex flex-col gap-1.5 shrink-0">
+                                  <button onClick={()=>setExpandedSwing(isExpanded?null:(s.id||i))}
+                                    className="display text-[9px] font-bold uppercase tracking-wider border border-border rounded-lg px-2 py-1 text-muted-foreground hover:text-foreground transition">
+                                    {isExpanded?"Hide":"View"}
+                                  </button>
+                                  <button onClick={async()=>{
+                                    if(!window.confirm("Delete this swing analysis?"))return;
+                                    if(s.id)await supabase.from("swing_analyses").delete().eq("id",s.id);
+                                    setSwingHistory(h=>h.filter((_,j)=>j!==i));
+                                    if(isExpanded)setExpandedSwing(null);
+                                  }}
+                                    className="display text-[9px] font-bold uppercase tracking-wider border border-destructive/30 rounded-lg px-2 py-1 text-destructive hover:bg-destructive/10 transition">
+                                    Delete
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex gap-1.5 shrink-0">
-                                <button onClick={()=>{setSwingAnalysis(s.analysis||"");setSwingNotes(s.club_used||"");}}
-                                  className="display text-[9px] font-bold uppercase tracking-wider border border-border rounded-lg px-2 py-1 text-muted-foreground hover:text-foreground transition">
-                                  View
+                              {/* Expanded analysis */}
+                              {isExpanded&&(()=>{
+                                const text=s.analysis||"";
+                                const sentences=(text.match(/[^.!?]+[.!?]+/g)||[text]).map(x=>x.trim()).filter(Boolean);
+                                const g={summary:[],strengths:[],fixes:[],drills:[],other:[]};
+                                sentences.forEach(x=>{
+                                  if(/(overall|summary|assessment|your swing|shows|demonstrates)/i.test(x))g.summary.push(x);
+                                  else if(/(good|well done|strength|positive|excellent|nice|solid|great job)/i.test(x))g.strengths.push(x);
+                                  else if(/(drill|practice|try|work on|focus on|exercise|repeat)/i.test(x))g.drills.push(x);
+                                  else if(/(need|should|must|improve|fix|adjust|lack|issue|problem|fault|tend to|too much|too little)/i.test(x))g.fixes.push(x);
+                                  else g.other.push(x);
+                                });
+                                if(!g.summary.length)g.summary=g.other.splice(0,2);
+                                const secs=[
+                                  {label:"Overview",icon:"🏌️",items:g.summary,color:"border-primary/30 bg-primary/5"},
+                                  {label:"Strengths",icon:"✅",items:g.strengths,color:"border-green-500/30 bg-green-500/5"},
+                                  {label:"Fix These",icon:"🔧",items:g.fixes,color:"border-amber-500/30 bg-amber-500/5"},
+                                  {label:"Drills",icon:"🎯",items:g.drills,color:"border-blue-500/30 bg-blue-500/5"},
+                                  {label:"Notes",icon:"📋",items:g.other,color:"border-border bg-secondary/20"},
+                                ].filter(x=>x.items.length>0);
+                                return(
+                                  <div className="px-3 pb-3 border-t border-border bg-background/50">
+                                    <div className="pt-3 space-y-2">
+                                      {secs.map(({label,icon,items,color})=>(
+                                        <div key={label} className={"rounded-xl border p-2.5 "+color}>
+                                          <p className="display text-[9px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">{icon} {label}</p>
+                                          <ul className="space-y-1">
+                                            {items.map((item,j)=>(
+                                              <li key={j} className="flex gap-2 text-[12px] text-foreground leading-snug">
+                                                <span className="text-muted-foreground shrink-0">•</span>
+                                                <span>{item}</span>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <button onClick={()=>speakText(s.analysis||"")}
+                                      className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground mt-2">
+                                      🔊 Read aloud
+                                    </button>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                </React.Fragment>
+              )}
+
+
                                 </button>
                                 <button onClick={async()=>{
                                   if(!window.confirm("Delete this analysis?"))return;
@@ -2420,8 +2558,8 @@ function ObiGolfApp(){
                 </React.Fragment>
               )}
 
-              {/* ══ RANGE MODE ═════════════════════════════════════ */}
-              {practiceSubTab==="range"&&(
+              {/* Range mode hidden — {practiceSubTab==="range"&&( */}
+              {false&&(
                 <React.Fragment>
                   {/* Club selector */}
                   <div className="rounded-xl border border-border bg-card p-4">
