@@ -8,7 +8,7 @@ import {DARK_THEME,LIGHT_THEME,DEFAULT_BAG,Ball,ScoreBadge,Avatar,
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-// Capacitor plugins — loaded dynamically so web build still works
+// Capacitor plugins -- loaded dynamically so web build still works
 let CapGeo=null, CapHaptics=null, CapSpeech=null, CapKeyboard=null, CapStatusBar=null, CapSplash=null;
 (async()=>{
   try{
@@ -36,7 +36,7 @@ function ObiLogo({size=32}){
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
       {/* Flag pole */}
       <line x1="13" y1="10" x2="13" y2="31" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-      {/* Flag — brand accent */}
+      {/* Flag - brand accent */}
       <path d="M13 10 L26 14.5 L13 19 Z" fill="#CFFF04"/>
       {/* Flag highlight */}
       <path d="M13 10 L26 14.5 L19 16 Z" fill="white" fillOpacity="0.25"/>
@@ -48,7 +48,7 @@ function ObiLogo({size=32}){
 }
 
 
-// ── Accurate hole data for famous courses ──────────────────────────
+// -- Accurate hole data for famous courses --------------------------
 const COURSE_DB={
   "pebble beach":{name:"Pebble Beach Golf Links",
     holes:[{par:4,yards:381,si:11},{par:5,yards:502,si:7},{par:4,yards:390,si:9},{par:4,yards:331,si:17},{par:3,yards:188,si:13},{par:5,yards:513,si:3},{par:3,yards:106,si:15},{par:4,yards:418,si:5},{par:4,yards:466,si:1},{par:4,yards:495,si:2},{par:4,yards:380,si:14},{par:3,yards:202,si:16},{par:4,yards:392,si:10},{par:5,yards:573,si:4},{par:4,yards:397,si:8},{par:4,yards:402,si:12},{par:3,yards:178,si:18},{par:5,yards:543,si:6}]},
@@ -85,7 +85,7 @@ function matchCourse(input){
 }
 
 
-// ── CSS injected into <head> ───────────────────────────────────────
+// -- CSS injected into <head> ---------------------------------------
 const CSS=`
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -180,7 +180,7 @@ function ObiGolfApp(){
     try{localStorage.setItem("obi_dark",String(isDark));}catch{}
   },[isDark]);
 
-  // ── Shared style tokens ──────────────────────────────────────────
+  // -- Shared style tokens ------------------------------------------
   const T={
     bg:"var(--bg)", fg:"var(--fg)", card:"var(--card)", border:"var(--card-border)",
     surface:"var(--surface)", muted:"var(--muted)", mutedFg:"var(--muted-fg)",
@@ -188,7 +188,7 @@ function ObiGolfApp(){
     accent:"var(--accent)", red:"var(--destructive)",
   };
 
-  // ── Reusable style helpers ───────────────────────────────────────
+  // -- Reusable style helpers ---------------------------------------
   const S={
     input:{background:T.surface,border:"1px solid "+T.border,borderRadius:"12px",color:T.fg,
       fontSize:"14px",padding:"11px 14px",outline:"none",width:"100%",fontFamily:"var(--font-sans)"},
@@ -210,7 +210,7 @@ function ObiGolfApp(){
       display:"inline-flex",alignItems:"center",gap:"6px"},
   };
 
-  // ── Auth state ───────────────────────────────────────────────────
+  // -- Auth state ---------------------------------------------------
   const [user,setUser]=useState(null);
   const [userProfile,setUserProfile]=useState(null);
   const [authScreen,setAuthScreen]=useState("login");
@@ -220,7 +220,7 @@ function ObiGolfApp(){
   const [authName,setAuthName]=useState("");
   const [authError,setAuthError]=useState("");
 
-  // ── Navigation ───────────────────────────────────────────────────
+  // -- Navigation ---------------------------------------------------
   const [tab,setTab]=useState("home");
   const changeTab=(newTab)=>{
     if(window.speechSynthesis)window.speechSynthesis.cancel();
@@ -231,7 +231,7 @@ function ObiGolfApp(){
   const [socialView,setSocialView]=useState("feed");
   const [profileSection,setProfileSection]=useState(null);
 
-  // ── Profile & onboarding ─────────────────────────────────────────
+  // -- Profile & onboarding -----------------------------------------
   const [avatarUrl,setAvatarUrl]=useState(null);
   const [uploadingAvatar,setUploadingAvatar]=useState(false);
   const [showAvatarZoom,setShowAvatarZoom]=useState(null);
@@ -240,7 +240,7 @@ function ObiGolfApp(){
   const [onboardStep,setOnboardStep]=useState(0);
   const [editingBag,setEditingBag]=useState(false);
 
-  // ── Round / caddie ───────────────────────────────────────────────
+  // -- Round / caddie -----------------------------------------------
   const [course,setCourse]=useState("");
   const [courseInput,setCourseInput]=useState("");
   const [hole,setHole]=useState(1);
@@ -265,10 +265,10 @@ function ObiGolfApp(){
 
   const [holeOpen,setHoleOpen]=useState(false);
 
-  // ── Weather ──────────────────────────────────────────────────────
+  // -- Weather ------------------------------------------------------
   const [weather,setWeather]=useState(null);
 
-  // ── Practice ─────────────────────────────────────────────────────
+  // -- Practice -----------------------------------------------------
   const [practiceSubTab,setPracticeSubTab]=useState("swing");
   const [swingFile,setSwingFile]=useState(null);
   const [swingNotes,setSwingNotes]=useState("");
@@ -291,7 +291,7 @@ function ObiGolfApp(){
   const mediaRecorderRef=useRef(null);
   const chunksRef=useRef([]);
 
-  // ── Social ───────────────────────────────────────────────────────
+  // -- Social -------------------------------------------------------
   const [rounds,setRounds]=useState([]);
   const [friends,setFriends]=useState([]);
   const [friendReqs,setFriendReqs]=useState([]);
@@ -302,11 +302,11 @@ function ObiGolfApp(){
   const [jabPost,setJabPost]=useState(null);
   const [showCard,setShowCard]=useState(null);
 
-  // ── Refs ─────────────────────────────────────────────────────────
+  // -- Refs ---------------------------------------------------------
   const chatEndRef=useRef(null);
   const swingInputRef=useRef(null);
 
-  // ── Auth effect ──────────────────────────────────────────────────
+  // -- Auth effect --------------------------------------------------
   useEffect(()=>{
     supabase.auth.getSession().then(({data:{session}})=>{
       setUser(session?.user||null);
@@ -326,7 +326,7 @@ function ObiGolfApp(){
     return()=>subscription.unsubscribe();
   },[]);
 
-  // ── iOS audio unlock — must happen on first user gesture ──────────
+  // -- iOS audio unlock -- must happen on first user gesture ----------
   useEffect(()=>{
     const unlock=()=>{
       if(window._audioUnlocked)return;
@@ -350,7 +350,7 @@ function ObiGolfApp(){
     };
   },[]);
 
-  // ── Keyboard height adjustment for iOS ────────────────────────────
+  // -- Keyboard height adjustment for iOS ----------------------------
   useEffect(()=>{
     if(!window.Capacitor?.isNativePlatform?.())return;
     const onShow=e=>{document.documentElement.style.setProperty('--kb-height',(e.keyboardHeight||300)+'px');};
@@ -423,7 +423,7 @@ function ObiGolfApp(){
     if(data)setFeed(data);
   };
 
-  // ── Auth handlers ────────────────────────────────────────────────
+  // -- Auth handlers ------------------------------------------------
   const handleLogin=async(e)=>{
     e&&e.preventDefault();
     setAuthError("");
@@ -448,7 +448,7 @@ function ObiGolfApp(){
     await supabase.auth.signInWithOAuth({provider:"google",options:{redirectTo:window.location.origin}});
   };
 
-  // ── Weather ──────────────────────────────────────────────────────
+  // -- Weather ------------------------------------------------------
   const fetchWeather=useCallback(()=>{
     if(!navigator.geolocation)return;
     navigator.geolocation.getCurrentPosition(async({coords:{latitude:lat,longitude:lng}})=>{
@@ -462,7 +462,7 @@ function ObiGolfApp(){
 
   useEffect(()=>{fetchWeather();},[fetchWeather]);
 
-  // ── Caddie chat ──────────────────────────────────────────────────
+  // -- Caddie chat --------------------------------------------------
   const buildSystem=()=>{
     const personas={
       pro:"You are a calm precise Tour-level golf caddie named Obi. Quiet authority. 2-3 sentences.",
@@ -489,7 +489,7 @@ function ObiGolfApp(){
       +"\nRULES: Only clubs from bag. No markdown. No bullets. Always finish sentences. Tailor to "+handed+" player.";
   };
 
-  // ── GPS ──────────────────────────────────────────────────────────
+  // -- GPS ----------------------------------------------------------
   const [gpsPos,setGpsPos]=useState(null);
   const [gpsWatcher,setGpsWatcher]=useState(null);
 
@@ -536,7 +536,7 @@ function ObiGolfApp(){
     return Math.round(2*R*Math.asin(Math.sqrt(a))*1.09361);
   };
 
-  // ── Hole map ──────────────────────────────────────────────────────
+  // -- Hole map ------------------------------------------------------
   const [holeMap,setHoleMap]=useState(null);
   const [holeMapLoading,setHoleMapLoading]=useState(false);
   const [showHoleMap,setShowHoleMap]=useState(false);
@@ -550,7 +550,7 @@ function ObiGolfApp(){
     if(!courseName||holeMapLoading)return;
     setHoleMapLoading(true);setHoleMap(null);setOsmError(false);
 
-    // ── STEP 0: Check local DB for accurate par/yardage ─────────────
+    // -- STEP 0: Check local DB for accurate par/yardage -------------
     const dbCourse=matchCourse(courseName);
     const dbHole=dbCourse?.holes?.[holeNum-1];
     if(dbHole){
@@ -558,7 +558,7 @@ function ObiGolfApp(){
       setHolePars(prev=>{const n=[...prev];n[holeNum-1]=dbHole.par;return n;});
     }
 
-    // ── STEP 1: Try OpenStreetMap Overpass API for real course data ──
+    // -- STEP 1: Try OpenStreetMap Overpass API for real course data --
     let osmData=null;
     try{
       // Build Overpass query - search by course name first
@@ -577,7 +577,7 @@ function ObiGolfApp(){
       }
     }catch(e){console.warn("Overpass failed",e);}
 
-    // ── STEP 2: Always get authoritative data from Gemini ────────────
+    // -- STEP 2: Always get authoritative data from Gemini ------------
     try{
       const knownYards=dbHole?dbHole.yards:null;
       const knownPar=dbHole?dbHole.par:null;
@@ -607,17 +607,17 @@ function ObiGolfApp(){
         const finalPar=dbHole?.par||gd.par||4;
         const finalYards=dbHole?.yards||gd.yards||400;
         const finalSI=dbHole?.si||gd.strokeIndex||holeNum;
-        // Validate Gemini GPS coords — if they're clearly wrong, null them out
+        // Validate Gemini GPS coords -- if they're clearly wrong, null them out
         let validatedGd={...gd,par:finalPar,yards:finalYards,strokeIndex:finalSI,osmFeatures:osmData};
         if(validatedGd.green_lat&&validatedGd.tee_lat){
-          // Tee→green distance should be between 50 and 700 yards for a real hole
+          // Tee green distance should be between 50 and 700 yards for a real hole
           const R=6371000,toRad=x=>x*Math.PI/180;
           const dLat=toRad(validatedGd.green_lat-validatedGd.tee_lat);
           const dLng=toRad(validatedGd.green_lng-validatedGd.tee_lng);
           const a=Math.sin(dLat/2)**2+Math.cos(toRad(validatedGd.tee_lat))*Math.cos(toRad(validatedGd.green_lat))*Math.sin(dLng/2)**2;
           const holeLen=2*R*Math.asin(Math.sqrt(a))*1.09361;
           if(holeLen<30||holeLen>800){
-            // Clearly wrong — Gemini made up coordinates
+            // Clearly wrong -- Gemini made up coordinates
             console.warn("Gemini coords invalid (hole length "+Math.round(holeLen)+"y), nulling out");
             validatedGd={...validatedGd,tee_lat:null,tee_lng:null,green_lat:null,green_lng:null};
           }
@@ -672,7 +672,7 @@ function ObiGolfApp(){
 
 
 
-  // ── Parse OSM data into renderable features ───────────────────────
+  // -- Parse OSM data into renderable features -----------------------
   const parseOSMHole=(osmData,holeNum)=>{
     const nodes={};
     osmData.elements.filter(e=>e.type==="node").forEach(n=>{nodes[n.id]={lat:n.lat,lng:n.lon};});
@@ -748,7 +748,7 @@ function ObiGolfApp(){
       estimatedYards,estimatedPar:estimatedYards<175?3:estimatedYards<430?4:5};
   };
 
-  // ── MapLibre satellite hole map ─────────────────────────────────
+  // -- MapLibre satellite hole map ---------------------------------
   const HoleMapCanvas=({map:holeData,gps,W=280,H=380})=>{
     const containerRef=useRef(null);
     const mapRef=useRef(null);
@@ -777,13 +777,13 @@ function ObiGolfApp(){
 
     // Compute map center + bounds
     const getCenter=()=>{
-      // OSM bounds are always reliable — use them if available
+      // OSM bounds are always reliable -- use them if available
       if(holeData?.osmFeatures?.bounds){
         const{minLat,maxLat,minLng,maxLng}=holeData.osmFeatures.bounds;
         return{center:[(minLng+maxLng)/2,(minLat+maxLat)/2],
                bbox:[[minLng-0.0003,minLat-0.0003],[maxLng+0.0003,maxLat+0.0003]],reliable:true};
       }
-      // Validate Gemini coords vs player GPS — reject if >2000y away
+      // Validate Gemini coords vs player GPS -- reject if >2000y away
       if(holeData?.tee_lat&&holeData?.green_lat){
         const cLat=(holeData.tee_lat+holeData.green_lat)/2;
         const cLng=(holeData.tee_lng+holeData.green_lng)/2;
@@ -794,7 +794,7 @@ function ObiGolfApp(){
           const a=Math.sin(dLat/2)**2+Math.cos(toRad(gps.lat))*Math.cos(toRad(cLat))*Math.sin(dLng/2)**2;
           const distYards=2*R*Math.asin(Math.sqrt(a))*1.09361;
           if(distYards>3000){
-            // Gemini coords are wrong — center on player GPS instead
+            // Gemini coords are wrong -- center on player GPS instead
             return{center:[gps.lng,gps.lat],bbox:null,reliable:false,gpsOnly:true};
           }
         }
@@ -823,7 +823,7 @@ function ObiGolfApp(){
               type:"raster",
               tiles:["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"],
               tileSize:256,
-              attribution:"© EOX IT Services GmbH"
+              attribution:"  EOX IT Services GmbH"
             }
           },
           layers:[{id:"satellite",type:"raster",source:"satellite",paint:{"raster-brightness-min":0.05}}]
@@ -847,7 +847,7 @@ function ObiGolfApp(){
         const osm=holeData?.osmFeatures;
 
         if(osm?.features?.length>0){
-          // ── REAL OSM POLYGONS ───────────────────────────────────
+          // -- REAL OSM POLYGONS -----------------------------------
           const types=[
             {type:"fairway", fillColor:"#4ade80", fillOpacity:0.3, lineColor:"#22c55e", lineWidth:2},
             {type:"green",   fillColor:"#16a34a", fillOpacity:0.75,lineColor:"#4ade80", lineWidth:2.5},
@@ -895,7 +895,7 @@ function ObiGolfApp(){
             }
           }
         }else{
-          // ── SYNTHETIC FALLBACK (no OSM data) ─────────────────────
+          // -- SYNTHETIC FALLBACK (no OSM data) ---------------------
           const shape=holeData?.shape||"straight";
           const tee=holeData?.tee_lat?[holeData.tee_lng,holeData.tee_lat]:null;
           const green=holeData?.green_lat?[holeData.green_lng,holeData.green_lat]:null;
@@ -972,16 +972,16 @@ function ObiGolfApp(){
           }
         }
 
-        // ── Flag marker ─────────────────────────────────────────────
+        // -- Flag marker ---------------------------------------------
         const pinCoord=holeData?.green_lat?[holeData.green_lng,holeData.green_lat]:null;
         if(pinCoord){
           const flagEl=document.createElement("div");
-          flagEl.innerHTML="🚩";
+          flagEl.innerHTML=" ";
           flagEl.style.cssText="font-size:20px;cursor:default;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6))";
           new maplibregl.Marker({element:flagEl,anchor:"bottom"}).setLngLat(pinCoord).addTo(m);
         }
 
-        // ── Player GPS dot + distance line ──────────────────────────
+        // -- Player GPS dot + distance line --------------------------
         const playerGJ={type:"Feature",geometry:{type:"Point",coordinates:[0,0]},properties:{}};
         const lineGJ={type:"Feature",geometry:{type:"LineString",coordinates:[[0,0],[0,0]]},properties:{}};
 
@@ -1067,7 +1067,7 @@ function ObiGolfApp(){
     setLoading(false);
   };
 
-  // ── Voice output ──────────────────────────────────────────────────
+  // -- Voice output --------------------------------------------------
   const speakText=(text)=>{
     if(!window.speechSynthesis||!text)return;
     window.speechSynthesis.cancel();
@@ -1077,7 +1077,7 @@ function ObiGolfApp(){
     const doSpeak=()=>{
       const utt=new SpeechSynthesisUtterance(clean);
       utt.rate=0.9;utt.pitch=1;utt.volume=1;
-      // Pick a good English voice — getVoices() is populated by now
+      // Pick a good English voice -- getVoices() is populated by now
       const voices=window.speechSynthesis.getVoices();
       const pick=voices.find(v=>new RegExp("samantha|karen|daniel|alex|moira","i").test(v.name)&&v.lang.startsWith("en"))
         ||voices.find(v=>v.lang==="en-US"&&!v.name.includes("Google"))
@@ -1110,7 +1110,7 @@ function ObiGolfApp(){
     setSpeaking(false);
   };
 
-  // ── Voice input (mic) ─────────────────────────────────────────────
+  // -- Voice input (mic) ---------------------------------------------
   const startMic=async()=>{
     if(micActive){
       if(window.Capacitor?.isNativePlatform?.()&&CapSpeech){
@@ -1175,7 +1175,7 @@ function ObiGolfApp(){
 
   useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"});},[messages]);
 
-  // ── Scorecard ────────────────────────────────────────────────────
+  // -- Scorecard ----------------------------------------------------
   const saveRound=async()=>{
     if(!user)return;
     const filled=scorecard.filter(Boolean);
@@ -1199,9 +1199,9 @@ function ObiGolfApp(){
       const girTotal=gir.filter(g=>g!==null).length;
       const puttTotal=putts.filter(p=>p!==null).reduce((a,b)=>a+b,0);
       let msg="Round saved! "+total+" ("+diffStr+")";
-      if(fwyTotal>0)msg+=" · FWY "+fwyCount+"/"+fwyTotal;
-      if(girTotal>0)msg+=" · GIR "+girCount+"/"+girTotal;
-      if(puttTotal>0)msg+=" · "+puttTotal+" putts";
+      if(fwyTotal>0)msg+="   FWY "+fwyCount+"/"+fwyTotal;
+      if(girTotal>0)msg+="   GIR "+girCount+"/"+girTotal;
+      if(puttTotal>0)msg+="   "+puttTotal+" putts";
       alert(msg);
       // Reset scorecard for next round
       setScorecard(Array(18).fill(null));
@@ -1211,7 +1211,7 @@ function ObiGolfApp(){
     }
   };
 
-  // ── Avatar upload ────────────────────────────────────────────────
+  // -- Avatar upload ------------------------------------------------
   const handleAvatarUpload=async(e)=>{
     const file=e.target.files?.[0];
     if(!file||!user)return;
@@ -1244,7 +1244,7 @@ function ObiGolfApp(){
     }catch{setUploadingAvatar(false);}
   };
 
-  // ── Friend search ────────────────────────────────────────────────
+  // -- Friend search ------------------------------------------------
   const searchFriends=async()=>{
     if(!friendSearch.trim())return;
     const{data}=await supabase.from("profiles").select("id,full_name,handicap_index,avatar_url").ilike("full_name","%"+friendSearch+"%").neq("id",user?.id).limit(10);
@@ -1262,7 +1262,7 @@ function ObiGolfApp(){
     if(user)loadFriends(user.id);
   };
 
-  // ── Swing analysis ───────────────────────────────────────────────
+  // -- Swing analysis -----------------------------------------------
   const handleSwingAnalyze=async()=>{
     if(!swingFile||swingLoading)return;
     setSwingLoading(true);setSwingAnalysis("");
@@ -1289,7 +1289,7 @@ function ObiGolfApp(){
     supabase.from("range_shots").select("*").eq("user_id",user.id).order("created_at",{ascending:false}).limit(50).then(({data})=>{if(data){setRangeHistory(data);const stats={};data.forEach(s=>{if(!stats[s.club])stats[s.club]={count:0,shapes:{},totalCarry:0,shapeCount:0,typicalShape:"straight",consistencyStars:3};stats[s.club].count++;if(s.shape)stats[s.club].shapes[s.shape]=(stats[s.club].shapes[s.shape]||0)+1;});Object.keys(stats).forEach(club=>{const sh=stats[club].shapes;const top=Object.entries(sh).sort((a,b)=>b[1]-a[1])[0];if(top){stats[club].typicalShape=top[0];stats[club].shapeCount=top[1];}});setClubStats(stats);}});
   },[user]);
 
-  // ── Range shot ───────────────────────────────────────────────────
+  // -- Range shot ---------------------------------------------------
   const analyzeRangeShot=async(videoBlob)=>{
     setRangeLoading(true);setRangeShotResult(null);
     try{
@@ -1331,7 +1331,7 @@ function ObiGolfApp(){
     setRangeLoading(false);
   };
 
-  // ── Camera ───────────────────────────────────────────────────────
+  // -- Camera -------------------------------------------------------
   const startCamera=async()=>{
     try{
       const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"},audio:false});
@@ -1368,7 +1368,7 @@ function ObiGolfApp(){
     setRecording(false);
   };
 
-  // ── Summary modal ────────────────────────────────────────────────
+  // -- Summary modal ------------------------------------------------
   const SummaryModal=({round})=>{
     const diff=round.score_vs_par||0;
     const diffStr=diff===0?"E":diff>0?"+"+diff:""+diff;
@@ -1410,9 +1410,9 @@ function ObiGolfApp(){
     );
   };
 
-  // ── Loading screen ───────────────────────────────────────────────
+  // -- Loading screen -----------------------------------------------
 
-  // ── LOADING ───────────────────────────────────────────────────
+  // -- LOADING ---------------------------------------------------
 
   const avgScore = rounds.length > 0 ? Math.round(rounds.slice(0,10).reduce((a,r)=>a+(r.total_score||0),0)/Math.min(rounds.length,10)) : null;
   const bestScore = rounds.length > 0 ? Math.min(...rounds.map(r=>r.total_score||99)) : null;
@@ -1467,7 +1467,7 @@ function ObiGolfApp(){
               try {
                 await saveProfile(authName);
               } catch(e) { console.warn("saveProfile error",e); }
-              // Always go to app — even if save had an issue
+              // Always go to app -- even if save had an issue
               setAuthScreen("app");
               setTab("home");
             }}/>
@@ -1547,7 +1547,7 @@ function ObiGolfApp(){
                             <span className={cn("display text-[12px] font-bold",
                               s===null?"text-muted-foreground/30":
                               s<pars[i]?"text-primary":s>pars[i]+1?"text-destructive":"text-foreground")}>
-                              {s||"·"}
+                              {s||" "}
                             </span>
                           </td>
                         ))}
@@ -1557,7 +1557,7 @@ function ObiGolfApp(){
                           <td className="display text-[9px] font-bold uppercase text-muted-foreground px-2 py-2 text-left">FWY</td>
                           {fw.map((f,i)=>(
                             <td key={i} className="py-2 px-0.5">
-                              <span className={cn("display text-[11px] font-bold",f===null?"text-muted-foreground/30":f?"text-primary":"text-destructive")}>{f===null?"·":f?"✓":"✗"}</span>
+                              <span className={cn("display text-[11px] font-bold",f===null?"text-muted-foreground/30":f?"text-primary":"text-destructive")}>{f===null?" ":f?" ":" "}</span>
                             </td>
                           ))}
                         </tr>
@@ -1567,7 +1567,7 @@ function ObiGolfApp(){
                           <td className="display text-[9px] font-bold uppercase text-muted-foreground px-2 py-2 text-left">GIR</td>
                           {gr.map((g,i)=>(
                             <td key={i} className="py-2 px-0.5">
-                              <span className={cn("display text-[11px] font-bold",g===null?"text-muted-foreground/30":g?"text-primary":"text-destructive")}>{g===null?"·":g?"✓":"✗"}</span>
+                              <span className={cn("display text-[11px] font-bold",g===null?"text-muted-foreground/30":g?"text-primary":"text-destructive")}>{g===null?" ":g?" ":" "}</span>
                             </td>
                           ))}
                         </tr>
@@ -1577,7 +1577,7 @@ function ObiGolfApp(){
                           <td className="display text-[9px] font-bold uppercase text-muted-foreground px-2 py-2 text-left">Putts</td>
                           {pt.map((p,i)=>(
                             <td key={i} className="py-2 px-0.5">
-                              <span className={cn("display text-[11px] font-bold",p===null?"text-muted-foreground/30":p<=1?"text-primary":p>=3?"text-destructive":"text-foreground")}>{p===null?"·":p}</span>
+                              <span className={cn("display text-[11px] font-bold",p===null?"text-muted-foreground/30":p<=1?"text-primary":p>=3?"text-destructive":"text-foreground")}>{p===null?" ":p}</span>
                             </td>
                           ))}
                         </tr>
@@ -1603,7 +1603,7 @@ function ObiGolfApp(){
               </div>
               <div className="min-w-0 flex-1">
                 <h1 className="display text-[20px] font-bold tracking-tight">{userProfile?.full_name||name}</h1>
-                <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5 mt-0.5"><span className="inline-block h-1.5 w-1.5 rounded-full bg-primary"/>HCP {profile.hcp} · {profile.homeCourse||"No home course"}</p>
+                <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1.5 mt-0.5"><span className="inline-block h-1.5 w-1.5 rounded-full bg-primary"/>HCP {profile.hcp}   {profile.homeCourse||"No home course"}</p>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 mb-5">
@@ -1661,7 +1661,7 @@ function ObiGolfApp(){
                             setProfileSection(null);
                           }
                         }} className="w-full bg-primary text-primary-foreground rounded-xl py-3 display text-[12px] font-bold uppercase tracking-wider hover:opacity-90 transition">
-                          Save Bag ✓
+                          Save Bag  
                         </button>
                       </div>
                     </div>
@@ -1669,9 +1669,9 @@ function ObiGolfApp(){
                   {profileSection===id&&id==="style"&&(
                     <div className="p-3.5 space-y-2.5">
                       {[
-                        {v:"pro",    icon:"🎯", label:"Tour Pro",   desc:"Calm, clinical precision. Minimal words, maximum clarity."},
-                        {v:"coach",  icon:"📚", label:"The Coach",  desc:"Warm and encouraging. Builds confidence every hole."},
-                        {v:"oldschool",icon:"🪨",label:"Old School", desc:"Gritty, direct, no-nonsense caddie. Old-fashioned and real."},
+                        {v:"pro",    icon:" ", label:"Tour Pro",   desc:"Calm, clinical precision. Minimal words, maximum clarity."},
+                        {v:"coach",  icon:" ", label:"The Coach",  desc:"Warm and encouraging. Builds confidence every hole."},
+                        {v:"oldschool",icon:" ",label:"Old School", desc:"Gritty, direct, no-nonsense caddie. Old-fashioned and real."},
                       ].map(o=>(
                         <button key={o.v} onClick={()=>setProfile(p=>({...p,persona:o.v}))}
                           className={cn("w-full flex items-center gap-3 rounded-xl border-2 px-3.5 py-3 text-left transition-all",
@@ -1720,7 +1720,7 @@ function ObiGolfApp(){
           <div className="flex items-center gap-1.5">
             {tab==="caddie"&&weather&&(
               <div className="flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 tabular text-[11px] text-secondary-foreground">
-                <Cloud className="h-3 w-3"/><span className="font-medium">{weather.temp}°</span><span className="text-muted-foreground">·</span><span className="text-muted-foreground">{weather.wind}mph {windDir(weather.windDeg)}</span>
+                <Cloud className="h-3 w-3"/><span className="font-medium">{weather.temp} </span><span className="text-muted-foreground"> </span><span className="text-muted-foreground">{weather.wind}mph {windDir(weather.windDeg)}</span>
               </div>
             )}
             <button onClick={()=>setIsDark(d=>!d)} className="h-8 w-8 rounded-full flex items-center justify-center bg-secondary text-secondary-foreground hover:bg-muted transition">{isDark?<Sun className="h-3.5 w-3.5"/>:<Moon className="h-3.5 w-3.5"/>}</button>
@@ -1756,7 +1756,7 @@ function ObiGolfApp(){
                       </span>
                     </div>
                     <p className="text-[11px] opacity-50 mt-1.5 font-medium">
-                      {rounds.length>0?"Updated after "+fmtDateShort(rounds[0]?.played_at)+" · "+(rounds[0]?.course_name||""):"No rounds yet — start playing!"}
+                      {rounds.length>0?"Updated after "+fmtDateShort(rounds[0]?.played_at)+"   "+(rounds[0]?.course_name||""):"No rounds yet -- start playing!"}
                     </p>
                   </div>
                   <button onClick={()=>{setSocialView("rounds");setTab("social");}}
@@ -1767,7 +1767,7 @@ function ObiGolfApp(){
               </div>
             </section>
 
-            {/* Stat grid — derived from saved scorecard data */}
+            {/* Stat grid - derived from saved scorecard data */}
             {(()=>{
               // Compute stats from rounds that have scorecard+fairway+GIR+putt data
               const roundsWithData=rounds.filter(r=>r.scorecard&&Array.isArray(r.scorecard));
@@ -1843,7 +1843,7 @@ function ObiGolfApp(){
               </div>
               {rounds.length===0?(
                 <div className="rounded-xl border border-border bg-card p-8 text-center">
-                  <p className="text-3xl mb-2">⛳</p>
+                  <p className="text-3xl mb-2"> </p>
                   <p className="display text-[14px] font-bold text-foreground">No rounds saved yet</p>
                   <p className="text-[12px] text-muted-foreground mt-1">Save a round from the Caddie tab to see stats here</p>
                 </div>
@@ -1889,7 +1889,7 @@ function ObiGolfApp(){
         {tab==="caddie"&&(
           <div className="flex flex-col h-full min-h-0">
 
-            {/* ── Course + hole setup ──────────────────────── */}
+            {/* - Course + hole setup - */}
             <div className="px-4 pt-3 shrink-0 space-y-3">
               {/* Course banner */}
               <div className="rounded-xl bg-foreground text-background p-3.5">
@@ -1925,7 +1925,7 @@ function ObiGolfApp(){
                     <div className="flex items-end gap-1">
                       <input type="number" placeholder="---" value={yardage} onChange={e=>setYardage(e.target.value)}
                         className="stat text-[30px] leading-none text-primary bg-transparent border-b-2 border-primary/40 focus:border-primary w-28 outline-none transition-colors"/>
-                      <span className="text-xs text-muted-foreground pb-1 font-bold">YDS · Par {holePars[hole-1]}</span>
+                      <span className="text-xs text-muted-foreground pb-1 font-bold">YDS   Par {holePars[hole-1]}</span>
                     </div>
                   </div>
                   <div>
@@ -1949,7 +1949,7 @@ function ObiGolfApp(){
                 </div>
               </div>
 
-              {/* GPS rangefinder strip — validates coords before showing distance */}
+              {/* GPS rangefinder strip - validates coords before showing distance */}
               {(()=>{
                 const manualPin=manualPins[hole]||null;
                 const geminiPin=holeMap?.green_lat?{lat:holeMap.green_lat,lng:holeMap.green_lng}:null;
@@ -1974,30 +1974,30 @@ function ObiGolfApp(){
                           </div>
                         </div>
                         <div className="flex items-center justify-between px-3 py-1.5 bg-secondary/30 border-t border-border">
-                          <p className="display text-[9px] text-muted-foreground font-bold">±{gpsPos.acc||"?"}m · {manualPin?"Manual pin":"AI coords"}</p>
+                          <p className="display text-[9px] text-muted-foreground font-bold"> {gpsPos.acc||"?"}m   {manualPin?"Manual pin":"AI coords"}</p>
                           <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
                             className="display text-[9px] font-bold uppercase tracking-wider text-primary">
-                            📍 Drop pin here
+                              Drop pin here
                           </button>
                         </div>
                       </div>
                     )}
                     {gpsPos&&coordsBad&&(
                       <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 mb-2">
-                        <p className="display text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-1">📍 GPS on — AI coords unreliable for this course</p>
+                        <p className="display text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-1">  GPS on -- AI coords unreliable for this course</p>
                         <p className="text-[11px] text-amber-600 dark:text-amber-400 mb-2">Walk to the green and tap below to set the pin manually. It stays set for the whole round.</p>
                         <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
                           className="w-full display text-[11px] font-bold uppercase tracking-wider bg-amber-600 text-white rounded-lg px-3 py-2 text-center">
-                          I&apos;m at the green — set pin here
+                          I&apos;m at the green -- set pin here
                         </button>
                       </div>
                     )}
                     {gpsPos&&!pin&&!coordsBad&&(
                       <div className="rounded-xl border border-border bg-secondary/20 px-3 py-2.5 mb-2">
-                        <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">GPS on — walk to green to set pin</p>
+                        <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">GPS on -- walk to green to set pin</p>
                         <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
                           className="w-full display text-[11px] font-bold uppercase tracking-wider bg-primary text-primary-foreground rounded-lg px-3 py-2 text-center">
-                          I&apos;m at the green — set pin here
+                          I&apos;m at the green -- set pin here
                         </button>
                       </div>
                     )}
@@ -2034,7 +2034,7 @@ function ObiGolfApp(){
                             GPS live
                           </button>
                         )}
-                        <button onClick={()=>fetchHoleMap(course,hole)} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition">↺</button>
+                        <button onClick={()=>fetchHoleMap(course,hole)} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition"> </button>
                       </div>
                     )}
                   </div>
@@ -2051,7 +2051,7 @@ function ObiGolfApp(){
                           <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border bg-foreground text-background">
                             <div>
                               <p className="display text-[13px] font-bold tracking-tight truncate">{course}</p>
-                              <p className="display text-[10px] font-bold opacity-60">Hole {hole} · Par {holeMap.par} · {holeMap.yards}yds{holeMap.strokeIndex?" · Hdcp "+holeMap.strokeIndex:""}</p>
+                              <p className="display text-[10px] font-bold opacity-60">Hole {hole}   Par {holeMap.par}   {holeMap.yards}yds{holeMap.strokeIndex?"   Hdcp "+holeMap.strokeIndex:""}</p>
                             </div>
                             <div className="text-right shrink-0 ml-2">
                               {holeMap.osmFeatures?(
@@ -2068,7 +2068,7 @@ function ObiGolfApp(){
                             <HoleMapCanvas map={holeMap} gps={gpsPos} W={360} H={340}/>
                           ):(
                             <div className="bg-emerald-950/20 flex flex-col items-center justify-center py-10 gap-2">
-                              <p className="text-3xl">🗺️</p>
+                              <p className="text-3xl">  </p>
                               <p className="display text-[12px] font-bold text-muted-foreground">No map available for this course</p>
                               <p className="text-[11px] text-muted-foreground px-4 text-center">Walk to the green and tap "Set pin here" to use GPS rangefinder</p>
                             </div>
@@ -2080,7 +2080,7 @@ function ObiGolfApp(){
                                 {gpsPos&&pin?.lat&&(
                                   <div className="border-t border-border">
                                     <div className="grid grid-cols-3 gap-px bg-border">
-                                      {[["To pin",haversineYards(gpsPos.lat,gpsPos.lng,pin.lat,pin.lng)+"y"],["From tee",holeMap.tee_lat?haversineYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng)+"y":"--"],["Accuracy",gpsPos.acc?"±"+gpsPos.acc+"m":"--"]].map(([l,v])=>(
+                                      {[["To pin",haversineYards(gpsPos.lat,gpsPos.lng,pin.lat,pin.lng)+"y"],["From tee",holeMap.tee_lat?haversineYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng)+"y":"--"],["Accuracy",gpsPos.acc?" "+gpsPos.acc+"m":"--"]].map(([l,v])=>(
                                         <div key={l} className="bg-card px-2 py-2.5 text-center">
                                           <p className="display text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-0.5">{l}</p>
                                           <p className="stat text-[22px] leading-none text-primary">{v}</p>
@@ -2088,7 +2088,7 @@ function ObiGolfApp(){
                                       ))}
                                     </div>
                                     <div className="flex items-center justify-between px-3 py-2 bg-secondary/40 border-t border-border">
-                                      <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{manualPins[hole]?"📍 Manual pin":"📍 Gemini coords"}</p>
+                                      <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{manualPins[hole]?"  Manual pin":"  Gemini coords"}</p>
                                       <button onClick={()=>{if(gpsPos)setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}));}}
                                         className="display text-[10px] font-bold uppercase tracking-wider bg-primary text-primary-foreground rounded-lg px-2.5 py-1.5 hover:opacity-90 transition">
                                         Drop pin here
@@ -2098,7 +2098,7 @@ function ObiGolfApp(){
                                 )}
                                 {!gpsPos&&(
                                   <div className="border-t border-border bg-primary/5 px-3 py-2.5">
-                                    <p className="display text-[10px] font-bold uppercase tracking-wider text-primary/80">📍 Enable GPS rangefinder above</p>
+                                    <p className="display text-[10px] font-bold uppercase tracking-wider text-primary/80">  Enable GPS rangefinder above</p>
                                   </div>
                                 )}
                               </React.Fragment>
@@ -2152,10 +2152,10 @@ function ObiGolfApp(){
                       <div key={n} className={cn("py-1.5 display text-[9px] font-bold uppercase",n===hole&&"text-primary")}>{n}</div>
                     ))}
                   </div>
-                  {[{label:"SCR",data:scorecard,getColor:(s,i)=>s===null?"text-muted-foreground/40":s<holePars[i]?"text-primary":s>holePars[i]+1?"text-destructive":"text-foreground",getDisplay:s=>s||"·",onClick:(i)=>{}},
-                    {label:"FWY",data:fairways,getColor:(f)=>f===null?"text-muted-foreground/40":f?"text-primary":"text-destructive",getDisplay:f=>f===null?"·":f?"✓":"✗",onClick:(i)=>setFairways(prev=>{const n=[...prev];n[i]=prev[i]===null?true:prev[i]===true?false:null;return n;})},
-                    {label:"GIR",data:gir,getColor:(g)=>g===null?"text-muted-foreground/40":g?"text-primary":"text-destructive",getDisplay:g=>g===null?"·":g?"✓":"✗",onClick:(i)=>setGir(prev=>{const n=[...prev];n[i]=prev[i]===null?true:prev[i]===true?false:null;return n;})},
-                    {label:"PUT",data:putts,getColor:(p)=>p===null?"text-muted-foreground/40":p<=1?"text-primary":p>=3?"text-destructive":"text-foreground",getDisplay:p=>p===null?"·":p,onClick:(i)=>setPutts(prev=>{const n=[...prev];n[i]=prev[i]===null?1:prev[i]<4?prev[i]+1:null;return n;})},
+                  {[{label:"SCR",data:scorecard,getColor:(s,i)=>s===null?"text-muted-foreground/40":s<holePars[i]?"text-primary":s>holePars[i]+1?"text-destructive":"text-foreground",getDisplay:s=>s||" ",onClick:(i)=>{}},
+                    {label:"FWY",data:fairways,getColor:(f)=>f===null?"text-muted-foreground/40":f?"text-primary":"text-destructive",getDisplay:f=>f===null?" ":f?" ":" ",onClick:(i)=>setFairways(prev=>{const n=[...prev];n[i]=prev[i]===null?true:prev[i]===true?false:null;return n;})},
+                    {label:"GIR",data:gir,getColor:(g)=>g===null?"text-muted-foreground/40":g?"text-primary":"text-destructive",getDisplay:g=>g===null?" ":g?" ":" ",onClick:(i)=>setGir(prev=>{const n=[...prev];n[i]=prev[i]===null?true:prev[i]===true?false:null;return n;})},
+                    {label:"PUT",data:putts,getColor:(p)=>p===null?"text-muted-foreground/40":p<=1?"text-primary":p>=3?"text-destructive":"text-foreground",getDisplay:p=>p===null?" ":p,onClick:(i)=>setPutts(prev=>{const n=[...prev];n[i]=prev[i]===null?1:prev[i]<4?prev[i]+1:null;return n;})},
                   ].map(row=>(
                     <div key={row.label} className="grid items-center border-b border-border last:border-b-0" style={{gridTemplateColumns:"2rem repeat(18,1fr)"}}>
                       <div className="display text-[9px] font-bold uppercase text-muted-foreground text-center py-2">{row.label}</div>
@@ -2188,7 +2188,7 @@ function ObiGolfApp(){
               </div>
             )}
 
-            {/* ── Chat history ─────────────────────────────── */}
+            {/* - Chat history - */}
             <div className="flex-1 px-4 pt-2 overflow-y-auto space-y-3 min-h-0 pb-2" style={{scrollbarWidth:"none"}}>
               {messages.map((m,i)=>{
                 const isLast=i===messages.length-1;
@@ -2218,7 +2218,7 @@ function ObiGolfApp(){
                           <button onClick={()=>{speaking?stopSpeak():speakText(m.content);}}
                             className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 border transition",
                               speaking?"bg-primary/20 text-primary border-primary/40":"border-border text-muted-foreground hover:text-foreground")}>
-                            {speaking?"⏹":"🔊"}
+                            {speaking?" ":" "}
                           </button>
                         </div>
                       )}
@@ -2229,7 +2229,7 @@ function ObiGolfApp(){
               <div ref={chatEndRef}/>
             </div>
 
-            {/* ── Input bar ────────────────────────────────── */}
+            {/* - Input bar - */}
             <div className="px-3 shrink-0 border-t border-border bg-background/95 backdrop-blur-xl"
               style={{paddingBottom:"calc(0.5rem + env(safe-area-inset-bottom))",paddingTop:"8px"}}>
               {speaking&&(
@@ -2241,7 +2241,7 @@ function ObiGolfApp(){
                     ))}
                   </div>
                   <span className="display text-[11px] font-bold text-primary uppercase tracking-wider">Obi speaking</span>
-                  <button onClick={stopSpeak} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground ml-auto">Stop ✕</button>
+                  <button onClick={stopSpeak} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground ml-auto">Stop  </button>
                 </div>
               )}
               {loading&&!speaking&&(
@@ -2291,14 +2291,14 @@ function ObiGolfApp(){
             <div className="px-4 pt-5 pb-3 shrink-0">
               <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Practice</p>
               <h1 className="display text-[24px] font-bold tracking-tight leading-tight mt-0.5 mb-4">Sharpen your game.</h1>
-              {/* Range mode removed — Swing Lab only for now */}
+              {/* Range mode removed - Swing Lab only for now */}
             </div>
 
-              {/* ══ SWING LAB ══════════════════════════════════════ */}
+              {/* - SWING LAB - */}
               {practiceSubTab==="swing"&&(
                 <React.Fragment>
 
-                  {/* Upload CTA — only show if no current analysis */}
+                  {/* Upload CTA - only show if no current analysis */}
                   {!swingAnalysis&&(
                     <button onClick={()=>swingInputRef.current?.click()}
                       className="w-full rounded-xl bg-foreground text-background p-4 flex items-center gap-3 hover:opacity-95 transition">
@@ -2307,7 +2307,7 @@ function ObiGolfApp(){
                       </div>
                       <div className="text-left flex-1">
                         <p className="display text-[15px] font-bold tracking-tight">Record or upload a swing</p>
-                        <p className="text-[12px] opacity-60 mt-0.5">Video or photo · AI breakdown</p>
+                        <p className="text-[12px] opacity-60 mt-0.5">Video or photo   AI breakdown</p>
                       </div>
                       <ChevronRight className="h-5 w-5 shrink-0 opacity-60" strokeWidth={2.5}/>
                     </button>
@@ -2332,7 +2332,7 @@ function ObiGolfApp(){
                       }
                     }}/>
 
-                  {/* File selected — notes + analyze */}
+                  {/* File selected - notes + analyze */}
                   {swingFile&&!swingAnalysis&&!swingLoading&&(
                     <div className="rounded-xl border border-border bg-card overflow-hidden">
                       <div className="flex items-center gap-3 p-3.5 border-b border-border">
@@ -2345,19 +2345,19 @@ function ObiGolfApp(){
                         )}
                         <div className="min-w-0 flex-1">
                           <p className="display text-[13px] font-bold truncate">{swingFile.name}</p>
-                          <p className="text-[11px] text-muted-foreground">{Math.round(swingFile.size/1024)}KB · {swingFile.type.startsWith("video")?"Video":"Photo"}</p>
+                          <p className="text-[11px] text-muted-foreground">{Math.round(swingFile.size/1024)}KB   {swingFile.type.startsWith("video")?"Video":"Photo"}</p>
                         </div>
                         <button onClick={()=>{setSwingFile(null);setSwingThumb(null);}} className="text-muted-foreground hover:text-foreground shrink-0">
                           <X className="h-4 w-4" strokeWidth={2.5}/>
                         </button>
                       </div>
                       <div className="p-3.5 space-y-3">
-                        <textarea placeholder="Notes — club, what to work on..." value={swingNotes}
+                        <textarea placeholder="Notes -- club, what to work on..." value={swingNotes}
                           onChange={e=>setSwingNotes(e.target.value)} rows={2}
                           className="w-full bg-input border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none focus:border-foreground/40 transition"/>
                         <button onClick={handleSwingAnalyze}
                           className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 display text-[13px] font-bold uppercase tracking-wider hover:opacity-90 transition">
-                          Analyze with Obi →
+                          Analyze with Obi  
                         </button>
                       </div>
                     </div>
@@ -2373,7 +2373,7 @@ function ObiGolfApp(){
                     </div>
                   )}
 
-                  {/* Current analysis — collapsible */}
+                  {/* Current analysis - collapsible */}
                   {swingAnalysis&&(()=>{
                     const sentences=(swingAnalysis.match(new RegExp("[^.!?]+[.!?]+","g"))||[swingAnalysis]).map(sent=>sent.trim()).filter(Boolean);
                     const groups={summary:[],strengths:[],fixes:[],drills:[],other:[]};
@@ -2386,11 +2386,11 @@ function ObiGolfApp(){
                     });
                     if(!groups.summary.length)groups.summary=groups.other.splice(0,2);
                     const sections=[
-                      {label:"Overview",icon:"🏌️",items:groups.summary,color:"border-primary/30 bg-primary/5"},
-                      {label:"Strengths",icon:"✅",items:groups.strengths,color:"border-green-500/30 bg-green-500/5"},
-                      {label:"Fix These",icon:"🔧",items:groups.fixes,color:"border-amber-500/30 bg-amber-500/5"},
-                      {label:"Drills",icon:"🎯",items:groups.drills,color:"border-blue-500/30 bg-blue-500/5"},
-                      {label:"Notes",icon:"📋",items:groups.other,color:"border-border bg-secondary/30"},
+                      {label:"Overview",icon:"  ",items:groups.summary,color:"border-primary/30 bg-primary/5"},
+                      {label:"Strengths",icon:" ",items:groups.strengths,color:"border-green-500/30 bg-green-500/5"},
+                      {label:"Fix These",icon:" ",items:groups.fixes,color:"border-amber-500/30 bg-amber-500/5"},
+                      {label:"Drills",icon:" ",items:groups.drills,color:"border-blue-500/30 bg-blue-500/5"},
+                      {label:"Notes",icon:" ",items:groups.other,color:"border-border bg-secondary/30"},
                     ].filter(sec=>sec.items.length>0);
                     return(
                       <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -2412,7 +2412,7 @@ function ObiGolfApp(){
                                   <ul className="space-y-1.5">
                                     {items.map((item,i)=>(
                                       <li key={i} className="flex gap-2 text-[13px] text-foreground leading-snug">
-                                        <span className="text-muted-foreground shrink-0 mt-0.5">•</span>
+                                        <span className="text-muted-foreground shrink-0 mt-0.5"> </span>
                                         <span>{item}</span>
                                       </li>
                                     ))}
@@ -2423,7 +2423,7 @@ function ObiGolfApp(){
                             <div className="flex gap-2 px-3 pb-3">
                               <button onClick={()=>speakText(swingAnalysis)}
                                 className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 border transition",speaking?"bg-primary/20 border-primary/40 text-primary":"border-border text-muted-foreground hover:text-foreground")}>
-                                {speaking?"⏹ Stop":"🔊 Read"}
+                                {speaking?"  Stop":"  Read"}
                               </button>
                               <button onClick={()=>swingInputRef.current?.click()}
                                 className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 text-muted-foreground hover:text-foreground ml-auto">
@@ -2436,7 +2436,7 @@ function ObiGolfApp(){
                     );
                   })()}
 
-                  {/* ── Swing history ─────────────────────────────── */}
+                  {/* - Swing history - */}
                   {swingHistory.length>0&&(
                     <div>
                       <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">All swings ({swingHistory.length})</p>
@@ -2493,11 +2493,11 @@ function ObiGolfApp(){
                                 });
                                 if(!g.summary.length)g.summary=g.other.splice(0,2);
                                 const secs=[
-                                  {label:"Overview",icon:"🏌️",items:g.summary,color:"border-primary/30 bg-primary/5"},
-                                  {label:"Strengths",icon:"✅",items:g.strengths,color:"border-green-500/30 bg-green-500/5"},
-                                  {label:"Fix These",icon:"🔧",items:g.fixes,color:"border-amber-500/30 bg-amber-500/5"},
-                                  {label:"Drills",icon:"🎯",items:g.drills,color:"border-blue-500/30 bg-blue-500/5"},
-                                  {label:"Notes",icon:"📋",items:g.other,color:"border-border bg-secondary/20"},
+                                  {label:"Overview",icon:"  ",items:g.summary,color:"border-primary/30 bg-primary/5"},
+                                  {label:"Strengths",icon:" ",items:g.strengths,color:"border-green-500/30 bg-green-500/5"},
+                                  {label:"Fix These",icon:" ",items:g.fixes,color:"border-amber-500/30 bg-amber-500/5"},
+                                  {label:"Drills",icon:" ",items:g.drills,color:"border-blue-500/30 bg-blue-500/5"},
+                                  {label:"Notes",icon:" ",items:g.other,color:"border-border bg-secondary/20"},
                                 ].filter(x=>x.items.length>0);
                                 return(
                                   <div className="px-3 pb-3 border-t border-border bg-background/50">
@@ -2508,7 +2508,7 @@ function ObiGolfApp(){
                                           <ul className="space-y-1">
                                             {items.map((item,j)=>(
                                               <li key={j} className="flex gap-2 text-[12px] text-foreground leading-snug">
-                                                <span className="text-muted-foreground shrink-0">•</span>
+                                                <span className="text-muted-foreground shrink-0"> </span>
                                                 <span>{item}</span>
                                               </li>
                                             ))}
@@ -2518,7 +2518,7 @@ function ObiGolfApp(){
                                     </div>
                                     <button onClick={()=>speakText(s.analysis||"")}
                                       className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground mt-2">
-                                      🔊 Read aloud
+                                        Read aloud
                                     </button>
                                   </div>
                                 );
@@ -2533,7 +2533,7 @@ function ObiGolfApp(){
                 </React.Fragment>
               )}
 
-              {/* Range mode — hidden for now */}
+              {/* Range mode - hidden for now */}
 
             </div>
           </div>
@@ -2579,7 +2579,7 @@ function ObiGolfApp(){
               <section className="px-4 pt-4 space-y-2">
                 {rounds.length===0&&(
                   <div className="rounded-xl border border-border bg-card p-10 text-center">
-                    <p className="text-3xl mb-2">⛳</p>
+                    <p className="text-3xl mb-2"> </p>
                     <p className="display text-[15px] font-bold text-foreground">No rounds saved yet</p>
                     <p className="text-[12px] text-muted-foreground mt-1">Save a round from the Caddie tab</p>
                   </div>
@@ -2641,7 +2641,7 @@ function ObiGolfApp(){
                 <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Friend activity</p>
                 <button onClick={()=>setSocialView("friends")} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground inline-flex items-center gap-1"><Users className="h-3 w-3" strokeWidth={2.5}/> Find friends</button>
               </div>
-              {feed.length===0&&(<div className="rounded-xl border border-border bg-card p-10 text-center"><p className="text-2xl mb-2">👥</p><p className="display text-[15px] font-bold text-foreground">No activity yet</p><p className="text-[13px] text-muted-foreground mt-1">Add friends to see their rounds</p></div>)}
+              {feed.length===0&&(<div className="rounded-xl border border-border bg-card p-10 text-center"><p className="text-2xl mb-2"> </p><p className="display text-[15px] font-bold text-foreground">No activity yet</p><p className="text-[13px] text-muted-foreground mt-1">Add friends to see their rounds</p></div>)}
               <div className="space-y-2.5">
                 {(showAllFeed?feed:feed.slice(0,5)).map((r,i)=>{
                   const isYou=r.user_id===user?.id;
@@ -2650,7 +2650,7 @@ function ObiGolfApp(){
                   const diff=r.score_vs_par||0;
                   return(
                     <article key={r.id||i} className="rounded-xl border border-border bg-card p-3.5">
-                      <div className="flex items-center gap-2.5 mb-2.5"><div className="h-9 w-9 rounded-full bg-secondary flex items-center justify-center display text-[11px] font-bold shrink-0">{initials}</div><div className="min-w-0 flex-1"><p className="display text-[13px] font-bold tracking-tight">{pname}{isYou&&<span className="ml-1.5 text-[9px] uppercase tracking-wider text-primary"> you</span>}</p><p className="text-[11px] text-muted-foreground inline-flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" strokeWidth={2.5}/>{r.course_name||"Unknown"} · {fmtDateShort(r.played_at)}</p></div><div className="text-right"><p className={cn("stat text-xl leading-none",diff<=0?"text-primary":"text-foreground")}>{r.total_score}</p><p className="display text-[9px] font-bold uppercase tracking-wider text-muted-foreground mt-1">Score</p></div></div>
+                      <div className="flex items-center gap-2.5 mb-2.5"><div className="h-9 w-9 rounded-full bg-secondary flex items-center justify-center display text-[11px] font-bold shrink-0">{initials}</div><div className="min-w-0 flex-1"><p className="display text-[13px] font-bold tracking-tight">{pname}{isYou&&<span className="ml-1.5 text-[9px] uppercase tracking-wider text-primary"> you</span>}</p><p className="text-[11px] text-muted-foreground inline-flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" strokeWidth={2.5}/>{r.course_name||"Unknown"}   {fmtDateShort(r.played_at)}</p></div><div className="text-right"><p className={cn("stat text-xl leading-none",diff<=0?"text-primary":"text-foreground")}>{r.total_score}</p><p className="display text-[9px] font-bold uppercase tracking-wider text-muted-foreground mt-1">Score</p></div></div>
                       <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border">
                         <button onClick={()=>setShowCard(r)} className="inline-flex items-center gap-1.5 display text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition">View round</button>
                       </div>
