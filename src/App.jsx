@@ -2533,10 +2533,6 @@ function ObiGolfApp(){
                 </React.Fragment>
               )}
 
-                  )}
-                </React.Fragment>
-              )}
-
               {/* Range mode hidden — {practiceSubTab==="range"&&( */}
               {false&&(
                 <React.Fragment>
