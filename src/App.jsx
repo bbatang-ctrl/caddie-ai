@@ -16,7 +16,7 @@ let CapGeo=null, CapHaptics=null, CapSpeech=null, CapKeyboard=null, CapStatusBar
     if(isNative){
       ({Geolocation:CapGeo}=await import('@capacitor/geolocation'));
       ({Haptics:CapHaptics}=await import('@capacitor/haptics'));
-      ({SpeechRecognition:CapSpeech}=await import('@capacitor-community/speech-recognition'));
+      // Speech recognition: use Web Speech API fallback (add @capacitor-community/speech-recognition locally for native)
       ({Keyboard:CapKeyboard}=await import('@capacitor/keyboard'));
       ({StatusBar:CapStatusBar}=await import('@capacitor/status-bar'));
       ({SplashScreen:CapSplash}=await import('@capacitor/splash-screen'));
