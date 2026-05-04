@@ -45,7 +45,7 @@ export default function PracticeTab({
             <ChevronRight className="h-5 w-5 shrink-0 opacity-60" strokeWidth={2.5}/>
           </button>
         )}
-        <input ref={swingInputRef} type="file" accept="video/*,image/*" capture="environment" className="hidden"
+        <input ref={swingInputRef} type="file" accept="video/*,image/*" className="hidden"
           onChange={e=>{
             const f=e.target.files&&e.target.files[0];
             if(!f)return;
