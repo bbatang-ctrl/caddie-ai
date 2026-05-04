@@ -67,20 +67,44 @@ const COURSE_DB={
     holes:[{par:4,yards:430,si:7},{par:4,yards:389,si:13},{par:3,yards:230,si:5},{par:5,yards:517,si:11},{par:4,yards:451,si:3},{par:4,yards:408,si:9},{par:5,yards:537,si:15},{par:3,yards:210,si:17},{par:4,yards:430,si:1},{par:4,yards:492,si:2},{par:4,yards:435,si:8},{par:4,yards:499,si:4},{par:3,yards:207,si:16},{par:4,yards:161,si:18},{par:4,yards:449,si:10},{par:4,yards:478,si:6},{par:3,yards:207,si:14},{par:4,yards:411,si:12}]},
   "kiawah island ocean":{name:"Kiawah Island (Ocean Course)",
     holes:[{par:4,yards:395,si:14},{par:5,yards:543,si:8},{par:4,yards:390,si:10},{par:4,yards:453,si:4},{par:3,yards:207,si:16},{par:5,yards:455,si:6},{par:5,yards:527,si:12},{par:3,yards:197,si:18},{par:4,yards:464,si:2},{par:4,yards:439,si:1},{par:4,yards:562,si:3},{par:4,yards:466,si:5},{par:4,yards:404,si:11},{par:3,yards:194,si:17},{par:4,yards:421,si:9},{par:5,yards:579,si:7},{par:3,yards:221,si:15},{par:4,yards:431,si:13}]},
+  "serrano country club":{name:"Serrano Country Club",
+    holes:[
+      {par:4,yards:385,si:13},{par:4,yards:410,si:5},{par:3,yards:185,si:17},
+      {par:5,yards:530,si:1},{par:4,yards:395,si:9},{par:4,yards:370,si:15},
+      {par:3,yards:195,si:11},{par:5,yards:545,si:3},{par:4,yards:415,si:7},
+      {par:4,yards:400,si:6},{par:5,yards:520,si:2},{par:3,yards:170,si:18},
+      {par:4,yards:360,si:14},{par:4,yards:425,si:4},{par:5,yards:510,si:10},
+      {par:5,yards:535,si:8},{par:3,yards:200,si:16},{par:4,yards:445,si:12}
+    ]},
+  "serrano":{name:"Serrano Country Club",
+    holes:[
+      {par:4,yards:385,si:13},{par:4,yards:410,si:5},{par:3,yards:185,si:17},
+      {par:5,yards:530,si:1},{par:4,yards:395,si:9},{par:4,yards:370,si:15},
+      {par:3,yards:195,si:11},{par:5,yards:545,si:3},{par:4,yards:415,si:7},
+      {par:4,yards:400,si:6},{par:5,yards:520,si:2},{par:3,yards:170,si:18},
+      {par:4,yards:360,si:14},{par:4,yards:425,si:4},{par:5,yards:510,si:10},
+      {par:5,yards:535,si:8},{par:3,yards:200,si:16},{par:4,yards:445,si:12}
+    ]},
   "erin hills":{name:"Erin Hills Golf Course",
     holes:[{par:4,yards:449,si:5},{par:5,yards:624,si:3},{par:4,yards:438,si:9},{par:4,yards:490,si:1},{par:3,yards:243,si:7},{par:4,yards:488,si:11},{par:5,yards:586,si:15},{par:3,yards:218,si:17},{par:4,yards:509,si:13},{par:4,yards:472,si:2},{par:4,yards:396,si:14},{par:4,yards:456,si:8},{par:3,yards:171,si:18},{par:4,yards:475,si:6},{par:4,yards:428,si:10},{par:5,yards:640,si:4},{par:3,yards:237,si:16},{par:4,yards:427,si:12}]},
 };
 
 function matchCourse(input){
   if(!input)return null;
-  const k=input.toLowerCase().trim();
+  const k=input.toLowerCase().trim().replace(/[^a-z0-9 ]/g,"");
   for(const key of Object.keys(COURSE_DB)){
     if(k.includes(key)||key.includes(k))return COURSE_DB[key];
   }
-  // Partial match
+  // Word-based partial match (2+ chars)
+  for(const key of Object.keys(COURSE_DB)){
+    const words=key.split(" ").filter(w=>w.length>2);
+    const matches=words.filter(w=>k.includes(w));
+    if(matches.length>=2||(matches.length===1&&words.length===1))return COURSE_DB[key];
+  }
+  // Single distinctive word match (4+ chars)
   for(const key of Object.keys(COURSE_DB)){
     const words=key.split(" ");
-    if(words.some(w=>w.length>3&&k.includes(w)))return COURSE_DB[key];
+    if(words.some(w=>w.length>4&&k.includes(w)))return COURSE_DB[key];
   }
   return null;
 }
@@ -830,7 +854,7 @@ function ObiGolfApp(){
           layers:[{id:"satellite",type:"raster",source:"satellite",paint:{"raster-brightness-min":0.05}}]
         },
         center,
-        zoom: gpsOnly ? 17 : 17.5,
+        zoom: gpsOnly ? 17.5 : 17.5,
         bearing:0,
         pitch:0,
         interactive:true,
@@ -842,7 +866,11 @@ function ObiGolfApp(){
       m.on("load",()=>{
         // Fit to bounds if we have them
         if(bbox){
-          m.fitBounds(bbox,{padding:40,duration:0});
+          m.fitBounds(bbox,{padding:40,duration:0,maxZoom:18});
+        }else if(gpsOnly&&gps){
+          // Center tightly on player GPS position
+          m.setCenter([gps.lng,gps.lat]);
+          m.setZoom(17.5);
         }
 
         const osm=holeData?.osmFeatures;
@@ -974,7 +1002,7 @@ function ObiGolfApp(){
         }
 
         // -- Flag marker ---------------------------------------------
-        const pinCoord=holeData?.green_lat?[holeData.green_lng,holeData.green_lat]:null;
+        const pinCoord=(gpsOnly||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
         if(pinCoord){
           const flagEl=document.createElement("div");
           flagEl.innerHTML=" ";
@@ -1031,7 +1059,7 @@ function ObiGolfApp(){
       const coord=[gps.lng,gps.lat];
       playerSourceRef.current.setData({type:"Feature",
         geometry:{type:"Point",coordinates:coord},properties:{}});
-      const pinCoord=holeData?.green_lat?[holeData.green_lng,holeData.green_lat]:null;
+      const pinCoord=(gpsOnly||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
       if(pinCoord&&lineSourceRef.current){
         lineSourceRef.current.setData({type:"Feature",
           geometry:{type:"LineString",coordinates:[coord,pinCoord]},properties:{}});
@@ -1039,8 +1067,16 @@ function ObiGolfApp(){
     },[gps]);
 
     return(
-      <div ref={containerRef} style={{width:"100%",height:H+"px"}}
-        className="bg-emerald-950/20"/>
+      <div style={{position:"relative",width:"100%",height:H+"px"}}>
+        <div ref={containerRef} style={{width:"100%",height:"100%"}} className="bg-emerald-950/20"/>
+        {gpsOnly&&(
+          <div style={{position:"absolute",bottom:8,left:"50%",transform:"translateX(-50%)",
+            background:"rgba(0,0,0,0.75)",borderRadius:"8px",padding:"6px 12px",
+            color:"#fff",fontSize:"11px",fontWeight:"700",whiteSpace:"nowrap",pointerEvents:"none"}}>
+            Walk to the green -- tap "Set pin here"
+          </div>
+        )}
+      </div>
     );
   };
 
