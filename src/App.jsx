@@ -1002,7 +1002,7 @@ function ObiGolfApp(){
         }
 
         // -- Flag marker ---------------------------------------------
-        const pinCoord=(gpsOnly||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
+        const{gpsOnly:go}=getCenter();const pinCoord=(go||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
         if(pinCoord){
           const flagEl=document.createElement("div");
           flagEl.innerHTML=" ";
@@ -1059,7 +1059,7 @@ function ObiGolfApp(){
       const coord=[gps.lng,gps.lat];
       playerSourceRef.current.setData({type:"Feature",
         geometry:{type:"Point",coordinates:coord},properties:{}});
-      const pinCoord=(gpsOnly||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
+      const{gpsOnly:go2}=getCenter();const pinCoord=(go2||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
       if(pinCoord&&lineSourceRef.current){
         lineSourceRef.current.setData({type:"Feature",
           geometry:{type:"LineString",coordinates:[coord,pinCoord]},properties:{}});
@@ -1069,7 +1069,7 @@ function ObiGolfApp(){
     return(
       <div style={{position:"relative",width:"100%",height:H+"px"}}>
         <div ref={containerRef} style={{width:"100%",height:"100%"}} className="bg-emerald-950/20"/>
-        {gpsOnly&&(
+        {(()=>{const{gpsOnly:go3}=getCenter();return go3;})()&&(
           <div style={{position:"absolute",bottom:8,left:"50%",transform:"translateX(-50%)",
             background:"rgba(0,0,0,0.75)",borderRadius:"8px",padding:"6px 12px",
             color:"#fff",fontSize:"11px",fontWeight:"700",whiteSpace:"nowrap",pointerEvents:"none"}}>
