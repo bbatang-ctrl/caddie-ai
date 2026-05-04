@@ -1669,11 +1669,15 @@ function ObiGolfApp(){
           </div>
         </div>
       )}
-      <header className="header-brand shrink-0 sticky top-0 z-30 backdrop-blur-xl pt-safe">
+      <header className="shrink-0 sticky top-0 z-30 pt-safe" style={{background:"#CFFF04"}}>
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2.5">
-            <ObiLogo size={32}/>
-            <span className="display font-bold tracking-tight text-[16px]" style={{color:"#CFFF04",textShadow:isDark?"0 0 20px rgba(207,255,4,0.4)":"none",letterSpacing:"-0.02em"}}>
+            <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+              <line x1="13" y1="10" x2="13" y2="31" stroke={isDark?"#0d0d12":"#1a1a00"} strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M13 10 L26 14.5 L13 19 Z" fill={isDark?"#0d0d12":"#1a1a00"}/>
+              <ellipse cx="16" cy="31" rx="5" ry="1.5" fill={isDark?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.15)"}/>
+            </svg>
+            <span className="display font-bold tracking-tight text-[17px]" style={{color:isDark?"#0d0d12":"#1a1a00",letterSpacing:"-0.02em"}}>
               Obi Golf
             </span>
           </div>
@@ -1879,20 +1883,13 @@ function ObiGolfApp(){
                     <ChevronDown className="h-3.5 w-3.5 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" strokeWidth={2.5}/>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">Hole</p>
-                    <div className="flex items-end gap-1">
-                      <span className="stat text-[30px] leading-none">{hole}</span>
-                      <span className="text-xs text-muted-foreground pb-1 font-bold">/18 · Par {holePars[hole-1]}</span>
-                    </div>
-                  </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">To pin</p>
                     <div className="flex items-end gap-1">
                       <input type="number" placeholder="---" value={yardage} onChange={e=>setYardage(e.target.value)}
-                        className="stat text-[30px] leading-none text-primary bg-transparent border-b-2 border-primary/40 focus:border-primary w-20 outline-none transition-colors"/>
-                      <span className="text-xs text-muted-foreground pb-1 font-bold">YDS</span>
+                        className="stat text-[30px] leading-none text-primary bg-transparent border-b-2 border-primary/40 focus:border-primary w-28 outline-none transition-colors"/>
+                      <span className="text-xs text-muted-foreground pb-1 font-bold">YDS · Par {holePars[hole-1]}</span>
                     </div>
                   </div>
                   <div>
@@ -1916,46 +1913,68 @@ function ObiGolfApp(){
                 </div>
               </div>
 
-              {/* GPS rangefinder strip */}
-              {gpsPos&&(manualPins[hole]||holeMap?.green_lat)&&(
-                <div className="rounded-xl border border-border bg-card overflow-hidden">
-                  <div className="grid grid-cols-2 gap-px bg-border">
-                    {(()=>{
-                      const pin=manualPins[hole]||{lat:holeMap?.green_lat,lng:holeMap?.green_lng};
-                      const toPin=pin?.lat?haversineYards(gpsPos.lat,gpsPos.lng,pin.lat,pin.lng):null;
-                      const fromTee=holeMap?.tee_lat?haversineYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng):null;
-                      return(
-                        <React.Fragment>
+              {/* GPS rangefinder strip — validates coords before showing distance */}
+              {(()=>{
+                const manualPin=manualPins[hole]||null;
+                const geminiPin=holeMap?.green_lat?{lat:holeMap.green_lat,lng:holeMap.green_lng}:null;
+                // Only trust Gemini coords if they put the green within 2000y of player
+                const geminiValid=gpsPos&&geminiPin&&haversineYards(gpsPos.lat,gpsPos.lng,geminiPin.lat,geminiPin.lng)<=2000;
+                const pin=manualPin||(geminiValid?geminiPin:null);
+                const coordsBad=gpsPos&&geminiPin&&!manualPin&&!geminiValid;
+                // Also validate tee coords
+                const teeValid=gpsPos&&holeMap?.tee_lat&&haversineYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng)<=2000;
+                return(
+                  <React.Fragment>
+                    {gpsPos&&pin&&(
+                      <div className="rounded-xl border border-border bg-card overflow-hidden mb-2">
+                        <div className="grid grid-cols-2 gap-px bg-border">
                           <div className="bg-card px-3 py-2.5 text-center">
                             <p className="display text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-0.5">To pin</p>
-                            <p className="stat text-[28px] leading-none text-primary">{toPin?toPin+"y":"--"}</p>
+                            <p className="stat text-[28px] leading-none text-primary">{haversineYards(gpsPos.lat,gpsPos.lng,pin.lat,pin.lng)}y</p>
                           </div>
                           <div className="bg-card px-3 py-2.5 text-center">
                             <p className="display text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-0.5">From tee</p>
-                            <p className="stat text-[28px] leading-none text-foreground">{fromTee?fromTee+"y":"--"}</p>
+                            <p className="stat text-[28px] leading-none text-foreground">{teeValid?haversineYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng)+"y":"--"}</p>
                           </div>
-                        </React.Fragment>
-                      );
-                    })()}
-                  </div>
-                </div>
-              )}
-              {gpsPos&&!manualPins[hole]&&!holeMap?.green_lat&&(
-                <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5">
-                  <p className="display text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-1.5">GPS on — no pin set for hole {hole}</p>
-                  <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
-                    className="display text-[11px] font-bold uppercase tracking-wider bg-amber-600 text-white rounded-lg px-3 py-1.5 hover:opacity-90 transition">
-                    I&apos;m at the green — set pin here
-                  </button>
-                </div>
-              )}
-              {!gpsPos&&(
-                <button onClick={startGPS}
-                  className="w-full rounded-xl border border-primary/30 bg-primary/5 px-3 py-2.5 display text-[11px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10 transition inline-flex items-center justify-center gap-2">
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-                  Enable GPS rangefinder
-                </button>
-              )}
+                        </div>
+                        <div className="flex items-center justify-between px-3 py-1.5 bg-secondary/30 border-t border-border">
+                          <p className="display text-[9px] text-muted-foreground font-bold">±{gpsPos.acc||"?"}m · {manualPin?"Manual pin":"AI coords"}</p>
+                          <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
+                            className="display text-[9px] font-bold uppercase tracking-wider text-primary">
+                            📍 Drop pin here
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {gpsPos&&coordsBad&&(
+                      <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 mb-2">
+                        <p className="display text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-1">📍 GPS on — AI coords unreliable for this course</p>
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mb-2">Walk to the green and tap below to set the pin manually. It stays set for the whole round.</p>
+                        <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
+                          className="w-full display text-[11px] font-bold uppercase tracking-wider bg-amber-600 text-white rounded-lg px-3 py-2 text-center">
+                          I&apos;m at the green — set pin here
+                        </button>
+                      </div>
+                    )}
+                    {gpsPos&&!pin&&!coordsBad&&(
+                      <div className="rounded-xl border border-border bg-secondary/20 px-3 py-2.5 mb-2">
+                        <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">GPS on — walk to green to set pin</p>
+                        <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
+                          className="w-full display text-[11px] font-bold uppercase tracking-wider bg-primary text-primary-foreground rounded-lg px-3 py-2 text-center">
+                          I&apos;m at the green — set pin here
+                        </button>
+                      </div>
+                    )}
+                    {!gpsPos&&(
+                      <button onClick={startGPS}
+                        className="w-full rounded-xl border border-primary/30 bg-primary/5 px-3 py-2.5 mb-2 display text-[11px] font-bold uppercase tracking-wider text-primary hover:bg-primary/10 transition inline-flex items-center justify-center gap-2">
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                        Enable GPS rangefinder
+                      </button>
+                    )}
+                  </React.Fragment>
+                );
+              })()}
 
               {/* Hole map toggle */}
               {course&&(
@@ -2009,7 +2028,15 @@ function ObiGolfApp(){
                               )}
                             </div>
                           </div>
-                          <HoleMapCanvas map={holeMap} gps={gpsPos} W={360} H={340}/>
+                          {(holeMap.osmFeatures||holeMap.green_lat)?(
+                            <HoleMapCanvas map={holeMap} gps={gpsPos} W={360} H={340}/>
+                          ):(
+                            <div className="bg-emerald-950/20 flex flex-col items-center justify-center py-10 gap-2">
+                              <p className="text-3xl">🗺️</p>
+                              <p className="display text-[12px] font-bold text-muted-foreground">No map available for this course</p>
+                              <p className="text-[11px] text-muted-foreground px-4 text-center">Walk to the green and tap "Set pin here" to use GPS rangefinder</p>
+                            </div>
+                          )}
                           {(()=>{
                             const pin=manualPins[hole]||{lat:holeMap.green_lat,lng:holeMap.green_lng};
                             return(
@@ -2295,49 +2322,95 @@ function ObiGolfApp(){
                     </div>
                   )}
 
-                  {/* Analysis result */}
-                  {swingAnalysis&&(
-                    <React.Fragment>
-                      <div className="rounded-xl border border-primary/40 bg-primary/10 p-4">
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="h-6 w-6 rounded-md bg-foreground text-primary flex items-center justify-center">
-                            <Sparkles className="h-3.5 w-3.5" strokeWidth={2.5}/>
-                          </div>
-                          <p className="display text-[11px] font-bold uppercase tracking-[0.18em]">Obi&apos;s analysis</p>
-                          <span className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-auto">{swingNotes||"Swing"}</span>
+                  {/* Analysis result — formatted into sections */}
+                  {swingAnalysis&&(()=>{
+                    const sentences=(swingAnalysis.match(/[^.!?]+[.!?]+/g)||[swingAnalysis]).map(s=>s.trim()).filter(Boolean);
+                    const sl=s=>s.toLowerCase();
+                    const groups={summary:[],strengths:[],fixes:[],drills:[],other:[]};
+                    sentences.forEach(s=>{
+                      if(/(overall|summary|assessment|your swing|shows|demonstrates)/i.test(s))groups.summary.push(s);
+                      else if(/(good|well done|strength|positive|excellent|nice|solid|great job)/i.test(s))groups.strengths.push(s);
+                      else if(/(drill|practice|try|work on|focus on|exercise|repeat)/i.test(s))groups.drills.push(s);
+                      else if(/(need|should|must|improve|fix|adjust|lack|issue|problem|fault|tend to|too much|too little)/i.test(s))groups.fixes.push(s);
+                      else groups.other.push(s);
+                    });
+                    if(!groups.summary.length)groups.summary=groups.other.splice(0,2);
+                    const sections=[
+                      {label:"Overview",icon:"🏌️",items:groups.summary,color:"border-primary/30 bg-primary/8"},
+                      {label:"Strengths",icon:"✅",items:groups.strengths,color:"border-green-500/30 bg-green-500/8"},
+                      {label:"Fix These",icon:"🔧",items:groups.fixes,color:"border-amber-500/30 bg-amber-500/8"},
+                      {label:"Drills",icon:"🎯",items:groups.drills,color:"border-blue-500/30 bg-blue-500/8"},
+                      {label:"Notes",icon:"📋",items:groups.other,color:"border-border bg-secondary/30"},
+                    ].filter(s=>s.items.length>0);
+                    return(
+                      <div className="rounded-xl border border-border bg-card overflow-hidden">
+                        <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-foreground text-background">
+                          <Sparkles className="h-3.5 w-3.5 text-primary shrink-0" strokeWidth={2.5}/>
+                          <p className="display text-[13px] font-bold flex-1">Obi&apos;s Analysis</p>
+                          <span className="display text-[10px] font-bold opacity-50">{swingNotes||"Swing"}</span>
                         </div>
-                        <p className="display text-[16px] font-bold tracking-tight leading-snug mb-2">{swingAnalysis.split(".")[0]}.</p>
-                        <p className="text-[13px] text-foreground/80 leading-relaxed">{swingAnalysis.split(".").slice(1).join(".").trim()}</p>
-                        <div className="flex gap-3 mt-3 pt-3 border-t border-primary/20">
+                        <div className="p-3 space-y-2">
+                          {sections.map(({label,icon,items,color})=>(
+                            <div key={label} className={"rounded-xl border p-3 "+color}>
+                              <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">{icon} {label}</p>
+                              <ul className="space-y-1.5">
+                                {items.map((item,i)=>(
+                                  <li key={i} className="flex gap-2 text-[13px] text-foreground leading-snug">
+                                    <span className="text-muted-foreground shrink-0">•</span>
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex gap-2 px-3 pb-3">
                           <button onClick={()=>speakText(swingAnalysis)}
-                            className={cn("display text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border transition",
-                              speaking?"bg-primary/20 border-primary/40 text-primary":"border-border text-muted-foreground hover:text-foreground")}>
-                            {speaking?"⏹ Stop":"🔊 Read aloud"}
+                            className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 border transition",speaking?"bg-primary/20 border-primary/40 text-primary":"border-border text-muted-foreground hover:text-foreground")}>
+                            {speaking?"⏹ Stop":"🔊 Read"}
                           </button>
                           <button onClick={()=>{setSwingAnalysis("");setSwingFile(null);setSwingNotes("");}}
-                            className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition ml-auto">
-                            New analysis →
+                            className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded-lg px-2.5 py-1.5 ml-auto">
+                            New →
                           </button>
                         </div>
                       </div>
-                    </React.Fragment>
-                  )}
+                    );
+                  })()}
 
-                  {/* Past analyses */}
+                  {/* Past analyses — expandable with delete */}
                   {swingHistory.length>0&&(
                     <div>
-                      <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">Past analyses</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Past analyses ({swingHistory.length})</p>
+                      </div>
                       <div className="rounded-xl border border-border bg-card overflow-hidden divide-y divide-border">
-                        {swingHistory.slice(0,5).map((s,i)=>(
-                          <div key={i} className="p-3.5">
-                            <div className="flex items-center justify-between mb-1.5">
-                              <p className="display text-[13px] font-bold">{s.club_used||"Swing"}</p>
-                              <span className="display text-[10px] font-bold text-muted-foreground">{fmtDateShort(s.created_at)}</span>
+                        {swingHistory.map((s,i)=>(
+                          <div key={s.id||i} className="p-3.5">
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="min-w-0">
+                                <p className="display text-[13px] font-bold truncate">{s.club_used||"Swing"}</p>
+                                <p className="display text-[10px] text-muted-foreground font-bold">{fmtDateShort(s.created_at)}</p>
+                              </div>
+                              <div className="flex gap-1.5 shrink-0">
+                                <button onClick={()=>{setSwingAnalysis(s.analysis||"");setSwingNotes(s.club_used||"");}}
+                                  className="display text-[9px] font-bold uppercase tracking-wider border border-border rounded-lg px-2 py-1 text-muted-foreground hover:text-foreground transition">
+                                  View
+                                </button>
+                                <button onClick={async()=>{
+                                  if(!window.confirm("Delete this analysis?"))return;
+                                  if(s.id){await supabase.from("swing_analyses").delete().eq("id",s.id);}
+                                  setSwingHistory(h=>h.filter((_,j)=>j!==i));
+                                }}
+                                  className="display text-[9px] font-bold uppercase tracking-wider border border-destructive/30 rounded-lg px-2 py-1 text-destructive hover:bg-destructive/10 transition">
+                                  Delete
+                                </button>
+                              </div>
                             </div>
-                            <p className="text-[12px] text-muted-foreground leading-relaxed line-clamp-2">{s.analysis?.slice(0,140)}...</p>
+                            <p className="text-[12px] text-muted-foreground leading-relaxed line-clamp-3">{s.analysis?.slice(0,200)}{s.analysis?.length>200?"...":""}</p>
                             <button onClick={()=>speakText(s.analysis||"")}
                               className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground mt-2">
-                              🔊 Read
+                              🔊 Read aloud
                             </button>
                           </div>
                         ))}
