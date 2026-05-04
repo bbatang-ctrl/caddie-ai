@@ -1274,13 +1274,13 @@ function ObiGolfApp(){
       else{result=await analyzeSwing(swingFile,swingNotes,profile);}
       setSwingAnalysis(result);
       if(user){
-      if(user){
         const{data}=await supabase.from("swing_analyses").insert({
           user_id:user.id,notes:swingNotes,analysis:result,
           club_used:swingNotes||"unknown",thumbnail:swingThumb||null,created_at:new Date().toISOString(),
         }).select().single();
         if(data)setSwingHistory(h=>[{...data,thumbnail:swingThumb||null},...h]);
       }
+    }catch(e){setSwingAnalysis("Analysis failed. Please try again.");}
     setSwingLoading(false);
   };
 
@@ -1369,13 +1369,6 @@ function ObiGolfApp(){
     setRecording(false);
   };
 
-  // -- Summary modal ------------------------------------------------
-  const SummaryModal=({round})=>{
-    const diff=round.score_vs_par||0;
-    const diffStr=diff===0?"E":diff>0?"+"+diff:""+diff;
-    const diffColor=diff>0?T.red:diff<0?T.primary:"var(--fg)";
-
-  // Helper: render swing analysis text as structured sections
   const renderSwingAnalysis=(text,thumb,noteLabel,isCollapsible,expandedKey,expandedState,setExpandedState)=>{
     if(!text)return null;
     const sentences=(text.match(new RegExp("[^.!?]+[.!?]+","g"))||[text]).map(s2=>s2.trim()).filter(Boolean);
