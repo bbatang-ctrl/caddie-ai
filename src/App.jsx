@@ -69,21 +69,21 @@ const COURSE_DB={
     holes:[{par:4,yards:395,si:14},{par:5,yards:543,si:8},{par:4,yards:390,si:10},{par:4,yards:453,si:4},{par:3,yards:207,si:16},{par:5,yards:455,si:6},{par:5,yards:527,si:12},{par:3,yards:197,si:18},{par:4,yards:464,si:2},{par:4,yards:439,si:1},{par:4,yards:562,si:3},{par:4,yards:466,si:5},{par:4,yards:404,si:11},{par:3,yards:194,si:17},{par:4,yards:421,si:9},{par:5,yards:579,si:7},{par:3,yards:221,si:15},{par:4,yards:431,si:13}]},
   "serrano country club":{name:"Serrano Country Club",
     holes:[
-      {par:4,yards:385,si:13},{par:4,yards:410,si:5},{par:3,yards:185,si:17},
-      {par:5,yards:530,si:1},{par:4,yards:395,si:9},{par:4,yards:370,si:15},
-      {par:3,yards:195,si:11},{par:5,yards:545,si:3},{par:4,yards:415,si:7},
-      {par:4,yards:400,si:6},{par:5,yards:520,si:2},{par:3,yards:170,si:18},
-      {par:4,yards:360,si:14},{par:4,yards:425,si:4},{par:5,yards:510,si:10},
-      {par:5,yards:535,si:8},{par:3,yards:200,si:16},{par:4,yards:445,si:12}
+      {par:4,yards:406,si:13},{par:4,yards:416,si:5},{par:4,yards:441,si:1},
+      {par:3,yards:165,si:11},{par:4,yards:427,si:9},{par:5,yards:577,si:7},
+      {par:3,yards:165,si:15},{par:5,yards:510,si:17},{par:4,yards:409,si:3},
+      {par:4,yards:369,si:12},{par:3,yards:183,si:14},{par:4,yards:408,si:4},
+      {par:5,yards:505,si:10},{par:5,yards:537,si:16},{par:3,yards:215,si:6},
+      {par:5,yards:597,si:2},{par:3,yards:175,si:18},{par:4,yards:455,si:8}
     ]},
   "serrano":{name:"Serrano Country Club",
     holes:[
-      {par:4,yards:385,si:13},{par:4,yards:410,si:5},{par:3,yards:185,si:17},
-      {par:5,yards:530,si:1},{par:4,yards:395,si:9},{par:4,yards:370,si:15},
-      {par:3,yards:195,si:11},{par:5,yards:545,si:3},{par:4,yards:415,si:7},
-      {par:4,yards:400,si:6},{par:5,yards:520,si:2},{par:3,yards:170,si:18},
-      {par:4,yards:360,si:14},{par:4,yards:425,si:4},{par:5,yards:510,si:10},
-      {par:5,yards:535,si:8},{par:3,yards:200,si:16},{par:4,yards:445,si:12}
+      {par:4,yards:406,si:13},{par:4,yards:416,si:5},{par:4,yards:441,si:1},
+      {par:3,yards:165,si:11},{par:4,yards:427,si:9},{par:5,yards:577,si:7},
+      {par:3,yards:165,si:15},{par:5,yards:510,si:17},{par:4,yards:409,si:3},
+      {par:4,yards:369,si:12},{par:3,yards:183,si:14},{par:4,yards:408,si:4},
+      {par:5,yards:505,si:10},{par:5,yards:537,si:16},{par:3,yards:215,si:6},
+      {par:5,yards:597,si:2},{par:3,yards:175,si:18},{par:4,yards:455,si:8}
     ]},
   "erin hills":{name:"Erin Hills Golf Course",
     holes:[{par:4,yards:449,si:5},{par:5,yards:624,si:3},{par:4,yards:438,si:9},{par:4,yards:490,si:1},{par:3,yards:243,si:7},{par:4,yards:488,si:11},{par:5,yards:586,si:15},{par:3,yards:218,si:17},{par:4,yards:509,si:13},{par:4,yards:472,si:2},{par:4,yards:396,si:14},{par:4,yards:456,si:8},{par:3,yards:171,si:18},{par:4,yards:475,si:6},{par:4,yards:428,si:10},{par:5,yards:640,si:4},{par:3,yards:237,si:16},{par:4,yards:427,si:12}]},
@@ -632,20 +632,25 @@ function ObiGolfApp(){
         const finalPar=dbHole?.par||gd.par||4;
         const finalYards=dbHole?.yards||gd.yards||400;
         const finalSI=dbHole?.si||gd.strokeIndex||holeNum;
-        // Validate Gemini GPS coords -- if they're clearly wrong, null them out
+        // Validate Gemini GPS coords -- null out if wrong
         let validatedGd={...gd,par:finalPar,yards:finalYards,strokeIndex:finalSI,osmFeatures:osmData};
         if(validatedGd.green_lat&&validatedGd.tee_lat){
-          // Tee green distance should be between 50 and 700 yards for a real hole
           const R=6371000,toRad=x=>x*Math.PI/180;
-          const dLat=toRad(validatedGd.green_lat-validatedGd.tee_lat);
-          const dLng=toRad(validatedGd.green_lng-validatedGd.tee_lng);
-          const a=Math.sin(dLat/2)**2+Math.cos(toRad(validatedGd.tee_lat))*Math.cos(toRad(validatedGd.green_lat))*Math.sin(dLng/2)**2;
-          const holeLen=2*R*Math.asin(Math.sqrt(a))*1.09361;
-          if(holeLen<30||holeLen>800){
-            // Clearly wrong -- Gemini made up coordinates
-            console.warn("Gemini coords invalid (hole length "+Math.round(holeLen)+"y), nulling out");
-            validatedGd={...validatedGd,tee_lat:null,tee_lng:null,green_lat:null,green_lng:null};
+          const dLat1=toRad(validatedGd.green_lat-validatedGd.tee_lat);
+          const dLng1=toRad(validatedGd.green_lng-validatedGd.tee_lng);
+          const a1=Math.sin(dLat1/2)**2+Math.cos(toRad(validatedGd.tee_lat))*Math.cos(toRad(validatedGd.green_lat))*Math.sin(dLng1/2)**2;
+          const holeLen=2*R*Math.asin(Math.sqrt(a1))*1.09361;
+          let bad=holeLen<30||holeLen>800;
+          // Also check coords are near player GPS if available
+          if(!bad&&gpsPos?.lat){
+            const midLat=(validatedGd.tee_lat+validatedGd.green_lat)/2;
+            const midLng=(validatedGd.tee_lng+validatedGd.green_lng)/2;
+            const dLat2=toRad(midLat-gpsPos.lat),dLng2=toRad(midLng-gpsPos.lng);
+            const a2=Math.sin(dLat2/2)**2+Math.cos(toRad(gpsPos.lat))*Math.cos(toRad(midLat))*Math.sin(dLng2/2)**2;
+            const distToPlayer=2*R*Math.asin(Math.sqrt(a2))*1.09361;
+            if(distToPlayer>5280){console.warn("Gemini "+Math.round(distToPlayer)+"y from player");bad=true;}
           }
+          if(bad)validatedGd={...validatedGd,tee_lat:null,tee_lng:null,green_lat:null,green_lng:null};
         }
         setHoleMap(validatedGd);
         setYardage(String(finalYards));
@@ -1059,7 +1064,12 @@ function ObiGolfApp(){
       const coord=[gps.lng,gps.lat];
       playerSourceRef.current.setData({type:"Feature",
         geometry:{type:"Point",coordinates:coord},properties:{}});
-      const{gpsOnly:go2}=getCenter();const pinCoord=(go2||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
+      // Re-center map on player when gpsOnly
+      const{gpsOnly:go2}=getCenter();
+      if(go2&&mapRef.current){
+        mapRef.current.easeTo({center:coord,zoom:17.5,duration:500});
+      }
+      const pinCoord=(go2||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
       if(pinCoord&&lineSourceRef.current){
         lineSourceRef.current.setData({type:"Feature",
           geometry:{type:"LineString",coordinates:[coord,pinCoord]},properties:{}});
@@ -2041,7 +2051,7 @@ function ObiGolfApp(){
                           </div>
                         </div>
                         <div className="flex items-center justify-between px-3 py-1.5 bg-secondary/30 border-t border-border">
-                          <p className="display text-[9px] text-muted-foreground font-bold"> {gpsPos.acc||"?"}m   {manualPin?"Manual pin":"AI coords"}</p>
+                          <p className="display text-[9px] text-muted-foreground font-bold"> {gpsPos.acc||"?"}m   {manualPin?"Manual pin set":"AI estimate (unreliable)"}</p>
                           <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
                             className="display text-[9px] font-bold uppercase tracking-wider text-primary">
                               Drop pin here
