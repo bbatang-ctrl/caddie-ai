@@ -1447,43 +1447,6 @@ function ObiGolfApp(){
     );
   };
 
-    return(
-      <div onClick={()=>setShowCard(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px"}}>
-        <div onClick={e=>e.stopPropagation()} style={{...S.card,maxWidth:"380px",width:"100%",maxHeight:"80vh",overflowY:"auto"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"16px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:"10px"}}>
-              <Ball size={32}/>
-              <div style={{fontFamily:"var(--font-display)",fontSize:"18px",fontWeight:"700",color:T.fg}}>Round Summary</div>
-            </div>
-            <button onClick={()=>setShowCard(null)} style={{...S.btnGhost,fontSize:"20px",lineHeight:1}}>x</button>
-          </div>
-          <div style={{fontFamily:"var(--font-display)",fontSize:"15px",fontWeight:"600",color:T.fg,marginBottom:"4px"}}>{round.course_name}</div>
-          <div style={{fontSize:"12px",color:T.mutedFg,marginBottom:"20px"}}>{fmtDate(round.played_at)}</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px",marginBottom:"20px"}}>
-            {[["SCORE",round.total_score,T.fg],["vs PAR",diffStr,diffColor],["HOLES",(round.holes_played||18)+"/18",T.fg]].map(([l,v,c])=>(
-              <div key={l} style={{background:T.surface,borderRadius:"12px",padding:"12px 8px",textAlign:"center"}}>
-                <div style={{fontSize:"9px",color:T.mutedFg,letterSpacing:"1.5px",marginBottom:"6px",fontFamily:"var(--font-display)",textTransform:"uppercase"}}>{l}</div>
-                <div style={{fontFamily:"var(--font-display)",fontSize:"26px",fontWeight:"700",color:c}}>{v}</div>
-              </div>
-            ))}
-          </div>
-          {round.scorecard&&(
-            <div style={{overflowX:"auto"}}>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(18,1fr)",gap:"3px",minWidth:"540px"}}>
-                {round.scorecard.map((s,i)=>(
-                  <div key={i} style={{textAlign:"center"}}>
-                    <div style={{fontSize:"9px",color:T.mutedFg,marginBottom:"3px",fontFamily:"var(--font-display)"}}>{i+1}</div>
-                    <div style={{borderRadius:"6px",padding:"4px 2px",background:s===null?T.surface:s<(round.hole_pars?.[i]||4)?T.primaryDim:s>(round.hole_pars?.[i]||4)?"rgba(248,113,113,0.15)":T.surface,fontFamily:"var(--font-display)",fontSize:"12px",fontWeight:"700",color:s===null?T.mutedFg:s<(round.hole_pars?.[i]||4)?T.primary:s>(round.hole_pars?.[i]||4)?T.red:T.fg}}>{s||"-"}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   // -- Loading screen -----------------------------------------------
 
   // -- LOADING ---------------------------------------------------
