@@ -3,11 +3,16 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  esbuild: {
+    // Use jsx transform which handles regex in JSX more reliably
+    jsx: 'automatic',
+    target: 'es2020',
+  },
   build: {
     outDir: 'dist',
     chunkSizeWarningLimit: 3000,
+    target: 'es2020',
     rollupOptions: {
-      // Externalize all Capacitor packages — they're only available in native builds
       external: (id) => id.startsWith('@capacitor') || id.startsWith('@capacitor-community'),
       output: {
         manualChunks: {
