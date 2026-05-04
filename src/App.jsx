@@ -599,7 +599,7 @@ function ObiGolfApp(){
         body:JSON.stringify({messages:[{role:"user",content:p}],
           system:"Golf course data API. Return only valid JSON. Be accurate with real course data."})});
       const d=await r.json();
-      const t=(d?.content?.[0]?.text||"").replace(/```json/g,"").replace(/```/g,"").trim();
+      const t=(d?.content?.[0]?.text||"").replace(new RegExp("```json","g"),"").replace(new RegExp("```","g"),"").trim();
       const s=t.indexOf("{"),e=t.lastIndexOf("}");
       if(s>=0&&e>s){
         const gd=JSON.parse(t.slice(s,e+1));
@@ -943,7 +943,7 @@ function ObiGolfApp(){
                 tee[0]+(green[0]-tee[0])*t + (i%2===0?offset:-offset)*3,
                 tee[1]+(green[1]-tee[1])*t
               ];
-              const isWater=/(water|lake|pond|ocean|creek)/i.test(hz);
+              const isWater=new RegExp("water|lake|pond|ocean|creek","i").test(hz);
               const hGJ={type:"FeatureCollection",features:[{type:"Feature",
                 geometry:{type:"Point",coordinates:hPos},properties:{}}]};
               m.addSource("haz-"+i,{type:"geojson",data:hGJ});
@@ -1072,14 +1072,14 @@ function ObiGolfApp(){
     if(!window.speechSynthesis||!text)return;
     window.speechSynthesis.cancel();
     setSpeaking(false);
-    const clean=text.replace(/[*_#`]/g,"").replace(/\n/g," ").replace(/\s+/g," ").trim();
+    const clean=text.replace(new RegExp("[*_#`]","g"),"").replace(new RegExp("\n","g")," ").replace(new RegExp("\\s+","g")," ").trim();
     if(!clean)return;
     const doSpeak=()=>{
       const utt=new SpeechSynthesisUtterance(clean);
       utt.rate=0.9;utt.pitch=1;utt.volume=1;
       // Pick a good English voice — getVoices() is populated by now
       const voices=window.speechSynthesis.getVoices();
-      const pick=voices.find(v=>/samantha|karen|daniel|alex|moira/i.test(v.name)&&v.lang.startsWith("en"))
+      const pick=voices.find(v=>new RegExp("samantha|karen|daniel|alex|moira","i").test(v.name)&&v.lang.startsWith("en"))
         ||voices.find(v=>v.lang==="en-US"&&!v.name.includes("Google"))
         ||voices.find(v=>v.lang.startsWith("en"))
         ||voices[0];
@@ -2375,14 +2375,14 @@ function ObiGolfApp(){
 
                   {/* Current analysis — collapsible */}
                   {swingAnalysis&&(()=>{
-                    const sentences=(swingAnalysis.match(/[^.!?]+[.!?]+/g)||[swingAnalysis]).map(s=>s.trim()).filter(Boolean);
+                    const sentences=(swingAnalysis.match(new RegExp("[^.!?]+[.!?]+","g"))||[swingAnalysis]).map(sent=>sent.trim()).filter(Boolean);
                     const groups={summary:[],strengths:[],fixes:[],drills:[],other:[]};
-                    sentences.forEach(s=>{
-                      if(/(overall|summary|assessment|your swing|shows|demonstrates)/i.test(s))groups.summary.push(s);
-                      else if(/(good|well done|strength|positive|excellent|nice|solid|great job)/i.test(s))groups.strengths.push(s);
-                      else if(/(drill|practice|try|work on|focus on|exercise|repeat)/i.test(s))groups.drills.push(s);
-                      else if(/(need|should|must|improve|fix|adjust|lack|issue|problem|fault|tend to|too much|too little)/i.test(s))groups.fixes.push(s);
-                      else groups.other.push(s);
+                    sentences.forEach(sent=>{
+                      if(new RegExp("overall|summary|assessment|your swing|shows|demonstrates","i").test(sent))groups.summary.push(sent);
+                      else if(new RegExp("good|well done|strength|positive|excellent|nice|solid|great job","i").test(sent))groups.strengths.push(sent);
+                      else if(new RegExp("drill|practice|try|work on|focus on|exercise|repeat","i").test(sent))groups.drills.push(sent);
+                      else if(new RegExp("need|should|must|improve|fix|adjust|lack|issue|problem|fault|tend to|too much|too little","i").test(sent))groups.fixes.push(sent);
+                      else groups.other.push(sent);
                     });
                     if(!groups.summary.length)groups.summary=groups.other.splice(0,2);
                     const sections=[
@@ -2391,7 +2391,7 @@ function ObiGolfApp(){
                       {label:"Fix These",icon:"🔧",items:groups.fixes,color:"border-amber-500/30 bg-amber-500/5"},
                       {label:"Drills",icon:"🎯",items:groups.drills,color:"border-blue-500/30 bg-blue-500/5"},
                       {label:"Notes",icon:"📋",items:groups.other,color:"border-border bg-secondary/30"},
-                    ].filter(s=>s.items.length>0);
+                    ].filter(sec=>sec.items.length>0);
                     return(
                       <div className="rounded-xl border border-border bg-card overflow-hidden">
                         {/* Header with expand/collapse */}
@@ -2482,14 +2482,14 @@ function ObiGolfApp(){
                               {/* Expanded analysis */}
                               {isExpanded&&(()=>{
                                 const text=s.analysis||"";
-                                const sentences=(text.match(/[^.!?]+[.!?]+/g)||[text]).map(x=>x.trim()).filter(Boolean);
+                                const sentences=(text.match(new RegExp("[^.!?]+[.!?]+","g"))||[text]).map(tx=>tx.trim()).filter(Boolean);
                                 const g={summary:[],strengths:[],fixes:[],drills:[],other:[]};
-                                sentences.forEach(x=>{
-                                  if(/(overall|summary|assessment|your swing|shows|demonstrates)/i.test(x))g.summary.push(x);
-                                  else if(/(good|well done|strength|positive|excellent|nice|solid|great job)/i.test(x))g.strengths.push(x);
-                                  else if(/(drill|practice|try|work on|focus on|exercise|repeat)/i.test(x))g.drills.push(x);
-                                  else if(/(need|should|must|improve|fix|adjust|lack|issue|problem|fault|tend to|too much|too little)/i.test(x))g.fixes.push(x);
-                                  else g.other.push(x);
+                                sentences.forEach(tx=>{
+                                  if(new RegExp("overall|summary|assessment|your swing|shows|demonstrates","i").test(tx))g.summary.push(tx);
+                                  else if(new RegExp("good|well done|strength|positive|excellent|nice|solid|great job","i").test(tx))g.strengths.push(tx);
+                                  else if(new RegExp("drill|practice|try|work on|focus on|exercise|repeat","i").test(tx))g.drills.push(tx);
+                                  else if(new RegExp("need|should|must|improve|fix|adjust|lack|issue|problem|fault|tend to|too much|too little","i").test(tx))g.fixes.push(tx);
+                                  else g.other.push(tx);
                                 });
                                 if(!g.summary.length)g.summary=g.other.splice(0,2);
                                 const secs=[
