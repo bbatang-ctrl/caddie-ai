@@ -2255,12 +2255,8 @@ function ObiGolfApp(){
                               <p className="display text-[10px] font-bold opacity-60">Hole {hole}   Par {holeMap.par}   {holeMap.yards}yds{holeMap.strokeIndex?"   Hdcp "+holeMap.strokeIndex:""}</p>
                             </div>
                             <div className="text-right shrink-0 ml-2">
-                              {holeMap.osmFeatures?(
-                              {gpsPos&&(manualPins[hole]||(holeMap.green_lat&&haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)<=2000))&&(()=>{const pin2=manualPins[hole]||{lat:holeMap.green_lat,lng:holeMap.green_lng};const d=haversineYards(gpsPos.lat,gpsPos.lng,pin2.lat,pin2.lng);return d>3;})()&&(
-                              ):(
-                                <span className="display text-[9px] font-bold uppercase tracking-wider opacity-50 rounded px-1.5 py-0.5 border border-white/20 capitalize">{holeMap.shape||"straight"}</span>
-                              )}
-                              {gpsPos&&(manualPins[hole]||(holeMap.green_lat&&haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)<=2000))&&(
+                             <div className="text-right shrink-0 ml-2">
+                               <span className="display text-[9px] font-bold uppercase tracking-wider opacity-50 rounded px-1.5 py-0.5 border border-white/20 capitalize">{holeMap.shape||"straight"}</span>
                                 <p className="stat text-[16px] font-bold text-primary mt-0.5">{(()=>{const pin=manualPins[hole]||{lat:holeMap.green_lat,lng:holeMap.green_lng};return haversineYards(gpsPos.lat,gpsPos.lng,pin.lat,pin.lng);})()}y</p>
                               )}
                             </div>
