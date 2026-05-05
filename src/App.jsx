@@ -946,7 +946,12 @@ function ObiGolfApp(){
       const{center,bbox,reliable,gpsOnly}=getCenter();
 
       // Don't render map if we have no valid center
-      if(center[0]===0&&center[1]===0)return;
+      // If center is 0,0 but gps is available, use gps
+      let finalCenter=center;
+      if(center[0]===0&&center[1]===0){
+        if(gps?.lat){finalCenter=[gps.lng,gps.lat];}
+        else return;
+      }
 
       const m=new maplibregl.Map({
         container:containerRef.current,
@@ -963,8 +968,8 @@ function ObiGolfApp(){
           },
           layers:[{id:"satellite",type:"raster",source:"satellite",paint:{"raster-brightness-min":0.05}}]
         },
-        center,
-        zoom: gpsOnly ? 17.5 : 17.5,
+        center:finalCenter,
+        zoom: (gpsOnly||(center[0]===0&&gps?.lat)) ? 18 : 17.5,
         bearing:0,
         pitch:0,
         interactive:true,
@@ -1161,7 +1166,7 @@ function ObiGolfApp(){
         playerSourceRef.current=null;
         lineSourceRef.current=null;
       };
-    },[holeData?.osmFeatures,holeData?.tee_lat,holeData?.green_lat]);
+    },[holeData?.osmFeatures,holeData?.tee_lat,holeData?.green_lat,gps?.lat&&!holeData?.tee_lat?gps.lat:null]);
 
     // When holeMap loads with bad coords but GPS is available, immediately re-center
     useEffect(()=>{
