@@ -2260,7 +2260,7 @@ function ObiGolfApp(){
                               )}
                             </div>
                           </div>
-                          {(holeMap.osmFeatures||(holeMap.green_lat&&gpsPos&&haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)<=2000)||(!holeMap.green_lat&&gpsPos))?(
+                          {(holeMap.osmFeatures||holeMap.green_lat||gpsPos)?(
                             <HoleMapCanvas map={holeMap} gps={gpsPos} W={360} H={340}/>
                           ):(
                             <div className="bg-emerald-950/20 flex flex-col items-center justify-center py-10 gap-2">
