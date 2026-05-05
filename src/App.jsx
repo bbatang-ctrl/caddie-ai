@@ -963,7 +963,7 @@ function ObiGolfApp(){
           sources:{
             satellite:{
               type:"raster",
-              tiles:["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"],
+              tiles:["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
               tileSize:256,
               attribution:"  EOX IT Services GmbH"
             }
@@ -971,7 +971,7 @@ function ObiGolfApp(){
           layers:[{id:"satellite",type:"raster",source:"satellite",paint:{"raster-brightness-min":0.05}}]
         },
         center:finalCenter,
-        zoom: (gpsOnly||(center[0]===0&&gps?.lat)) ? 18 : 17.5,
+        zoom: (gpsOnly||(center[0]===0&&gps?.lat)) ? 19 : 18,
         bearing:0,
         pitch:0,
         interactive:true,
@@ -983,11 +983,11 @@ function ObiGolfApp(){
       m.on("load",()=>{
         // Fit to bounds if we have them
         if(bbox){
-          m.fitBounds(bbox,{padding:40,duration:0,maxZoom:18});
+          m.fitBounds(bbox,{padding:40,duration:0,maxZoom:19});
         }else if(gpsOnly&&gpsRef.current){
           // Center tightly on player GPS position
           m.setCenter([gpsRef.current.lng,gpsRef.current.lat]);
-          m.setZoom(18);
+          m.setZoom(19);
         }
 
         const osm=holeData?.osmFeatures;
@@ -1178,7 +1178,7 @@ function ObiGolfApp(){
         // Only re-center if we're not already near the player
         const curr=mapRef.current.getCenter();
         const dist=Math.abs(curr.lat-gps.lat)+Math.abs(curr.lng-gps.lng);
-        if(dist>0.001)mapRef.current.easeTo({center:[gps.lng,gps.lat],zoom:18,duration:800});
+        if(dist>0.0005)mapRef.current.easeTo({center:[gps.lng,gps.lat],zoom:18,duration:800});
       }
     },[gps?.lat,gps?.lng]);
 
@@ -1191,7 +1191,7 @@ function ObiGolfApp(){
       // Re-center map on player when gpsOnly
       const{gpsOnly:go2}=getCenter();
       if(go2&&mapRef.current){
-        mapRef.current.easeTo({center:coord,zoom:18,duration:800});
+        mapRef.current.easeTo({center:coord,zoom:19,duration:800});
       }
       const pinCoord=(go2||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
       if(pinCoord&&lineSourceRef.current){
@@ -1207,7 +1207,7 @@ function ObiGolfApp(){
           <div style={{position:"absolute",bottom:8,left:"50%",transform:"translateX(-50%)",
             background:"rgba(0,0,0,0.75)",borderRadius:"8px",padding:"6px 12px",
             color:"#fff",fontSize:"11px",fontWeight:"700",whiteSpace:"nowrap",pointerEvents:"none"}}>
-            Walk to the green -- tap "Set pin here"
+            Walk near the green -- tap "Set pin here"
           </div>
         )}
       </div>
@@ -2167,7 +2167,7 @@ function ObiGolfApp(){
                         <div className="grid grid-cols-2 gap-px bg-border">
                           <div className="bg-card px-3 py-2.5 text-center">
                             <p className="display text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-0.5">To pin</p>
-                            <p className="stat text-[28px] leading-none text-primary">{haversineYards(gpsPos.lat,gpsPos.lng,pin.lat,pin.lng)}y</p>
+                            <p className="stat text-[28px] leading-none text-primary">{(()=>{const d=haversineYards(gpsPos.lat,gpsPos.lng,pin.lat,pin.lng);return d<3?"At pin":d+"y";})()}</p>
                           </div>
                           <div className="bg-card px-3 py-2.5 text-center">
                             <p className="display text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-0.5">From tee</p>
@@ -2185,20 +2185,20 @@ function ObiGolfApp(){
                     )}
                     {gpsPos&&coordsBad&&(
                       <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 mb-2">
-                        <p className="display text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-1">  GPS on -- AI coords unreliable for this course</p>
-                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mb-2">Walk to the green and tap below to set the pin manually. It stays set for the whole round.</p>
+                        <p className="display text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-1">GPS active -- pin location unavailable for this course</p>
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mb-2">Hole listed as {holeMap.yards}y. When you get close to the green, tap below to set the exact pin.</p>
                         <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
                           className="w-full display text-[11px] font-bold uppercase tracking-wider bg-amber-600 text-white rounded-lg px-3 py-2 text-center">
-                          I&apos;m at the green -- set pin here
-                        </button>
+                          className="w-full display text-[11px] font-bold uppercase tracking-wider bg-amber-600 text-white rounded-lg px-3 py-2 text-center">
+                          I&apos;m near the green -- set pin here
                       </div>
                     )}
                     {gpsPos&&!pin&&!coordsBad&&(
                       <div className="rounded-xl border border-border bg-secondary/20 px-3 py-2.5 mb-2">
-                        <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">GPS on -- walk to green to set pin</p>
+                        <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">GPS on -- walk near green to set pin</p>
                         <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
                           className="w-full display text-[11px] font-bold uppercase tracking-wider bg-primary text-primary-foreground rounded-lg px-3 py-2 text-center">
-                          I&apos;m at the green -- set pin here
+                          className="w-full display text-[11px] font-bold uppercase tracking-wider bg-primary text-primary-foreground rounded-lg px-3 py-2 text-center">
                         </button>
                       </div>
                     )}
@@ -2256,7 +2256,7 @@ function ObiGolfApp(){
                             </div>
                             <div className="text-right shrink-0 ml-2">
                               {holeMap.osmFeatures?(
-                                <span className="display text-[9px] font-bold uppercase tracking-wider bg-primary/20 text-primary rounded px-1.5 py-0.5">Real map</span>
+                              {gpsPos&&(manualPins[hole]||(holeMap.green_lat&&haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)<=2000))&&(()=>{const pin2=manualPins[hole]||{lat:holeMap.green_lat,lng:holeMap.green_lng};const d=haversineYards(gpsPos.lat,gpsPos.lng,pin2.lat,pin2.lng);return d>3;})()&&(
                               ):(
                                 <span className="display text-[9px] font-bold uppercase tracking-wider opacity-50 rounded px-1.5 py-0.5 border border-white/20 capitalize">{holeMap.shape||"straight"}</span>
                               )}
@@ -2284,7 +2284,7 @@ function ObiGolfApp(){
                                 {gpsPos&&pin?.lat&&(
                                   <div className="border-t border-border">
                                     <div className="grid grid-cols-3 gap-px bg-border">
-                                      {[["To pin",haversineYards(gpsPos.lat,gpsPos.lng,pin.lat,pin.lng)+"y"],["From tee",holeMap.tee_lat?haversineYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng)+"y":"--"],["Accuracy",gpsPos.acc?" "+gpsPos.acc+"m":"--"]].map(([l,v])=>(
+                                      {[["To pin",haversineYards(gpsPos.lat,gpsPos.lng,pin.lat,pin.lng)+"y"],["From tee",holeMap.tee_lat&&haversineYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng)<=2000?haversineYards(holeMap.tee_lat,holeMap.tee_lng,gpsPos.lat,gpsPos.lng)+"y":"--"],["Accuracy",gpsPos.acc?" "+gpsPos.acc+"m":"--"]].map(([l,v])=>(
                                         <div key={l} className="bg-card px-2 py-2.5 text-center">
                                           <p className="display text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-0.5">{l}</p>
                                           <p className="stat text-[22px] leading-none text-primary">{v}</p>
