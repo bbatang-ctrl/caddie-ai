@@ -963,7 +963,7 @@ function ObiGolfApp(){
           sources:{
             satellite:{
               type:"raster",
-              tiles:["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"],
+              tiles:["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"],
               tileSize:256,
               attribution:"  EOX IT Services GmbH"
             }
@@ -971,7 +971,7 @@ function ObiGolfApp(){
           layers:[{id:"satellite",type:"raster",source:"satellite",paint:{"raster-brightness-min":0.05}}]
         },
         center:finalCenter,
-        zoom: (gpsOnly||(center[0]===0&&gps?.lat)) ? 19 : 18,
+        zoom: (gpsOnly||(center[0]===0&&gps?.lat)) ? 17.5 : 17.5,
         bearing:0,
         pitch:0,
         interactive:true,
@@ -983,11 +983,11 @@ function ObiGolfApp(){
       m.on("load",()=>{
         // Fit to bounds if we have them
         if(bbox){
-          m.fitBounds(bbox,{padding:40,duration:0,maxZoom:19});
+          m.fitBounds(bbox,{padding:40,duration:0,maxZoom:18});
         }else if(gpsOnly&&gpsRef.current){
           // Center tightly on player GPS position
           m.setCenter([gpsRef.current.lng,gpsRef.current.lat]);
-          m.setZoom(19);
+          m.setZoom(17.5);
         }
 
         const osm=holeData?.osmFeatures;
@@ -1191,7 +1191,7 @@ function ObiGolfApp(){
       // Re-center map on player when gpsOnly
       const{gpsOnly:go2}=getCenter();
       if(go2&&mapRef.current){
-        mapRef.current.easeTo({center:coord,zoom:19,duration:800});
+        mapRef.current.easeTo({center:coord,zoom:17.5,duration:800});
       }
       const pinCoord=(go2||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
       if(pinCoord&&lineSourceRef.current){
@@ -2185,20 +2185,20 @@ function ObiGolfApp(){
                     )}
                     {gpsPos&&coordsBad&&(
                       <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 mb-2">
-                        <p className="display text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-1">GPS active -- pin unavailable for this course</p>
-                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mb-2">Hole is {holeMap.yards}y. Walk near the green then tap below to set the pin.</p>
+                        <p className="display text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-1">GPS on -- using course yardage estimate</p>
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mb-2">Hole plays {holeMap.yards}y from this tee. Once you reach the green, drop the pin for precise distances next time.</p>
                         <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
                           className="w-full display text-[11px] font-bold uppercase tracking-wider bg-amber-600 text-white rounded-lg px-3 py-2 text-center">
-                          I&apos;m near the green -- set pin here
+                          Drop pin at my location
                         </button>
                       </div>
                     )}
                     {gpsPos&&!pin&&!coordsBad&&(
                       <div className="rounded-xl border border-border bg-secondary/20 px-3 py-2.5 mb-2">
-                        <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">GPS on -- walk near green to set pin</p>
+                        <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">GPS on -- drop pin when near the green</p>
                         <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
                           className="w-full display text-[11px] font-bold uppercase tracking-wider bg-primary text-primary-foreground rounded-lg px-3 py-2 text-center">
-                          I&apos;m near the green -- set pin here
+                          Drop pin at my location
                         </button>
                       </div>
                     )}
