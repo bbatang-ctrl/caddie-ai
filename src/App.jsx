@@ -2254,12 +2254,12 @@ function ObiGolfApp(){
                               <p className="display text-[13px] font-bold tracking-tight truncate">{course}</p>
                               <p className="display text-[10px] font-bold opacity-60">Hole {hole}   Par {holeMap.par}   {holeMap.yards}yds{holeMap.strokeIndex?"   Hdcp "+holeMap.strokeIndex:""}</p>
                             </div>
-                            <div className="text-right shrink-0 ml-2">
                              <div className="text-right shrink-0 ml-2">
                                <span className="display text-[9px] font-bold uppercase tracking-wider opacity-50 rounded px-1.5 py-0.5 border border-white/20 capitalize">{holeMap.shape||"straight"}</span>
-                               {gpsPos&&(manualPins[hole]?(()=>{const d=haversineYards(gpsPos.lat,gpsPos.lng,manualPins[hole].lat,manualPins[hole].lng);return d>3&&<p className="stat text-[16px] font-bold text-primary mt-0.5">{d}y</p>;})():null)}
-                            </div>
-                          </div>
+                               {gpsPos&&manualPins[hole]&&haversineYards(gpsPos.lat,gpsPos.lng,manualPins[hole].lat,manualPins[hole].lng)>3&&(
+                                 <p className="stat text-[16px] font-bold text-primary mt-0.5">{haversineYards(gpsPos.lat,gpsPos.lng,manualPins[hole].lat,manualPins[hole].lng)}y</p>
+                               )}
+                             </div>
                           {(holeMap.osmFeatures||holeMap.green_lat||gpsPos)?(
                             <HoleMapCanvas map={holeMap} gps={gpsPos} W={360} H={340}/>
                           ):(
