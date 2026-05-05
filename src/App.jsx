@@ -2260,6 +2260,7 @@ function ObiGolfApp(){
                                  <p className="stat text-[16px] font-bold text-primary mt-0.5">{haversineYards(gpsPos.lat,gpsPos.lng,manualPins[hole].lat,manualPins[hole].lng)}y</p>
                                )}
                              </div>
+                           </div>
                           {(holeMap.osmFeatures||holeMap.green_lat||gpsPos)?(
                             <HoleMapCanvas map={holeMap} gps={gpsPos} W={360} H={340}/>
                           ):(
