@@ -2255,12 +2255,12 @@ function ObiGolfApp(){
                               ):(
                                 <span className="display text-[9px] font-bold uppercase tracking-wider opacity-50 rounded px-1.5 py-0.5 border border-white/20 capitalize">{holeMap.shape||"straight"}</span>
                               )}
-                              {gpsPos&&holeMap.green_lat&&(
+                              {gpsPos&&holeMap.green_lat&&haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)<=2000&&(
                                 <p className="stat text-[16px] font-bold text-primary mt-0.5">{haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)}y</p>
                               )}
                             </div>
                           </div>
-                          {(holeMap.osmFeatures||holeMap.green_lat)?(
+                          {(holeMap.osmFeatures||(holeMap.green_lat&&gpsPos&&haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)<=2000)||(!holeMap.green_lat&&gpsPos))?(
                             <HoleMapCanvas map={holeMap} gps={gpsPos} W={360} H={340}/>
                           ):(
                             <div className="bg-emerald-950/20 flex flex-col items-center justify-center py-10 gap-2">
