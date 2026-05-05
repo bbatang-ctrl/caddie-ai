@@ -965,13 +965,14 @@ function ObiGolfApp(){
               type:"raster",
               tiles:["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"],
               tileSize:256,
-              attribution:"  EOX IT Services GmbH"
+            maxzoom:17,
+            attribution:"  EOX IT Services GmbH"
             }
           },
           layers:[{id:"satellite",type:"raster",source:"satellite",paint:{"raster-brightness-min":0.05}}]
         },
         center:finalCenter,
-        zoom: (gpsOnly||(center[0]===0&&gps?.lat)) ? 17.5 : 17.5,
+        zoom: (gpsOnly||(center[0]===0&&gps?.lat)) ? 16.5 : 17,
         bearing:0,
         pitch:0,
         interactive:true,
@@ -987,7 +988,7 @@ function ObiGolfApp(){
         }else if(gpsOnly&&gpsRef.current){
           // Center tightly on player GPS position
           m.setCenter([gpsRef.current.lng,gpsRef.current.lat]);
-          m.setZoom(17.5);
+          m.setZoom(16.5);
         }
 
         const osm=holeData?.osmFeatures;
@@ -1191,7 +1192,7 @@ function ObiGolfApp(){
       // Re-center map on player when gpsOnly
       const{gpsOnly:go2}=getCenter();
       if(go2&&mapRef.current){
-        mapRef.current.easeTo({center:coord,zoom:17.5,duration:800});
+        mapRef.current.easeTo({center:coord,zoom:16.5,duration:800});
       }
       const pinCoord=(go2||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
       if(pinCoord&&lineSourceRef.current){
@@ -1207,7 +1208,7 @@ function ObiGolfApp(){
           <div style={{position:"absolute",bottom:8,left:"50%",transform:"translateX(-50%)",
             background:"rgba(0,0,0,0.75)",borderRadius:"8px",padding:"6px 12px",
             color:"#fff",fontSize:"11px",fontWeight:"700",whiteSpace:"nowrap",pointerEvents:"none"}}>
-            Walk near the green -- tap "Set pin here"
+            ~{holeMap?.yards||"?"}y to pin -- tap to drop pin
           </div>
         )}
       </div>
