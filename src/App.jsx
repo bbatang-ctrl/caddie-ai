@@ -889,6 +889,8 @@ function ObiGolfApp(){
     const mapRef=useRef(null);
     const playerSourceRef=useRef(null);
     const lineSourceRef=useRef(null);
+    const gpsRef=useRef(gps); // always latest GPS without triggering re-render
+    useEffect(()=>{gpsRef.current=gps;},[gps]);
 
     // Helper: haversine yards
     const hYards=(lat1,lng1,lat2,lng2)=>{
@@ -949,7 +951,7 @@ function ObiGolfApp(){
       // If center is 0,0 but gps is available, use gps
       let finalCenter=center;
       if(center[0]===0&&center[1]===0){
-        if(gps?.lat){finalCenter=[gps.lng,gps.lat];}
+        if(gpsRef.current?.lat){finalCenter=[gpsRef.current.lng,gpsRef.current.lat];}
         else return;
       }
 
@@ -982,9 +984,9 @@ function ObiGolfApp(){
         // Fit to bounds if we have them
         if(bbox){
           m.fitBounds(bbox,{padding:40,duration:0,maxZoom:18});
-        }else if(gpsOnly&&gps){
+        }else if(gpsOnly&&gpsRef.current){
           // Center tightly on player GPS position
-          m.setCenter([gps.lng,gps.lat]);
+          m.setCenter([gpsRef.current.lng,gpsRef.current.lat]);
           m.setZoom(18);
         }
 
@@ -1166,16 +1168,19 @@ function ObiGolfApp(){
         playerSourceRef.current=null;
         lineSourceRef.current=null;
       };
-    },[holeData?.osmFeatures,holeData?.tee_lat,holeData?.green_lat,gps?.lat&&!holeData?.tee_lat?gps.lat:null]);
+    },[holeData?.osmFeatures,holeData?.tee_lat,holeData?.green_lat]);
 
-    // When holeMap loads with bad coords but GPS is available, immediately re-center
+    // When GPS first arrives, re-center if map is in gpsOnly mode
     useEffect(()=>{
       if(!mapRef.current||!gps?.lat)return;
       const{gpsOnly:go}=getCenter();
       if(go){
-        mapRef.current.easeTo({center:[gps.lng,gps.lat],zoom:18,duration:600});
+        // Only re-center if we're not already near the player
+        const curr=mapRef.current.getCenter();
+        const dist=Math.abs(curr.lat-gps.lat)+Math.abs(curr.lng-gps.lng);
+        if(dist>0.001)mapRef.current.easeTo({center:[gps.lng,gps.lat],zoom:18,duration:800});
       }
-    },[holeData]);
+    },[gps?.lat,gps?.lng]);
 
     // Update GPS dot without re-rendering map
     useEffect(()=>{
@@ -2255,8 +2260,8 @@ function ObiGolfApp(){
                               ):(
                                 <span className="display text-[9px] font-bold uppercase tracking-wider opacity-50 rounded px-1.5 py-0.5 border border-white/20 capitalize">{holeMap.shape||"straight"}</span>
                               )}
-                              {gpsPos&&holeMap.green_lat&&haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)<=2000&&(
-                                <p className="stat text-[16px] font-bold text-primary mt-0.5">{haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)}y</p>
+                              {gpsPos&&(manualPins[hole]||(holeMap.green_lat&&haversineYards(gpsPos.lat,gpsPos.lng,holeMap.green_lat,holeMap.green_lng)<=2000))&&(
+                                <p className="stat text-[16px] font-bold text-primary mt-0.5">{(()=>{const pin=manualPins[hole]||{lat:holeMap.green_lat,lng:holeMap.green_lng};return haversineYards(gpsPos.lat,gpsPos.lng,pin.lat,pin.lng);})()}y</p>
                               )}
                             </div>
                           </div>
