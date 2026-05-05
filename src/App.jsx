@@ -2185,12 +2185,12 @@ function ObiGolfApp(){
                     )}
                     {gpsPos&&coordsBad&&(
                       <div className="rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 mb-2">
-                        <p className="display text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-1">GPS active -- pin location unavailable for this course</p>
-                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mb-2">Hole listed as {holeMap.yards}y. When you get close to the green, tap below to set the exact pin.</p>
+                        <p className="display text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-1">GPS active -- pin unavailable for this course</p>
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mb-2">Hole is {holeMap.yards}y. Walk near the green then tap below to set the pin.</p>
                         <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
                           className="w-full display text-[11px] font-bold uppercase tracking-wider bg-amber-600 text-white rounded-lg px-3 py-2 text-center">
-                          className="w-full display text-[11px] font-bold uppercase tracking-wider bg-amber-600 text-white rounded-lg px-3 py-2 text-center">
                           I&apos;m near the green -- set pin here
+                        </button>
                       </div>
                     )}
                     {gpsPos&&!pin&&!coordsBad&&(
@@ -2198,7 +2198,7 @@ function ObiGolfApp(){
                         <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">GPS on -- walk near green to set pin</p>
                         <button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
                           className="w-full display text-[11px] font-bold uppercase tracking-wider bg-primary text-primary-foreground rounded-lg px-3 py-2 text-center">
-                          className="w-full display text-[11px] font-bold uppercase tracking-wider bg-primary text-primary-foreground rounded-lg px-3 py-2 text-center">
+                          I&apos;m near the green -- set pin here
                         </button>
                       </div>
                     )}
