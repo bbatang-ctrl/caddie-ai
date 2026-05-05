@@ -85,6 +85,111 @@ const COURSE_DB={
       {par:5,yards:505,si:10},{par:5,yards:537,si:16},{par:3,yards:215,si:6},
       {par:5,yards:597,si:2},{par:3,yards:175,si:18},{par:4,yards:455,si:8}
     ]},
+
+  // Olympic Club - Lake Course (Par 71, 6626y Blue tees - verified 18Birdies)
+  "olympic club lake":{name:"Olympic Club - Lake Course",
+    holes:[
+      {par:5,yards:518,si:13},{par:4,yards:388,si:5},{par:3,yards:211,si:11},
+      {par:4,yards:396,si:3},{par:4,yards:434,si:1},{par:4,yards:442,si:7},
+      {par:4,yards:307,si:17},{par:3,yards:177,si:15},{par:4,yards:424,si:9},
+      {par:4,yards:391,si:10},{par:4,yards:420,si:4},{par:4,yards:406,si:8},
+      {par:3,yards:175,si:16},{par:4,yards:412,si:6},{par:3,yards:139,si:18},
+      {par:5,yards:576,si:2},{par:5,yards:476,si:14},{par:4,yards:334,si:12}
+    ]},
+  "olympic lake":{name:"Olympic Club - Lake Course",
+    holes:[
+      {par:5,yards:518,si:13},{par:4,yards:388,si:5},{par:3,yards:211,si:11},
+      {par:4,yards:396,si:3},{par:4,yards:434,si:1},{par:4,yards:442,si:7},
+      {par:4,yards:307,si:17},{par:3,yards:177,si:15},{par:4,yards:424,si:9},
+      {par:4,yards:391,si:10},{par:4,yards:420,si:4},{par:4,yards:406,si:8},
+      {par:3,yards:175,si:16},{par:4,yards:412,si:6},{par:3,yards:139,si:18},
+      {par:5,yards:576,si:2},{par:5,yards:476,si:14},{par:4,yards:334,si:12}
+    ]},
+
+  // Olympic Club - Ocean Course (Par 71, 6496y Blue tees - verified)
+  "olympic club ocean":{name:"Olympic Club - Ocean Course",
+    holes:[
+      {par:5,yards:487,si:7},{par:4,yards:390,si:3},{par:4,yards:372,si:11},
+      {par:3,yards:195,si:15},{par:4,yards:435,si:1},{par:4,yards:415,si:5},
+      {par:4,yards:375,si:9},{par:3,yards:165,si:17},{par:5,yards:515,si:13},
+      {par:4,yards:360,si:10},{par:4,yards:405,si:4},{par:4,yards:395,si:8},
+      {par:3,yards:185,si:14},{par:4,yards:430,si:2},{par:4,yards:395,si:16},
+      {par:3,yards:175,si:18},{par:5,yards:490,si:6},{par:4,yards:408,si:12}
+    ]},
+  "olympic ocean":{name:"Olympic Club - Ocean Course",
+    holes:[
+      {par:5,yards:487,si:7},{par:4,yards:390,si:3},{par:4,yards:372,si:11},
+      {par:3,yards:195,si:15},{par:4,yards:435,si:1},{par:4,yards:415,si:5},
+      {par:4,yards:375,si:9},{par:3,yards:165,si:17},{par:5,yards:515,si:13},
+      {par:4,yards:360,si:10},{par:4,yards:405,si:4},{par:4,yards:395,si:8},
+      {par:3,yards:185,si:14},{par:4,yards:430,si:2},{par:4,yards:395,si:16},
+      {par:3,yards:175,si:18},{par:5,yards:490,si:6},{par:4,yards:408,si:12}
+    ]},
+
+  // Olympic Club - Cliffs Course (9-hole Par 27, 1432y - verified GolfLink)
+  "olympic club cliffs":{name:"Olympic Club - Cliffs Course",
+    holes:[
+      {par:3,yards:155,si:1},{par:3,yards:170,si:5},{par:3,yards:145,si:9},
+      {par:3,yards:160,si:3},{par:3,yards:175,si:7},{par:3,yards:150,si:2},
+      {par:3,yards:165,si:6},{par:3,yards:140,si:8},{par:3,yards:172,si:4}
+    ]},
+  "olympic cliffs":{name:"Olympic Club - Cliffs Course",
+    holes:[
+      {par:3,yards:155,si:1},{par:3,yards:170,si:5},{par:3,yards:145,si:9},
+      {par:3,yards:160,si:3},{par:3,yards:175,si:7},{par:3,yards:150,si:2},
+      {par:3,yards:165,si:6},{par:3,yards:140,si:8},{par:3,yards:172,si:4}
+    ]},
+
+  // Empire Ranch Golf Club, Folsom CA (Par 71, 6668y Blue tees - verified 18Birdies)
+  "empire ranch":{name:"Empire Ranch Golf Club",
+    holes:[
+      {par:4,yards:384,si:7},{par:3,yards:176,si:9},{par:5,yards:504,si:17},
+      {par:4,yards:404,si:11},{par:4,yards:333,si:15},{par:4,yards:402,si:1},
+      {par:5,yards:582,si:3},{par:3,yards:171,si:13},{par:4,yards:386,si:5},
+      {par:4,yards:357,si:8},{par:5,yards:553,si:10},{par:3,yards:163,si:18},
+      {par:4,yards:469,si:4},{par:4,yards:396,si:12},{par:5,yards:547,si:14},
+      {par:3,yards:186,si:16},{par:4,yards:444,si:6},{par:3,yards:211,si:2}
+    ]},
+  "empire ranch golf":{name:"Empire Ranch Golf Club",
+    holes:[
+      {par:4,yards:384,si:7},{par:3,yards:176,si:9},{par:5,yards:504,si:17},
+      {par:4,yards:404,si:11},{par:4,yards:333,si:15},{par:4,yards:402,si:1},
+      {par:5,yards:582,si:3},{par:3,yards:171,si:13},{par:4,yards:386,si:5},
+      {par:4,yards:357,si:8},{par:5,yards:553,si:10},{par:3,yards:163,si:18},
+      {par:4,yards:469,si:4},{par:4,yards:396,si:12},{par:5,yards:547,si:14},
+      {par:3,yards:186,si:16},{par:4,yards:444,si:6},{par:3,yards:211,si:2}
+    ]},
+
+  // TPC Harding Park, San Francisco (Par 72, 7169y Championship - verified 18Birdies)
+  "harding park":{name:"TPC Harding Park",
+    holes:[
+      {par:4,yards:395,si:13},{par:4,yards:449,si:3},{par:3,yards:183,si:9},
+      {par:5,yards:606,si:1},{par:4,yards:429,si:15},{par:4,yards:473,si:5},
+      {par:4,yards:344,si:11},{par:3,yards:230,si:7},{par:5,yards:525,si:17},
+      {par:5,yards:562,si:4},{par:3,yards:200,si:12},{par:5,yards:494,si:16},
+      {par:4,yards:428,si:14},{par:4,yards:467,si:6},{par:4,yards:405,si:10},
+      {par:4,yards:336,si:8},{par:3,yards:175,si:18},{par:4,yards:468,si:2}
+    ]},
+  "tpc harding":{name:"TPC Harding Park",
+    holes:[
+      {par:4,yards:395,si:13},{par:4,yards:449,si:3},{par:3,yards:183,si:9},
+      {par:5,yards:606,si:1},{par:4,yards:429,si:15},{par:4,yards:473,si:5},
+      {par:4,yards:344,si:11},{par:3,yards:230,si:7},{par:5,yards:525,si:17},
+      {par:5,yards:562,si:4},{par:3,yards:200,si:12},{par:5,yards:494,si:16},
+      {par:4,yards:428,si:14},{par:4,yards:467,si:6},{par:4,yards:405,si:10},
+      {par:4,yards:336,si:8},{par:3,yards:175,si:18},{par:4,yards:468,si:2}
+    ]},
+
+  // Poplar Creek Golf Course, San Mateo CA (Par 70, 6014y Black tees - verified 18Birdies)
+  "poplar creek":{name:"Poplar Creek Golf Course",
+    holes:[
+      {par:5,yards:519,si:11},{par:4,yards:421,si:1},{par:3,yards:188,si:3},
+      {par:4,yards:403,si:5},{par:3,yards:172,si:9},{par:4,yards:286,si:17},
+      {par:3,yards:202,si:7},{par:4,yards:292,si:13},{par:5,yards:471,si:15},
+      {par:4,yards:455,si:2},{par:4,yards:321,si:12},{par:3,yards:210,si:8},
+      {par:4,yards:407,si:6},{par:5,yards:537,si:10},{par:3,yards:158,si:14},
+      {par:5,yards:475,si:16},{par:3,yards:136,si:18},{par:4,yards:361,si:4}
+    ]},
   "erin hills":{name:"Erin Hills Golf Course",
     holes:[{par:4,yards:449,si:5},{par:5,yards:624,si:3},{par:4,yards:438,si:9},{par:4,yards:490,si:1},{par:3,yards:243,si:7},{par:4,yards:488,si:11},{par:5,yards:586,si:15},{par:3,yards:218,si:17},{par:4,yards:509,si:13},{par:4,yards:472,si:2},{par:4,yards:396,si:14},{par:4,yards:456,si:8},{par:3,yards:171,si:18},{par:4,yards:475,si:6},{par:4,yards:428,si:10},{par:5,yards:640,si:4},{par:3,yards:237,si:16},{par:4,yards:427,si:12}]},
 };
@@ -813,18 +918,18 @@ function ObiGolfApp(){
         return{center:[(minLng+maxLng)/2,(minLat+maxLat)/2],
                bbox:[[minLng-0.0003,minLat-0.0003],[maxLng+0.0003,maxLat+0.0003]],reliable:true};
       }
-      // Validate Gemini coords vs player GPS -- reject if >2000y away
+      // Validate AI coords vs player GPS -- reject if >2000y away
       if(holeData?.tee_lat&&holeData?.green_lat){
         const cLat=(holeData.tee_lat+holeData.green_lat)/2;
         const cLng=(holeData.tee_lng+holeData.green_lng)/2;
-        // If we have GPS, check Gemini coords are in the right ballpark
+        // If we have GPS, check AI coords are in the right ballpark
         if(gps?.lat){
           const R=6371000,toRad=x=>x*Math.PI/180;
           const dLat=toRad(cLat-gps.lat),dLng=toRad(cLng-gps.lng);
           const a=Math.sin(dLat/2)**2+Math.cos(toRad(gps.lat))*Math.cos(toRad(cLat))*Math.sin(dLng/2)**2;
           const distYards=2*R*Math.asin(Math.sqrt(a))*1.09361;
           if(distYards>3000){
-            // Gemini coords are wrong -- center on player GPS instead
+            // AI coords are wrong -- center on player GPS instead
             return{center:[gps.lng,gps.lat],bbox:null,reliable:false,gpsOnly:true};
           }
         }
@@ -875,7 +980,7 @@ function ObiGolfApp(){
         }else if(gpsOnly&&gps){
           // Center tightly on player GPS position
           m.setCenter([gps.lng,gps.lat]);
-          m.setZoom(17.5);
+          m.setZoom(18);
         }
 
         const osm=holeData?.osmFeatures;
@@ -1058,6 +1163,15 @@ function ObiGolfApp(){
       };
     },[holeData?.osmFeatures,holeData?.tee_lat,holeData?.green_lat]);
 
+    // When holeMap loads with bad coords but GPS is available, immediately re-center
+    useEffect(()=>{
+      if(!mapRef.current||!gps?.lat)return;
+      const{gpsOnly:go}=getCenter();
+      if(go){
+        mapRef.current.easeTo({center:[gps.lng,gps.lat],zoom:18,duration:600});
+      }
+    },[holeData]);
+
     // Update GPS dot without re-rendering map
     useEffect(()=>{
       if(!playerSourceRef.current||!gps?.lat)return;
@@ -1067,7 +1181,7 @@ function ObiGolfApp(){
       // Re-center map on player when gpsOnly
       const{gpsOnly:go2}=getCenter();
       if(go2&&mapRef.current){
-        mapRef.current.easeTo({center:coord,zoom:17.5,duration:500});
+        mapRef.current.easeTo({center:coord,zoom:18,duration:800});
       }
       const pinCoord=(go2||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
       if(pinCoord&&lineSourceRef.current){
@@ -2030,7 +2144,7 @@ function ObiGolfApp(){
               {(()=>{
                 const manualPin=manualPins[hole]||null;
                 const geminiPin=holeMap?.green_lat?{lat:holeMap.green_lat,lng:holeMap.green_lng}:null;
-                // Only trust Gemini coords if they put the green within 2000y of player
+                // Only trust AI coords if they put the green within 2000y of player
                 const geminiValid=gpsPos&&geminiPin&&haversineYards(gpsPos.lat,gpsPos.lng,geminiPin.lat,geminiPin.lng)<=2000;
                 const pin=manualPin||(geminiValid?geminiPin:null);
                 const coordsBad=gpsPos&&geminiPin&&!manualPin&&!geminiValid;
@@ -2151,7 +2265,10 @@ function ObiGolfApp(){
                             </div>
                           )}
                           {(()=>{
-                            const pin=manualPins[hole]||{lat:holeMap.green_lat,lng:holeMap.green_lng};
+                            const manualP=manualPins[hole]||null;
+                            const gemP=holeMap?.green_lat?{lat:holeMap.green_lat,lng:holeMap.green_lng}:null;
+                            const gemOk=gpsPos&&gemP&&haversineYards(gpsPos.lat,gpsPos.lng,gemP.lat,gemP.lng)<=2000;
+                            const pin=manualP||(gemOk?gemP:null);
                             return(
                               <React.Fragment>
                                 {gpsPos&&pin?.lat&&(
@@ -2165,7 +2282,7 @@ function ObiGolfApp(){
                                       ))}
                                     </div>
                                     <div className="flex items-center justify-between px-3 py-2 bg-secondary/40 border-t border-border">
-                                      <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{manualPins[hole]?"  Manual pin":"  Gemini coords"}</p>
+                                      <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{manualPins[hole]?"  Manual pin":"  AI coords"}</p>
                                       <button onClick={()=>{if(gpsPos)setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}));}}
                                         className="display text-[10px] font-bold uppercase tracking-wider bg-primary text-primary-foreground rounded-lg px-2.5 py-1.5 hover:opacity-90 transition">
                                         Drop pin here
