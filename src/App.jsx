@@ -963,16 +963,16 @@ function ObiGolfApp(){
           sources:{
             satellite:{
               type:"raster",
-              tiles:["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg"],
-              tileSize:256,
-            maxzoom:17,
-            attribution:"  EOX IT Services GmbH"
+              tiles:["https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token="+import.meta.env.VITE_MAPBOX_TOKEN],
+              tileSize:512,
+              maxzoom:22,
+              attribution:"(c) Mapbox (c) OpenStreetMap"
             }
           },
           layers:[{id:"satellite",type:"raster",source:"satellite",paint:{"raster-brightness-min":0.05}}]
         },
         center:finalCenter,
-        zoom: (gpsOnly||(center[0]===0&&gps?.lat)) ? 16.5 : 17,
+        zoom: (gpsOnly||(center[0]===0&&gps?.lat)) ? 18 : 18,
         bearing:0,
         pitch:0,
         interactive:true,
@@ -984,11 +984,11 @@ function ObiGolfApp(){
       m.on("load",()=>{
         // Fit to bounds if we have them
         if(bbox){
-          m.fitBounds(bbox,{padding:40,duration:0,maxZoom:18});
+          m.fitBounds(bbox,{padding:40,duration:0,maxZoom:20});
         }else if(gpsOnly&&gpsRef.current){
           // Center tightly on player GPS position
           m.setCenter([gpsRef.current.lng,gpsRef.current.lat]);
-          m.setZoom(16.5);
+          m.setZoom(18);
         }
 
         const osm=holeData?.osmFeatures;
@@ -1192,7 +1192,7 @@ function ObiGolfApp(){
       // Re-center map on player when gpsOnly
       const{gpsOnly:go2}=getCenter();
       if(go2&&mapRef.current){
-        mapRef.current.easeTo({center:coord,zoom:16.5,duration:800});
+        mapRef.current.easeTo({center:coord,zoom:18,duration:800});
       }
       const pinCoord=(go2||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
       if(pinCoord&&lineSourceRef.current){
