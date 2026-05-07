@@ -335,19 +335,58 @@ function ObiGolfApp(){
     const {data}=await supabase.from("profiles").select("*").eq("id",u.id).single();
     if(data){
       setUserProfile(data);setAvatarUrl(data.avatar_url||null);
-      if(data.onboarded||(data.full_name&&data.handicap_category)){
-        setAuthScreen(s=>s==="onboard"?"app":s==="app"?"app":"app");
-        if(data.bag&&data.bag.length>0){setProfile(p=>({...p,handicap:data.handicap_category||p.handicap,hcp:data.handicap_index||p.hcp,persona:data.caddie_persona||p.persona,missTend:data.miss_tendency||p.missTend,bag:data.bag,dexterity:data.dexterity||p.dexterity,homeCourse:data.home_course||p.homeCourse,practiceGoal:data.practice_goal||p.practiceGoal}));}
-      }else{setAuthScreen("onboard");}
+      if(data.full_name&&!authName){setAuthName(data.full_name);} // sync name so buildSystem always has it
+      // Load profile settings regardless
+      if(data.bag&&data.bag.length>0){
+        setProfile(p=>({...p,
+          handicap:data.handicap_category||p.handicap,
+          hcp:data.handicap_index||p.hcp,
+          persona:data.caddie_persona||p.persona,
+          missTend:data.miss_tendency||p.missTend,
+          bag:data.bag,
+          dexterity:data.dexterity||p.dexterity,
+          homeCourse:data.home_course||p.homeCourse,
+          practiceGoal:data.practice_goal||p.practiceGoal,
+        }));
+      }
+      // Only show onboarding if user has NEVER completed it
+      // Check: no name AND no onboarded flag AND no handicap set
+      const needsOnboard=!data.onboarded&&!data.full_name&&!data.handicap_category;
+      if(needsOnboard){
+        setAuthScreen("onboard");
+      } else {
+        // Already onboarded — go straight to app
+        setAuthScreen("app");
+      }
       loadRounds(u.id);loadFriends(u.id);loadFeed();
-    }else{setAuthScreen("onboard");}
+    }else{
+      // No profile row yet — new user, needs onboarding
+      setAuthScreen("onboard");
+    }
   };
 
   const saveProfile=async(overrideName)=>{
     if(!user)return;
     const fullName=overrideName||authName||userProfile?.full_name||"";
-    const{error}=await supabase.from("profiles").upsert({id:user.id,full_name:fullName,handicap_category:profile.handicap,handicap_index:profile.hcp,caddie_persona:profile.persona,miss_tendency:profile.missTend,bag:profile.bag,dexterity:profile.dexterity,home_course:profile.homeCourse,practice_goal:profile.practiceGoal,onboarded:true,updated_at:new Date().toISOString()});
-    if(!error&&fullName)setUserProfile(p=>({...(p||{}),full_name:fullName,onboarded:true}));
+    const{error}=await supabase.from("profiles").upsert({
+      id:user.id,
+      full_name:fullName,
+      handicap_category:profile.handicap,
+      handicap_index:profile.hcp,
+      caddie_persona:profile.persona,
+      miss_tendency:profile.missTend,
+      bag:profile.bag,
+      dexterity:profile.dexterity,
+      home_course:profile.homeCourse,
+      practice_goal:profile.practiceGoal,
+      onboarded:true,  // critical — prevents re-onboarding loop
+      updated_at:new Date().toISOString(),
+    });
+    if(error){console.error("saveProfile failed:",error.message);}
+    else{
+      // Immediately mark as onboarded in local state too — belt and suspenders
+      setUserProfile(p=>({...(p||{}),full_name:fullName,onboarded:true,handicap_category:profile.handicap}));
+    }
     return !error;
   };
 
@@ -356,7 +395,13 @@ function ObiGolfApp(){
   const loadFeed=async()=>{const {data}=await supabase.from("rounds").select("*,profiles(full_name,avatar_url,handicap_index)").order("played_at",{ascending:false}).limit(20);if(data)setFeed(data);};
 
   const handleLogin=async(e)=>{e&&e.preventDefault();setAuthError("");const{error}=await supabase.auth.signInWithPassword({email:authEmail,password:authPass});if(error)setAuthError(error.message);};
-  const handleSignup=async(e)=>{e&&e.preventDefault();setAuthError("");const{error}=await supabase.auth.signUp({email:authEmail,password:authPass,options:{data:{full_name:authName}}});if(error)setAuthError(error.message);else setAuthScreen("onboard");};
+  const handleSignup=async(e)=>{
+    e&&e.preventDefault();setAuthError("");
+    const{error}=await supabase.auth.signUp({email:authEmail,password:authPass,options:{data:{full_name:authName}}});
+    if(error){setAuthError(error.message);}
+    // Don't manually set authScreen — onAuthStateChange + loadProfile handles it.
+    // New user: no profile row → loadProfile sets "onboard". Existing: goes to "app".
+  }
   const handleLogout=async()=>{await supabase.auth.signOut();setUser(null);setMessages([]);setRounds([]);};
   const handleGoogleAuth=async()=>{await supabase.auth.signInWithOAuth({provider:"google",options:{redirectTo:window.location.origin}});};
 
@@ -374,7 +419,7 @@ function ObiGolfApp(){
     const bagStr=profile.bag.map(b=>b.club+":"+b.carry+"y").join(", ");
     const wx=weather?"Wind "+weather.wind+"mph "+windDir(weather.windDeg)+". "+weather.temp+"F.":"No weather.";
     const py=yardage?playingYards(parseInt(yardage),elevation,weather?.wind||0,weather?.windDeg||0):null;
-    const name=firstName(userProfile?.full_name)||"Golfer";
+    const name=firstName(authName)||firstName(userProfile?.full_name)||"Golfer";
     const handed=profile.dexterity==="left"?"left-handed":"right-handed";
     const yardStr=yardage?(yardage+"y actual, ~"+py+"y playing"):"not set";
     const recentStr=shotHistory.slice(-3).map(s=>"H"+s.hole+": "+s.outcome).join(". ")||"none";
@@ -690,7 +735,7 @@ function ObiGolfApp(){
     setWelcomeSent(true);
     setChatOpen(true);
     setWelcomeStage(1);
-    const name=firstName(userProfile?.full_name)||"there";
+    const name=firstName(authName)||firstName(userProfile?.full_name)||"there";
     await obiSpeak(
       "Hey "+name+" — I'm Obi, your caddie. I've been on the bag for players at every level, from first-timers to scratch golfers. One question before we do anything else: what's the single thing costing you the most strokes right now?",
       600
@@ -702,7 +747,7 @@ function ObiGolfApp(){
     if(stage===1){
       // They answered "what's costing you strokes" — respond + ask course
       setWelcomeStage(2);
-      const name=firstName(userProfile?.full_name)||"";
+      const name=firstName(authName)||firstName(userProfile?.full_name)||"";
       const prompt=`The player just said this is costing them strokes: "${userMsg}". Respond in 2 sentences: first give a specific insight validating their answer (not generic), then ask what course they play most. Warm and direct. Use their name: ${name}. No markdown.`;
       setObiTyping(true);
       try{
@@ -726,7 +771,7 @@ function ObiGolfApp(){
         setCourseInput(detectedCourse);
         fetchHoleMap(detectedCourse,1);
       }
-      const name=firstName(userProfile?.full_name)||"";
+      const name=firstName(authName)||firstName(userProfile?.full_name)||"";
       await obiSpeak(
         "Perfect — I know that course well. I'm pulling up the layout now. "+
         (detectedCourse.length>2?"Start on hole 1 or tell me which hole you want to talk about. ":"")+
@@ -1013,7 +1058,13 @@ function ObiGolfApp(){
         {/* Onboarding flow */}
         {authScreen==="onboard"&&(
           <div style={{flex:1,display:"flex",flexDirection:"column",paddingTop:"48px",paddingBottom:"32px"}}>
-            <OnboardingFlow authName={authName} setAuthName={setAuthName} profile={profile} setProfile={setProfile} onComplete={async()=>{try{await saveProfile(authName);}catch(e){console.warn("saveProfile error",e);}setAuthScreen("app");setTab("home");}}/>
+            <OnboardingFlow authName={authName} setAuthName={setAuthName} profile={profile} setProfile={setProfile} onComplete={async()=>{
+  try{await saveProfile(authName);}
+  catch(e){console.warn("saveProfile error",e);}
+  // Always proceed to app — don't let a save failure trap the user in onboarding
+  setAuthScreen("app");
+  setTab("home");
+}}/>
           </div>
         )}
 
