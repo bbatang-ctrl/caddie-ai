@@ -623,13 +623,44 @@ function ObiGolfApp(){
   const acceptFriend=async(fid)=>{await supabase.from("friendships").update({status:"accepted"}).eq("id",fid);if(user)loadFriends(user.id);};
 
   const handleSwingAnalyze=async()=>{
-    if(!swingFile||swingLoading)return;setSwingLoading(true);setSwingAnalysis("");
-    try{const isVideo=swingFile.type.startsWith("video/");let result;if(isVideo){result=await analyzeSwingVideo(swingFile,swingNotes,profile);}else{result=await analyzeSwing(swingFile,swingNotes,profile);}setSwingAnalysis(result);
-      if(user){const{data}=await supabase.from("swing_analyses").insert({user_id:user.id,notes:swingNotes,analysis:result,club_used:swingNotes||"unknown",thumbnail:swingThumb||null,created_at:new Date().toISOString()}).select().single();if(data)setSwingHistory(h=>[{...data,thumbnail:swingThumb||null},...h]);}
-    }catch(e){setSwingAnalysis("Analysis failed. Please try again.");}
-    // Clear file after analysis so next upload starts fresh
-    setSwingFile(null);
-    // Reset the hidden file input so same file can be picked again
+    if(!swingFile||swingLoading)return;
+    setSwingLoading(true);setSwingAnalysis("");
+    // Capture current values before async work
+    const currentFile=swingFile;
+    const currentNotes=swingNotes;
+    const currentThumb=swingThumb;
+    try{
+      const isVideo=currentFile.type.startsWith("video/");
+      let result;
+      if(isVideo){result=await analyzeSwingVideo(currentFile,currentNotes,profile);}
+      else{result=await analyzeSwing(currentFile,currentNotes,profile);}
+      setSwingAnalysis(result);
+      // Build the new history entry
+      const newEntry={
+        id:null,
+        club_used:currentNotes||"unknown",
+        notes:currentNotes,
+        analysis:result,
+        thumbnail:currentThumb||null,
+        created_at:new Date().toISOString(),
+      };
+      // Try to save to DB and get back the real id
+      if(user){
+        const{data}=await supabase.from("swing_analyses").insert({
+          user_id:user.id,notes:currentNotes,analysis:result,
+          club_used:currentNotes||"unknown",thumbnail:currentThumb||null,
+          created_at:newEntry.created_at,
+        }).select().single();
+        if(data)newEntry.id=data.id;
+      }
+      // Always push to history, logged in or not
+      setSwingHistory(h=>[{...newEntry},...h]);
+    }catch(e){
+      console.error("Swing analysis error:",e);
+      setSwingAnalysis("Analysis failed: "+e.message);
+    }
+    // Clear file and reset input
+    setSwingFile(null);setSwingThumb(null);
     if(swingInputRef.current)swingInputRef.current.value="";
     setSwingLoading(false);
   };
