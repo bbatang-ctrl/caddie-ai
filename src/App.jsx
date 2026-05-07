@@ -254,6 +254,15 @@ function ObiGolfApp(){
   const [putts,setPutts]=useState(Array(18).fill(null));
   const [scorecardOpen,setScorecardOpen]=useState(false);
   const [holeOpen,setHoleOpen]=useState(false);
+  // Beginner + celebration features
+  const [beginnerMode,setBeginnerMode]=useState(()=>{try{return localStorage.getItem("obi_beginner")!=="false";}catch{return true;}});
+  const [celebration,setCelebration]=useState(null);
+  const [showRulesModal,setShowRulesModal]=useState(false);
+  const [rulesQuery,setRulesQuery]=useState("");
+  const [rulesAnswer,setRulesAnswer]=useState("");
+  const [rulesLoading,setRulesLoading]=useState(false);
+  const [postRoundRecap,setPostRoundRecap]=useState(null);
+  const [mapFullscreen,setMapFullscreen]=useState(false);
   // IMPROVEMENT 1: tee selector state
   const [selectedTee,setSelectedTee]=useState(null);
   const [weather,setWeather]=useState(null);
@@ -357,7 +366,8 @@ function ObiGolfApp(){
     const handed=profile.dexterity==="left"?"left-handed":"right-handed";
     const yardStr=yardage?(yardage+"y actual, ~"+py+"y playing"):"not set";
     const recentStr=shotHistory.slice(-3).map(s=>"H"+s.hole+": "+s.outcome).join(". ")||"none";
-    return persona+"\nPLAYER: "+name+". Always use first name. "+handed+" golfer. HCP "+profile.hcp+" ("+profile.handicap+"). Miss: "+profile.missTend+". Home: "+(profile.homeCourse||"unknown")+".\nBAG: "+bagStr+"\nHOLE: "+(course||"unknown")+", Hole "+hole+", Par "+holePars[hole-1]+"\nYARDAGE: "+yardStr+". Lie: "+lie+". Elevation: "+elevation+"ft.\nCONDITIONS: "+wx+"\nRECENT: "+recentStr+"\nRULES: Only clubs from bag. No markdown. No bullets. Always finish sentences. Tailor to "+handed+" player.";
+    const bMode=beginnerMode?"\nBEGINNER MODE ON: "+name+" is new to golf. Explain WHY you pick each club in simple plain English. Mention course management basics. Be encouraging, warm, never condescending. If asked about rules, explain clearly with penalty info. Make golf fun for them.":"";
+    return persona+"\nPLAYER: "+name+". Always use first name. "+handed+" golfer. HCP "+profile.hcp+" ("+profile.handicap+"). Miss: "+profile.missTend+". Home: "+(profile.homeCourse||"unknown")+".\nBAG: "+bagStr+"\nHOLE: "+(course||"unknown")+", Hole "+hole+", Par "+holePars[hole-1]+"\nYARDAGE: "+yardStr+". Lie: "+lie+". Elevation: "+elevation+"ft.\nCONDITIONS: "+wx+"\nRECENT: "+recentStr+bMode+"\nRULES: Only clubs from bag. No markdown. No bullets. Always finish sentences. Tailor to "+handed+" player.";
   };
 
   const [gpsPos,setGpsPos]=useState(null);
@@ -474,7 +484,7 @@ function ObiGolfApp(){
     return{features:normFeatures,bounds:{minLat,maxLat,minLng,maxLng},estimatedYards,estimatedPar:estimatedYards<175?3:estimatedYards<430?4:5};
   };
 
-  const HoleMapCanvas=({map:holeData,gps,W=280,H=380})=>{
+  const HoleMapCanvas=({map:holeData,gps,W=280,H=380,weather=null})=>{
     const containerRef=useRef(null);const mapRef=useRef(null);const playerSourceRef=useRef(null);const lineSourceRef=useRef(null);
     const gpsRef=useRef(gps);useEffect(()=>{gpsRef.current=gps;},[gps]);
     const hYards=(lat1,lng1,lat2,lng2)=>{const R=6371000,r=x=>x*Math.PI/180;const dLat=r(lat2-lat1),dLng=r(lng2-lng1);const a=Math.sin(dLat/2)**2+Math.cos(r(lat1))*Math.cos(r(lat2))*Math.sin(dLng/2)**2;return Math.round(2*R*Math.asin(Math.sqrt(a))*1.09361);};
@@ -490,7 +500,7 @@ function ObiGolfApp(){
       const{center,bbox,reliable,gpsOnly}=getCenter();
       let finalCenter=center;
       if(center[0]===0&&center[1]===0){if(gpsRef.current?.lat){finalCenter=[gpsRef.current.lng,gpsRef.current.lat];}else return;}
-      const m=new maplibregl.Map({container:containerRef.current,style:{version:8,glyphs:"https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",sources:{satellite:{type:"raster",tiles:["https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token="+import.meta.env.VITE_MAPBOX_TOKEN],tileSize:512,maxzoom:22,attribution:"(c) Mapbox (c) OpenStreetMap"}},layers:[{id:"satellite",type:"raster",source:"satellite",paint:{"raster-brightness-min":0.15,"raster-saturation":0.15,"raster-contrast":0.1}}]},center:finalCenter,zoom:(gpsOnly||(center[0]===0&&gps?.lat))?18:18,bearing:0,pitch:0,interactive:true,attributionControl:false});
+      const m=new maplibregl.Map({container:containerRef.current,style:{version:8,glyphs:"https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",sources:{satellite:{type:"raster",tiles:["https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token="+import.meta.env.VITE_MAPBOX_TOKEN],tileSize:512,maxzoom:22,attribution:"(c) Mapbox (c) OpenStreetMap"}},layers:[{id:"satellite",type:"raster",source:"satellite",paint:{"raster-brightness-min":0.1,"raster-saturation":0.2,"raster-contrast":0.15,"raster-brightness-max":1}}]},center:finalCenter,zoom:(gpsOnly||(center[0]===0&&gps?.lat))?18:18,bearing:0,pitch:0,interactive:true,attributionControl:false});
       mapRef.current=m;
       m.on("load",()=>{
         if(bbox){m.fitBounds(bbox,{padding:40,duration:0,maxZoom:20});}else if(gpsOnly&&gpsRef.current){m.setCenter([gpsRef.current.lng,gpsRef.current.lat]);m.setZoom(18);}
@@ -508,18 +518,44 @@ function ObiGolfApp(){
             m.addSource("fw-line",{type:"geojson",data:fwLine});m.addLayer({id:"fw-stroke",type:"line",source:"fw-line",paint:{"line-color":"#4ade80","line-width":22,"line-opacity":0.3,"line-cap":"round","line-join":"round"}});m.addLayer({id:"fw-center",type:"line",source:"fw-line",paint:{"line-color":"#86efac","line-width":8,"line-opacity":0.5,"line-cap":"round","line-join":"round"}});
             const greenGJ={type:"FeatureCollection",features:[{type:"Feature",geometry:{type:"Point",coordinates:green},properties:{}}]};m.addSource("green-pt",{type:"geojson",data:greenGJ});m.addLayer({id:"green-circle",type:"circle",source:"green-pt",paint:{"circle-radius":20,"circle-color":"#16a34a","circle-opacity":0.8,"circle-stroke-color":"#4ade80","circle-stroke-width":2.5}});
             const teeGJ={type:"FeatureCollection",features:[{type:"Feature",geometry:{type:"Point",coordinates:tee},properties:{}}]};m.addSource("tee-pt",{type:"geojson",data:teeGJ});m.addLayer({id:"tee-circle",type:"circle",source:"tee-pt",paint:{"circle-radius":8,"circle-color":"#1f2937","circle-opacity":0.9,"circle-stroke-color":"#eeeef5","circle-stroke-width":2}});
+            // Smart aim line: dashed line from tee to landing zone (60% down fairway)
+            const aimPt=[tee[0]+(green[0]-tee[0])*0.62+dogOff*0.5,tee[1]+(green[1]-tee[1])*0.62];
+            m.addSource("aim-l",{type:"geojson",data:{type:"Feature",geometry:{type:"LineString",coordinates:[tee,aimPt]}}});
+            m.addLayer({id:"aim-dash",type:"line",source:"aim-l",paint:{"line-color":"#CFFF04","line-width":2.5,"line-opacity":0.9,"line-dasharray":[5,3],"line-cap":"round"}});
+            m.addSource("aim-d",{type:"geojson",data:{type:"FeatureCollection",features:[{type:"Feature",geometry:{type:"Point",coordinates:aimPt},properties:{}}]}});
+            m.addLayer({id:"aim-dot",type:"circle",source:"aim-d",paint:{"circle-radius":6,"circle-color":"#CFFF04","circle-opacity":0.95,"circle-stroke-color":"#000","circle-stroke-width":1.5}});
             (holeData.hazards||[]).slice(0,3).forEach((hz,i)=>{const t=0.3+i*0.2;const hPos=[tee[0]+(green[0]-tee[0])*t+(i%2===0?offset:-offset)*3,tee[1]+(green[1]-tee[1])*t];const isWater=new RegExp("water|lake|pond|ocean|creek","i").test(hz);const hGJ={type:"FeatureCollection",features:[{type:"Feature",geometry:{type:"Point",coordinates:hPos},properties:{}}]};m.addSource("haz-"+i,{type:"geojson",data:hGJ});m.addLayer({id:"haz-c-"+i,type:"circle",source:"haz-"+i,paint:{"circle-radius":14,"circle-color":isWater?"rgba(59,130,246,0.6)":"rgba(253,230,138,0.7)","circle-stroke-color":isWater?"#2563eb":"#b45309","circle-stroke-width":1.5}});});
             const yards=holeData.yards||400;const distFeats=[100,150,200].filter(y=>y<yards).map(y=>{const t=y/yards;const dogX=dogOff*(t<0.5?t*2:1);return{type:"Feature",properties:{label:y+"y"},geometry:{type:"Point",coordinates:[tee[0]+(green[0]-tee[0])*t+dogX,tee[1]+(green[1]-tee[1])*t]}};});
             if(distFeats.length>0){m.addSource("dist-m",{type:"geojson",data:{type:"FeatureCollection",features:distFeats}});m.addLayer({id:"dist-d",type:"circle",source:"dist-m",paint:{"circle-radius":5,"circle-color":"rgba(255,255,255,0.85)","circle-stroke-color":"#374151","circle-stroke-width":1.5}});}
           }
         }
         const{gpsOnly:go}=getCenter();const pinCoord=(go||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
-        if(pinCoord){const flagEl=document.createElement("div");flagEl.innerHTML=" ";flagEl.style.cssText="font-size:20px;cursor:default;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6))";new maplibregl.Marker({element:flagEl,anchor:"bottom"}).setLngLat(pinCoord).addTo(m);}
+        if(pinCoord){const flagEl=document.createElement("div");flagEl.innerHTML="🚩";flagEl.style.cssText="font-size:18px;cursor:default;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.8));line-height:1;";new maplibregl.Marker({element:flagEl,anchor:"bottom"}).setLngLat(pinCoord).addTo(m);
+          // Yardage rings 100/150/200y from pin
+          const toRad2=x=>x*Math.PI/180;
+          [100,150,200].forEach((yards,ri)=>{
+            const rm=yards*0.9144;
+            const pts=[];
+            for(let a=0;a<=360;a+=5){pts.push([pinCoord[0]+((rm/(111320*Math.cos(toRad2(pinCoord[1]))))*Math.sin(toRad2(a))),pinCoord[1]+((rm/111320)*Math.cos(toRad2(a)))]);}
+            const rc=["rgba(255,255,255,0.5)","rgba(255,220,0,0.55)","rgba(255,140,0,0.5)"][ri];
+            m.addSource("yr"+yards,{type:"geojson",data:{type:"Feature",geometry:{type:"Polygon",coordinates:[pts]}}});
+            m.addLayer({id:"yr-l"+yards,type:"line",source:"yr"+yards,paint:{"line-color":rc,"line-width":1.5,"line-dasharray":[3,2]}});
+            m.addSource("yl"+yards,{type:"geojson",data:{type:"Feature",properties:{lbl:yards+"y"},geometry:{type:"Point",coordinates:[pinCoord[0],pinCoord[1]+(rm/111320)]}}});
+            m.addLayer({id:"yt"+yards,type:"symbol",source:"yl"+yards,layout:{"text-field":["get","lbl"],"text-font":["Open Sans Bold"],"text-size":9,"text-anchor":"bottom"},paint:{"text-color":"#ffffff","text-halo-color":"rgba(0,0,0,0.9)","text-halo-width":1.5}});
+          });
+        }
         const playerGJ={type:"Feature",geometry:{type:"Point",coordinates:[0,0]},properties:{}};const lineGJ={type:"Feature",geometry:{type:"LineString",coordinates:[[0,0],[0,0]]},properties:{}};
         m.addSource("player",{type:"geojson",data:playerGJ});m.addSource("dist-line",{type:"geojson",data:lineGJ});
         m.addLayer({id:"dist-line",type:"line",source:"dist-line",paint:{"line-color":"#ffffff","line-width":2,"line-opacity":0.7,"line-dasharray":[4,3]}});
         m.addLayer({id:"player-ring",type:"circle",source:"player",paint:{"circle-radius":18,"circle-color":"rgba(59,130,246,0.12)","circle-stroke-color":"rgba(59,130,246,0.35)","circle-stroke-width":2}});
         m.addLayer({id:"player-dot",type:"circle",source:"player",paint:{"circle-radius":9,"circle-color":"#3b82f6","circle-stroke-color":"#ffffff","circle-stroke-width":2.5}});
+        // Wind overlay badge
+        if(weather?.wind>0){
+          const we=document.createElement("div");
+          we.style.cssText="position:absolute;top:8px;left:8px;background:rgba(0,0,0,0.7);border-radius:8px;padding:4px 8px;display:flex;align-items:center;gap:4px;pointer-events:none;";
+          we.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#CFFF04" stroke-width="2.5" style="transform:rotate('+(weather.windDeg||0)+'deg)"><path d="M12 2v20M12 2L6 8M12 2L18 8"/></svg><span style="font-family:var(--font-display,sans-serif);font-size:10px;font-weight:700;color:#fff;">'+weather.wind+'mph</span>';
+          containerRef.current.appendChild(we);
+        }
         playerSourceRef.current=m.getSource("player");lineSourceRef.current=m.getSource("dist-line");
         if(gps?.lat){playerSourceRef.current.setData({type:"Feature",geometry:{type:"Point",coordinates:[gps.lng,gps.lat]},properties:{}});if(pinCoord){lineSourceRef.current.setData({type:"Feature",geometry:{type:"LineString",coordinates:[[gps.lng,gps.lat],pinCoord]},properties:{}}); }}
       });
@@ -606,9 +642,34 @@ function ObiGolfApp(){
     const total=filled.reduce((a,b)=>a+b,0);const par=holePars.slice(0,filled.length).reduce((a,b)=>a+b,0);const diff=total-par;
     const {data,error}=await supabase.from("rounds").insert({user_id:user.id,course_name:course||"Unknown Course",total_score:total,holes_played:filled.length,score_vs_par:diff,played_at:new Date().toISOString(),scorecard,hole_pars:holePars,fairways,gir,putts}).select().single();
     if(!error&&data){
-      setRounds(r=>[data,...r]);
-      const diffStr=diff===0?"Even":diff>0?"+"+diff:""+diff;const fwyCount=fairways.filter(f=>f===true).length;const fwyTotal=fairways.filter(f=>f!==null).length;const girCount=gir.filter(g=>g===true).length;const girTotal=gir.filter(g=>g!==null).length;const puttTotal=putts.filter(p=>p!==null).reduce((a,b)=>a+b,0);
-      let msg="Round saved! "+total+" ("+diffStr+")";if(fwyTotal>0)msg+="   FWY "+fwyCount+"/"+fwyTotal;if(girTotal>0)msg+="   GIR "+girCount+"/"+girTotal;if(puttTotal>0)msg+="   "+puttTotal+" putts";alert(msg);
+      const newRounds=[data,...rounds];
+      setRounds(newRounds);
+      // Check for milestone celebrations
+      const milestones=checkMilestones(newRounds,total,diff,scorecard,holePars);
+      if(milestones.length>0){setCelebration(milestones[0]);}
+      // Generate post-round recap via Obi
+      const puttTotal=putts.filter(p=>p!==null).reduce((a,b)=>a+b,0);
+      const fwyCount=fairways.filter(f=>f===true).length;
+      const fwyTot=fairways.filter(f=>f!==null).length;
+      const diffStr=diff===0?"even par":diff>0?"+"+diff+" over par":Math.abs(diff)+" under par";
+      (async()=>{
+        try{
+          const prompt="Golf round just completed. Player: "+(firstName(userProfile?.full_name)||"Golfer")+". HCP: "+profile.hcp+". Course: "+(course||"Unknown")+". Score: "+total+" ("+diffStr+"). "+
+            (fwyTot>0?"Fairways: "+fwyCount+"/"+fwyTot+". ":"")+
+            (puttTotal>0?"Putts: "+puttTotal+". ":"")+
+            "Scorecard: "+scorecard.map((s,i)=>s?"H"+(i+1)+":"+s+"(p"+holePars[i]+")":"").filter(Boolean).join(" ")+". "+
+            "Write ONE sentence of warm, specific, personal coaching insight about this round. What was the biggest pattern? What should they focus on next time? Plain English, no markdown, use their first name.";
+          const resp=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({messages:[{role:"user",content:prompt}],system:"You are Obi, an encouraging golf caddie. Give ONE specific actionable insight. Warm tone. Plain English. Max 2 sentences."})});
+          if(resp.ok){
+            const d=await resp.json();
+            let insight="";
+            if(d?.content?.[0]?.text)insight=d.content[0].text;
+            else if(d?.candidates?.[0]?.content?.parts?.[0]?.text)insight=d.candidates[0].content.parts[0].text;
+            if(insight)setPostRoundRecap({total,diff,diffStr,insight,milestones,fwyCount,fwyTot,puttTotal});
+          }
+        }catch(e){console.warn("Recap error",e);}
+      })();
       setScorecard(Array(18).fill(null));setFairways(Array(18).fill(null));setGir(Array(18).fill(null));setPutts(Array(18).fill(null));
     }
   };
@@ -616,6 +677,40 @@ function ObiGolfApp(){
   const handleAvatarUpload=async(e)=>{
     const file=e.target.files?.[0];if(!file||!user)return;setUploadingAvatar(true);
     try{const canvas=document.createElement("canvas");const img=new Image();img.onload=async()=>{const maxSize=400;let{width:w,height:h}={width:img.width,height:img.height};if(w>h){if(w>maxSize){h=h*(maxSize/w);w=maxSize;}}else{if(h>maxSize){w=w*(maxSize/h);h=maxSize;}}canvas.width=w;canvas.height=h;canvas.getContext("2d").drawImage(img,0,0,w,h);canvas.toBlob(async(blob)=>{if(!blob)return;const ext=file.name.split(".").pop()||"jpg";const path=user.id+"."+ext;const{error:upErr}=await supabase.storage.from("avatars").upload(path,blob,{upsert:true,contentType:"image/jpeg"});if(!upErr){const{data:{publicUrl}}=supabase.storage.from("avatars").getPublicUrl(path);const url=publicUrl+"?t="+Date.now();setAvatarUrl(url);await supabase.from("profiles").update({avatar_url:url}).eq("id",user.id);}setUploadingAvatar(false);},"image/jpeg",0.85);};img.src=URL.createObjectURL(file);}catch{setUploadingAvatar(false);}
+  };
+
+  const lookupRule=async(query)=>{
+    if(!query.trim())return;
+    setRulesLoading(true);setRulesAnswer("");
+    try{
+      const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({messages:[{role:"user",content:query}],
+          system:"You are a friendly golf rules expert. Answer in plain English a beginner can understand. Be concise (3-4 sentences). State the ruling clearly, any penalty strokes, and exactly what the player does next. No markdown or bullets."})});
+      if(!r.ok)throw new Error("HTTP "+r.status);
+      const d=await r.json();
+      let ans="";
+      if(d?.content?.[0]?.text)ans=d.content[0].text;
+      else if(d?.candidates?.[0]?.content?.parts?.[0]?.text)ans=d.candidates[0].content.parts[0].text;
+      else if(typeof d?.text==="string")ans=d.text;
+      setRulesAnswer(ans||"Try rephrasing your question.");
+    }catch(e){setRulesAnswer("Connection error. Try again.");}
+    setRulesLoading(false);
+  };
+
+  const checkMilestones=(allRounds,total,diff,sc,pars)=>{
+    const milestones=[];
+    if(allRounds.length===1)milestones.push({emoji:"🏌️",title:"First Round Saved!",body:"You just saved your first round with Obi. Every pro started exactly where you are right now."});
+    const prevScores=allRounds.slice(1).map(r=>r.total_score||999).filter(s=>s<998);
+    if(prevScores.length>0&&total<Math.min(...prevScores))milestones.push({emoji:"🏆",title:"New Personal Best!",body:"You shot "+total+" — beating your previous best of "+Math.min(...prevScores)+" by "+(Math.min(...prevScores)-total)+" strokes. That's real progress."});
+    const thresholds=[120,110,100,95,90,85,80];
+    const prevBest=prevScores.length>0?Math.min(...prevScores):999;
+    thresholds.forEach(t=>{if(total<=t&&prevBest>t)milestones.push({emoji:"🎯",title:"Broke "+t+"!",body:"You shot "+total+" — under "+t+" for the first time. Most golfers never reach this. Keep going."});});
+    const hadBirdie=allRounds.slice(1).some(r=>(r.scorecard||[]).some((s,i)=>s!==null&&s<((r.hole_pars||[])[i]||4)));
+    const todayBirdies=sc.filter((s,i)=>s!==null&&pars[i]&&s<pars[i]);
+    if(todayBirdies.length>0&&!hadBirdie)milestones.push({emoji:"🐦",title:"First Birdie Ever!",body:"You made your first birdie today! That feeling never gets old — this is what the game is about."});
+    if(diff<=0&&allRounds.length>1)milestones.push({emoji:"⭐",title:"Even Par or Better!",body:"You shot even par or better. That puts you in elite company. Seriously impressive."});
+    if(allRounds.length>=3){const last3=allRounds.slice(0,3).map(r=>r.total_score||0);if(Math.max(...last3)-Math.min(...last3)<=5)milestones.push({emoji:"🔥",title:"Scoring Consistency!",body:"Last 3 rounds: "+last3.join(", ")+". Tight range — that's the mark of a real golfer finding their game."});}
+    return milestones;
   };
 
   const searchFriends=async()=>{if(!friendSearch.trim())return;const{data}=await supabase.from("profiles").select("id,full_name,handicap_index,avatar_url").ilike("full_name","%"+friendSearch+"%").neq("id",user?.id).limit(10);setFriendResults(data||[]);};
@@ -774,6 +869,105 @@ function ObiGolfApp(){
           </div>
         </div>
       )}
+      {/* ── CELEBRATION MODAL ──────────────────────────────── */}
+      {celebration&&(
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/70 backdrop-blur-sm" onClick={()=>setCelebration(null)}>
+          <div className="bg-card border border-border rounded-2xl p-6 w-full text-center shadow-2xl animate-pop-in" style={{maxWidth:"360px"}} onClick={e=>e.stopPropagation()}>
+            <div className="text-6xl mb-3 leading-none">{celebration.emoji}</div>
+            <h2 className="display text-[22px] font-bold tracking-tight text-foreground mb-2">{celebration.title}</h2>
+            <p className="text-[14px] text-muted-foreground leading-relaxed">{celebration.body}</p>
+            <button onClick={()=>setCelebration(null)}
+              className="mt-5 w-full bg-primary text-primary-foreground rounded-xl py-3 display text-[13px] font-bold uppercase tracking-wider hover:opacity-90 transition">
+              Let's Keep Going 🏌️
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── POST-ROUND RECAP MODAL ────────────────────────────── */}
+      {postRoundRecap&&(
+        <div className="fixed inset-0 z-[59] flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={()=>setPostRoundRecap(null)}>
+          <div className="bg-card border border-border rounded-t-2xl w-full p-5 pb-8 shadow-2xl animate-fade-up" style={{maxWidth:"480px"}} onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <p className="display text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Round Complete</p>
+              <button onClick={()=>setPostRoundRecap(null)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4"/></button>
+            </div>
+            <div className="flex items-end gap-3 mb-4">
+              <p className="stat text-[56px] leading-none">{postRoundRecap.total}</p>
+              <div className="pb-2">
+                <p className={cn("display text-[18px] font-bold",postRoundRecap.diff<=0?"text-primary":"text-foreground")}>{postRoundRecap.diff===0?"Even":postRoundRecap.diff>0?"+"+postRoundRecap.diff:""+postRoundRecap.diff}</p>
+                <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{course||"Round"}</p>
+              </div>
+            </div>
+            {(postRoundRecap.fwyTot>0||postRoundRecap.puttTotal>0)&&(
+              <div className="flex gap-4 mb-4 pb-4 border-b border-border">
+                {postRoundRecap.fwyTot>0&&<div><p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Fairways</p><p className="stat text-[20px] leading-none mt-0.5">{postRoundRecap.fwyCount}/{postRoundRecap.fwyTot}</p></div>}
+                {postRoundRecap.puttTotal>0&&<div><p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Putts</p><p className="stat text-[20px] leading-none mt-0.5">{postRoundRecap.puttTotal}</p></div>}
+              </div>
+            )}
+            <div className="rounded-xl bg-primary/10 border border-primary/30 p-3.5 mb-4">
+              <p className="display text-[9px] font-bold uppercase tracking-wider text-primary mb-1.5">Obi's Read</p>
+              <p className="text-[14px] text-foreground leading-snug">{postRoundRecap.insight}</p>
+            </div>
+            {postRoundRecap.milestones?.length>0&&(
+              <div className="space-y-2 mb-4">
+                {postRoundRecap.milestones.map((m,i)=>(
+                  <div key={i} className="flex items-center gap-3 rounded-xl bg-secondary/50 px-3 py-2.5">
+                    <span className="text-2xl shrink-0">{m.emoji}</span>
+                    <div><p className="display text-[12px] font-bold">{m.title}</p><p className="text-[11px] text-muted-foreground leading-snug">{m.body}</p></div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={()=>setPostRoundRecap(null)}
+              className="w-full bg-foreground text-background rounded-xl py-3 display text-[13px] font-bold uppercase tracking-wider hover:opacity-90 transition">
+              Nice Work 👊
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── RULES MODAL ───────────────────────────────────────── */}
+      {showRulesModal&&(
+        <div className="fixed inset-0 z-[58] flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={()=>{setShowRulesModal(false);setRulesAnswer("");setRulesQuery("");}}>
+          <div className="bg-card border border-border rounded-t-2xl w-full p-5 pb-8 shadow-2xl" style={{maxWidth:"480px"}} onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📖</span>
+                <p className="display text-[15px] font-bold">Rules Assistant</p>
+              </div>
+              <button onClick={()=>{setShowRulesModal(false);setRulesAnswer("");setRulesQuery("");}} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4"/></button>
+            </div>
+            <p className="text-[12px] text-muted-foreground mb-3">Ask anything — what's the penalty, what do you do next, is that allowed.</p>
+            <div className="flex gap-2 mb-3">
+              <input value={rulesQuery} onChange={e=>setRulesQuery(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&lookupRule(rulesQuery)}
+                placeholder="e.g. My ball is in the water..."
+                className="flex-1 bg-input border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-foreground/40 transition"/>
+              <button onClick={()=>lookupRule(rulesQuery)} disabled={!rulesQuery.trim()||rulesLoading}
+                className={cn("bg-primary text-primary-foreground rounded-xl px-4 display text-[12px] font-bold uppercase tracking-wider transition",(!rulesQuery.trim()||rulesLoading)?"opacity-40":"hover:opacity-90")}>
+                {rulesLoading?"...":"Ask"}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {["Ball in the water","Out of bounds","Lost ball","Ball unplayable","Wrong club","Hit wrong ball"].map(q=>(
+                <button key={q} onClick={()=>{setRulesQuery(q);lookupRule(q);}}
+                  className="display text-[10px] font-bold uppercase tracking-wider rounded-lg border border-border px-2.5 py-1.5 text-muted-foreground hover:text-foreground hover:border-foreground/40 transition">
+                  {q}
+                </button>
+              ))}
+            </div>
+            {rulesLoading&&<div className="flex items-center gap-2 py-3"><div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent" style={{animation:"spin 0.8s linear infinite"}}/><p className="text-[13px] text-muted-foreground">Looking that up...</p></div>}
+            {rulesAnswer&&(
+              <div className="rounded-xl bg-secondary/40 border border-border p-3.5">
+                <p className="display text-[9px] font-bold uppercase tracking-wider text-primary mb-1.5">The Ruling</p>
+                <p className="text-[14px] text-foreground leading-relaxed">{rulesAnswer}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {tab==="profile_panel"&&(
         <div className="fixed inset-0 z-50 flex justify-center bg-black/40" onClick={()=>setTab("home")}>
           <div className="bg-background w-full overflow-y-auto relative" style={{maxWidth:"480px"}} onClick={e=>e.stopPropagation()}>
@@ -841,7 +1035,69 @@ function ObiGolfApp(){
       <div className={cn("flex-1",tab==="caddie"?"overflow-hidden":"overflow-y-auto")} style={{WebkitOverflowScrolling:"touch"}}>
         {tab==="home"&&(
           <div className="overflow-y-auto pb-8">
-            <section className="px-4 pt-5"><p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Dashboard</p><h1 className="display text-[24px] font-bold tracking-tight leading-tight mt-0.5">Your game, by the numbers.</h1></section>
+            <section className="px-4 pt-5 pb-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Dashboard</p>
+                  <h1 className="display text-[24px] font-bold tracking-tight leading-tight mt-0.5">{rounds.length===0?"Welcome to Obi.":"Your game, by the numbers."}</h1>
+                </div>
+                <button onClick={()=>{const next=!beginnerMode;setBeginnerMode(next);try{localStorage.setItem("obi_beginner",String(next));}catch{}}}
+                  className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-xl px-3 py-2 border transition shrink-0",
+                    beginnerMode?"bg-primary/15 border-primary/40 text-primary":"border-border text-muted-foreground hover:border-foreground/40")}>
+                  {beginnerMode?"🌱 Beginner":"⚡ Pro"}
+                </button>
+              </div>
+            </section>
+
+            {/* New golfer welcome card */}
+            {rounds.length===0&&(
+              <section className="px-4 pt-3">
+                <div className="rounded-xl bg-foreground text-background p-4 space-y-3">
+                  <p className="display text-[16px] font-bold leading-snug">Hey {firstName(userProfile?.full_name)||"golfer"} 👋 Obi's got your back.</p>
+                  <p className="text-[13px] opacity-70 leading-relaxed">Head to the <strong>Caddie tab</strong> to start your round. Type your course name, set your hole, and ask Obi anything — what club to hit, how to play the hole, rules questions, all of it.</p>
+                  <div className="grid grid-cols-3 gap-2 pt-1">
+                    {[["🗺️","Hole Maps","See every hole from above"],["🎙️","Voice Caddie","Obi talks to you"],["📖","Rules Help","Ask any rules question"]].map(([e,t,d])=>(
+                      <div key={t} className="rounded-lg bg-white/10 p-2.5 text-center">
+                        <p className="text-xl mb-1">{e}</p>
+                        <p className="display text-[10px] font-bold">{t}</p>
+                        <p className="text-[9px] opacity-60 mt-0.5 leading-tight">{d}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Rules + Etiquette quick access */}
+            <section className="px-4 pt-3">
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={()=>setShowRulesModal(true)}
+                  className="rounded-xl border border-border bg-card p-3.5 flex items-center gap-2.5 hover:bg-secondary/40 transition text-left">
+                  <span className="text-2xl shrink-0">📖</span>
+                  <div><p className="display text-[12px] font-bold">Rules Help</p><p className="text-[10px] text-muted-foreground mt-0.5">Ask any ruling</p></div>
+                </button>
+                <button onClick={()=>{setTab("caddie");setTimeout(()=>sendMessage("Give me a quick etiquette tip for today's round"),200);}}
+                  className="rounded-xl border border-border bg-card p-3.5 flex items-center gap-2.5 hover:bg-secondary/40 transition text-left">
+                  <span className="text-2xl shrink-0">🤝</span>
+                  <div><p className="display text-[12px] font-bold">Etiquette Tip</p><p className="text-[10px] text-muted-foreground mt-0.5">From Obi</p></div>
+                </button>
+              </div>
+            </section>
+            {/* Etiquette cards — beginners only, first visit */}
+            {beginnerMode&&rounds.length===0&&(
+              <section className="px-4 pt-3">
+                <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">Golf 101</p>
+                <div className="space-y-1.5">
+                  {[["🔇","Stay quiet during swings","When someone is hitting, stay still and silent."],["🐾","Don't step in putting lines","The line between ball and hole is sacred — walk around it."],["⛱️","Rake the bunker","Smooth the sand after you play from it. Leave it better than you found it."],["⚡","Play ready golf","If you're ready and it's safe — hit. Don't wait for honors. Keep pace."],["📱","90 seconds to find your ball","Start looking immediately. After 90 sec, take a drop with penalty."]].map(([e,t,d])=>(
+                    <div key={t} className="flex items-start gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
+                      <span className="text-lg shrink-0 mt-0.5">{e}</span>
+                      <div><p className="display text-[12px] font-bold">{t}</p><p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{d}</p></div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <section className="px-4 pt-4">
               <div className="rounded-xl bg-foreground text-background p-4">
                 <div className="flex items-start justify-between">
@@ -947,9 +1203,15 @@ function ObiGolfApp(){
                             <div><p className="display text-[13px] font-bold tracking-tight truncate">{course}</p><p className="display text-[10px] font-bold opacity-60">Hole {hole} &nbsp; Par {holeMap.par} &nbsp; {holeMap.yards}yds{holeMap.strokeIndex?"   Hdcp "+holeMap.strokeIndex:""}</p></div>
                             <div className="text-right shrink-0 ml-2"><span className="display text-[9px] font-bold uppercase tracking-wider opacity-50 rounded px-1.5 py-0.5 border border-white/20 capitalize">{holeMap.shape||"straight"}</span>{gpsPos&&manualPins[hole]&&haversineYards(gpsPos.lat,gpsPos.lng,manualPins[hole].lat,manualPins[hole].lng)>3&&(<p className="stat text-[16px] font-bold text-primary mt-0.5">{haversineYards(gpsPos.lat,gpsPos.lng,manualPins[hole].lat,manualPins[hole].lng)}y</p>)}</div>
                           </div>
+                          {/* Fullscreen toggle */}
+                          <div className="flex items-center justify-end px-2 py-1 border-b border-border/50">
+                            <button onClick={()=>setMapFullscreen(f=>!f)}
+                              className="display text-[9px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground inline-flex items-center gap-1">
+                              {mapFullscreen?"⊠ Exit fullscreen":"⊞ Fullscreen"}
+                            </button>
+                          </div>
                           {(holeMap.osmFeatures||holeMap.green_lat||gpsPos)?(
-                            // IMPROVEMENT 5: Map height 480 instead of 340
-                            <HoleMapCanvas map={holeMap} gps={gpsPos} W={360} H={480}/>
+                            <HoleMapCanvas map={holeMap} gps={gpsPos} W={360} H={mapFullscreen?Math.min(window.innerHeight-200,680):480} weather={weather}/>
                           ):(
                             <div className="bg-emerald-950/20 flex flex-col items-center justify-center py-10 gap-2"><p className="display text-[12px] font-bold text-muted-foreground">No map available for this course</p><p className="text-[11px] text-muted-foreground px-4 text-center">Walk to the green and tap "Set pin here" to use GPS rangefinder</p></div>
                           )}
@@ -976,7 +1238,50 @@ function ObiGolfApp(){
               )}
             </div>
 
-            {messages.length===0&&(<div className="px-4 pt-4 pb-2 text-center shrink-0"><ObiLogo size={36}/><p className="display text-[13px] font-bold text-muted-foreground mt-2">Ask Obi anything about this hole</p></div>)}
+            {/* Beginner tip strip */}
+            {beginnerMode&&holeMap?.tips&&messages.length===0&&(
+              <div className="px-4 pt-2 shrink-0">
+                <div className="rounded-xl bg-primary/10 border border-primary/30 p-3 flex gap-2.5">
+                  <span className="text-lg shrink-0 mt-0.5">💡</span>
+                  <div>
+                    <p className="display text-[10px] font-bold uppercase tracking-wider text-primary mb-0.5">Obi's Tip — Hole {hole}</p>
+                    <p className="text-[13px] text-foreground leading-snug">{holeMap.tips}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+                        {messages.length===0&&(
+              <div className="px-4 pt-3 pb-1 shrink-0">
+                <div className="text-center mb-3">
+                  <ObiLogo size={32}/>
+                  <p className="display text-[13px] font-bold text-muted-foreground mt-1.5">Ask Obi anything</p>
+                </div>
+                {/* Quick prompts - especially useful for beginners */}
+                <div className="flex flex-col gap-1.5">
+                  {(beginnerMode?[
+                    "What club should I hit?",
+                    "How do I play this hole safe?",
+                    "What's my best strategy here?",
+                    "I'm nervous — what should I focus on?",
+                  ]:[
+                    "What's the smart play here?",
+                    "Wind factor on this shot?",
+                    "Lay up or go for it?",
+                    "What's the miss I need to avoid?",
+                  ]).map(prompt=>(
+                    <button key={prompt} onClick={()=>sendMessage(prompt)}
+                      className="w-full text-left rounded-xl border border-border bg-card px-3.5 py-2.5 display text-[12px] font-bold text-foreground hover:bg-secondary/40 hover:border-foreground/30 transition">
+                      {prompt}
+                    </button>
+                  ))}
+                  <button onClick={()=>setShowRulesModal(true)}
+                    className="w-full text-left rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 display text-[12px] font-bold text-primary hover:bg-primary/10 transition">
+                    📖 Rules question — ask the rules assistant
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="flex-1 px-4 pt-2 overflow-y-auto space-y-3 min-h-0 pb-2" style={{scrollbarWidth:"none"}}>
               {messages.map((m,i)=>{const isLast=i===messages.length-1;const isAI=m.role==="assistant";return(<div key={i} className={cn("flex",!isAI?"justify-end":"justify-start gap-2 items-end")}>{isAI&&<ObiLogo size={18}/>}<div className={cn("flex flex-col",isAI?"items-start max-w-[88%]":"items-end max-w-[82%]")}><div className={isAI?"bubble-ai text-[14px]":"bubble-user text-[14px]"}>{m.content}</div>{isAI&&isLast&&(<div className="flex flex-wrap gap-1.5 mt-2 ml-1"><button onClick={()=>sendMessage("Why do you recommend that?")} className="display text-[10px] font-bold uppercase tracking-wider bg-foreground text-background rounded-lg px-2.5 py-1.5 hover:opacity-80 transition">Why?</button><button onClick={()=>sendMessage("What are my alternatives?")} className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 hover:border-foreground/50 transition text-foreground">Alternatives</button><button onClick={()=>sendMessage("Biggest risk?")} className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 hover:border-foreground/50 transition text-foreground">Risk?</button><button onClick={()=>{speaking?stopSpeak():speakText(m.content);}} className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 border transition",speaking?"bg-primary/20 text-primary border-primary/40":"border-border text-muted-foreground hover:text-foreground")}>{speaking?"⏹":"🔊"}</button></div>)}</div></div>);})}
@@ -986,6 +1291,13 @@ function ObiGolfApp(){
             <div className="px-3 shrink-0 border-t border-border bg-background/95 backdrop-blur-xl" style={{paddingBottom:"calc(0.5rem + env(safe-area-inset-bottom))",paddingTop:"8px"}}>
               {speaking&&(<div className="flex items-center gap-2 mb-2 px-1"><div className="flex gap-0.5 items-end h-4">{[0,1,2,3,4].map(i=>(<div key={i} className="w-1 rounded-full bg-primary" style={{height:(4+i%3*4)+"px",animation:"pulse-dot 0.8s "+(i*0.12)+"s infinite"}}/>))}</div><span className="display text-[11px] font-bold text-primary uppercase tracking-wider">Obi speaking</span><button onClick={stopSpeak} className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground ml-auto">Stop ⏹</button></div>)}
               {loading&&!speaking&&(<div className="flex items-end gap-2 mb-2"><ObiLogo size={18}/><div className="bubble-ai flex gap-1.5 items-center px-4 py-2.5">{[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 rounded-full bg-muted-foreground" style={{animation:"pulse-dot 1s "+(i*0.18)+"s infinite"}}/>)}</div></div>)}
+              {beginnerMode&&(
+                <div className="flex items-center gap-2 mb-1.5 px-1">
+                  <span className="display text-[10px] font-bold text-primary">🌱 Beginner Mode</span>
+                  <span className="text-[10px] text-muted-foreground">Obi explains everything simply</span>
+                  <button onClick={()=>{setBeginnerMode(false);try{localStorage.setItem("obi_beginner","false");}catch{}}} className="ml-auto display text-[9px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground">Off</button>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <button onClick={()=>{const next=!autoSpeak;setAutoSpeak(next);try{localStorage.setItem("obi_autospeak",String(next));}catch{}if(!next)stopSpeak();}} title={autoSpeak?"Mute Obi":"Unmute Obi"} className={cn("h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition border",autoSpeak?"bg-primary/15 border-primary/40 text-primary":"bg-secondary border-border text-muted-foreground hover:text-foreground")}>
                   {autoSpeak?(<svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>):(<svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>)}
