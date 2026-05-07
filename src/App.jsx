@@ -626,7 +626,12 @@ function ObiGolfApp(){
     if(!swingFile||swingLoading)return;setSwingLoading(true);setSwingAnalysis("");
     try{const isVideo=swingFile.type.startsWith("video/");let result;if(isVideo){result=await analyzeSwingVideo(swingFile,swingNotes,profile);}else{result=await analyzeSwing(swingFile,swingNotes,profile);}setSwingAnalysis(result);
       if(user){const{data}=await supabase.from("swing_analyses").insert({user_id:user.id,notes:swingNotes,analysis:result,club_used:swingNotes||"unknown",thumbnail:swingThumb||null,created_at:new Date().toISOString()}).select().single();if(data)setSwingHistory(h=>[{...data,thumbnail:swingThumb||null},...h]);}
-    }catch(e){setSwingAnalysis("Analysis failed. Please try again.");}setSwingLoading(false);
+    }catch(e){setSwingAnalysis("Analysis failed. Please try again.");}
+    // Clear file after analysis so next upload starts fresh
+    setSwingFile(null);
+    // Reset the hidden file input so same file can be picked again
+    if(swingInputRef.current)swingInputRef.current.value="";
+    setSwingLoading(false);
   };
 
   useEffect(()=>{
