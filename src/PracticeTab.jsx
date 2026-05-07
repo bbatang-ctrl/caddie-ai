@@ -49,6 +49,9 @@ export default function PracticeTab({
           onChange={e=>{
             const f=e.target.files&&e.target.files[0];
             if(!f)return;
+            // Reset previous analysis so the new file shows the analyze panel
+            setSwingAnalysis("");
+            setSwingNotes("");
             setSwingFile(f);
             if(f.type.startsWith("image/")){
               setSwingThumb(URL.createObjectURL(f));
@@ -65,8 +68,8 @@ export default function PracticeTab({
             }
           }}/>
 
-        {/* File selected */}
-        {swingFile&&!swingAnalysis&&!swingLoading&&(
+        {/* File selected - show whenever a file is picked and not currently loading */}
+        {swingFile&&!swingLoading&&(
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="flex items-center gap-3 p-3.5 border-b border-border">
               {swingThumb?(
