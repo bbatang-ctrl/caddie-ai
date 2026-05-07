@@ -1007,25 +1007,97 @@ function ObiGolfApp(){
     </div>
   );
   if(!user||authScreen==="onboard")return(
-    <div className="bg-background" style={{minHeight:"100dvh"}}>
-      <div className="px-5 py-10 flex flex-col mx-auto" style={{maxWidth:"480px",minHeight:"100dvh"}}>
+    <div style={{minHeight:"100dvh",background:"#0c0c0f",display:"flex",flexDirection:"column"}}>
+      <div style={{maxWidth:"440px",width:"100%",margin:"0 auto",flex:1,display:"flex",flexDirection:"column",padding:"0 24px"}}>
+
+        {/* Onboarding flow */}
+        {authScreen==="onboard"&&(
+          <div style={{flex:1,display:"flex",flexDirection:"column",paddingTop:"48px",paddingBottom:"32px"}}>
+            <OnboardingFlow authName={authName} setAuthName={setAuthName} profile={profile} setProfile={setProfile} onComplete={async()=>{try{await saveProfile(authName);}catch(e){console.warn("saveProfile error",e);}setAuthScreen("app");setTab("home");}}/>
+          </div>
+        )}
+
+        {/* Auth screens */}
         {authScreen!=="onboard"&&(
-          <React.Fragment>
-            <div className="text-center mb-10 animate-fade-up"><ObiLogo size={52}/><h1 className="display text-[28px] text-foreground mt-3.5">Obi Golf</h1><p className="text-[13px] text-muted-foreground mt-1.5">Your AI caddie. Always in the bag.</p></div>
-            <div className="flex gap-1 bg-secondary rounded-xl p-1 mb-7">{["login","signup"].map(s=>(<button key={s} onClick={()=>setAuthScreen(s)} className={cn("flex-1 py-2.5 rounded-[10px] display text-[12px] uppercase tracking-wider transition-all",authScreen===s?"nav-pill-active":"text-muted-foreground hover:text-foreground")}>{s==="login"?"Sign In":"Sign Up"}</button>))}</div>
-            <button onClick={handleGoogleAuth} className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-border bg-card py-3.5 display text-[13px] font-bold uppercase tracking-wider text-foreground hover:bg-secondary transition mb-4">
+          <div style={{flex:1,display:"flex",flexDirection:"column",justifyContent:"center",paddingTop:"48px",paddingBottom:"40px"}}>
+
+            {/* Hero */}
+            <div style={{textAlign:"center",marginBottom:"40px"}}>
+              <div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:"72px",height:"72px",borderRadius:"20px",background:"#CFFF04",marginBottom:"16px"}}>
+                <svg width="36" height="36" viewBox="0 0 40 40" fill="none">
+                  <line x1="13" y1="10" x2="13" y2="31" stroke="#000" strokeWidth="2.5" strokeLinecap="round"/>
+                  <path d="M13 10 L26 14.5 L13 19 Z" fill="#000"/>
+                  <ellipse cx="16" cy="31" rx="5" ry="1.5" fill="rgba(0,0,0,0.3)"/>
+                </svg>
+              </div>
+              <h1 style={{fontFamily:"Space Grotesk,sans-serif",fontSize:"32px",fontWeight:"700",color:"#fff",margin:"0 0 8px",letterSpacing:"-0.02em"}}>Obi Golf</h1>
+              <p style={{fontSize:"15px",color:"rgba(255,255,255,0.45)",margin:0}}>The caddie you always wanted.</p>
+            </div>
+
+            {/* Tab toggle */}
+            <div style={{display:"flex",background:"rgba(255,255,255,0.06)",borderRadius:"14px",padding:"4px",marginBottom:"24px"}}>
+              {["login","signup"].map(s=>(
+                <button key={s} onClick={()=>setAuthScreen(s)}
+                  style={{flex:1,padding:"10px",borderRadius:"10px",border:"none",cursor:"pointer",fontFamily:"Space Grotesk,sans-serif",fontSize:"13px",fontWeight:"700",letterSpacing:"0.05em",textTransform:"uppercase",transition:"all 0.2s",
+                    background: authScreen===s?"#CFFF04":"transparent",
+                    color:      authScreen===s?"#000":"rgba(255,255,255,0.35)",
+                  }}>
+                  {s==="login"?"Sign In":"Sign Up"}
+                </button>
+              ))}
+            </div>
+
+            {/* Google */}
+            <button onClick={handleGoogleAuth}
+              style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",padding:"14px",borderRadius:"14px",border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.05)",cursor:"pointer",fontFamily:"Space Grotesk,sans-serif",fontSize:"14px",fontWeight:"700",letterSpacing:"0.04em",textTransform:"uppercase",color:"#fff",marginBottom:"20px",transition:"background 0.2s"}}>
               <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
               Continue with Google
             </button>
-            <div className="flex items-center gap-3 mb-4"><div className="flex-1 h-px bg-border"/><span className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">or</span><div className="flex-1 h-px bg-border"/></div>
-            {authScreen==="signup"&&(<input className="w-full bg-input border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-foreground/40 transition mb-2.5" placeholder="Full name" value={authName} onChange={e=>setAuthName(e.target.value)}/>)}
-            <input className="w-full bg-input border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-foreground/40 transition mb-2.5" placeholder="Email" type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)}/>
-            <input className="w-full bg-input border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-foreground/40 transition mb-4" placeholder="Password" type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&(authScreen==="login"?handleLogin():handleSignup())}/>
-            {authError&&<p className="text-destructive text-[13px] text-center mb-3">{authError}</p>}
-            <button onClick={authScreen==="login"?handleLogin:handleSignup} className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 display text-[13px] font-bold uppercase tracking-wider hover:opacity-90 transition">{authScreen==="login"?"Sign In":"Create Account"}</button>
-          </React.Fragment>
+
+            {/* Divider */}
+            <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"20px"}}>
+              <div style={{flex:1,height:"1px",background:"rgba(255,255,255,0.08)"}}/>
+              <span style={{fontFamily:"Space Grotesk,sans-serif",fontSize:"10px",fontWeight:"700",letterSpacing:"0.18em",textTransform:"uppercase",color:"rgba(255,255,255,0.2)"}}>or</span>
+              <div style={{flex:1,height:"1px",background:"rgba(255,255,255,0.08)"}}/>
+            </div>
+
+            {/* Inputs */}
+            <div style={{display:"flex",flexDirection:"column",gap:"10px",marginBottom:"6px"}}>
+              {authScreen==="signup"&&(
+                <input placeholder="Full name" value={authName} onChange={e=>setAuthName(e.target.value)}
+                  style={{width:"100%",boxSizing:"border-box",padding:"14px 16px",borderRadius:"14px",border:"1.5px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.05)",color:"#fff",fontSize:"15px",outline:"none",fontFamily:"Inter,sans-serif",transition:"border 0.2s"}}
+                  onFocus={e=>e.target.style.border="1.5px solid #CFFF04"}
+                  onBlur={e=>e.target.style.border="1.5px solid rgba(255,255,255,0.1)"}
+                />
+              )}
+              <input placeholder="Email" type="email" value={authEmail} onChange={e=>setAuthEmail(e.target.value)}
+                style={{width:"100%",boxSizing:"border-box",padding:"14px 16px",borderRadius:"14px",border:"1.5px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.05)",color:"#fff",fontSize:"15px",outline:"none",fontFamily:"Inter,sans-serif",transition:"border 0.2s"}}
+                onFocus={e=>e.target.style.border="1.5px solid #CFFF04"}
+                onBlur={e=>e.target.style.border="1.5px solid rgba(255,255,255,0.1)"}
+              />
+              <input placeholder="Password" type="password" value={authPass} onChange={e=>setAuthPass(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&(authScreen==="login"?handleLogin():handleSignup())}
+                style={{width:"100%",boxSizing:"border-box",padding:"14px 16px",borderRadius:"14px",border:"1.5px solid rgba(255,255,255,0.1)",background:"rgba(255,255,255,0.05)",color:"#fff",fontSize:"15px",outline:"none",fontFamily:"Inter,sans-serif",transition:"border 0.2s"}}
+                onFocus={e=>e.target.style.border="1.5px solid #CFFF04"}
+                onBlur={e=>e.target.style.border="1.5px solid rgba(255,255,255,0.1)"}
+              />
+            </div>
+
+            {authError&&<p style={{color:"#f87171",fontSize:"13px",textAlign:"center",margin:"8px 0"}}>{authError}</p>}
+
+            <button onClick={authScreen==="login"?handleLogin:handleSignup}
+              style={{width:"100%",padding:"16px",borderRadius:"14px",border:"none",cursor:"pointer",fontFamily:"Space Grotesk,sans-serif",fontSize:"14px",fontWeight:"700",letterSpacing:"0.06em",textTransform:"uppercase",background:"#CFFF04",color:"#000",marginTop:"16px",transition:"opacity 0.2s"}}>
+              {authScreen==="login"?"Sign In":"Create Account →"}
+            </button>
+
+            {/* Social proof */}
+            {authScreen==="signup"&&(
+              <p style={{textAlign:"center",fontSize:"12px",color:"rgba(255,255,255,0.2)",marginTop:"20px",lineHeight:"1.5"}}>
+                Free to use. No credit card. The caddie you always wanted.
+              </p>
+            )}
+          </div>
         )}
-        {authScreen==="onboard"&&(<OnboardingFlow authName={authName} setAuthName={setAuthName} profile={profile} setProfile={setProfile} onComplete={async()=>{try{await saveProfile(authName);}catch(e){console.warn("saveProfile error",e);}setAuthScreen("app");setTab("home");}}/>)}
       </div>
     </div>
   );
