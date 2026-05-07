@@ -358,7 +358,7 @@ function ObiGolfApp(){
   useEffect(()=>{fetchWeather();},[fetchWeather]);
 
   const buildSystem=()=>{
-    const personas={pro:"You are a calm precise Tour-level golf caddie named Obi. Quiet authority. 2-3 sentences.",coach:"You are an encouraging golf coach-caddie named Obi. Warm and confidence-building. 2-3 sentences.",hype:"You are an energetic hype-man caddie named Obi. Enthusiastic and motivating. 2-3 sentences.",savage:"You are a savage trash-talking caddie named Obi. Brutal honesty with humor. 2-3 sentences.",oldschool:"You are a gritty old-school caddie named Obi. Straight talk. Short and real."};
+    const personas={pro:"You are a calm precise Tour-level golf caddie named Obi. Quiet authority. MAX 2-3 sentences. No essays.",coach:"You are an encouraging golf coach-caddie named Obi. Warm and confidence-building. MAX 2-3 sentences. Be brief.",hype:"You are an energetic hype-man caddie named Obi. Enthusiastic and motivating. 2-3 sentences.",savage:"You are a savage trash-talking caddie named Obi. Brutal honesty with humor. 2-3 sentences.",oldschool:"You are a gritty old-school caddie named Obi. Straight talk. Short and real."};
     const persona=personas[profile.persona]||personas.pro;
     const bagStr=profile.bag.map(b=>b.club+":"+b.carry+"y").join(", ");
     const wx=weather?"Wind "+weather.wind+"mph "+windDir(weather.windDeg)+". "+weather.temp+"F.":"No weather.";
@@ -368,7 +368,7 @@ function ObiGolfApp(){
     const yardStr=yardage?(yardage+"y actual, ~"+py+"y playing"):"not set";
     const recentStr=shotHistory.slice(-3).map(s=>"H"+s.hole+": "+s.outcome).join(". ")||"none";
     const bMode=beginnerMode?"\nBEGINNER MODE ON: "+name+" is new to golf. Explain WHY you pick each club in simple plain English. Mention course management basics. Be encouraging, warm, never condescending. If asked about rules, explain clearly with penalty info. Make golf fun for them.":"";
-    return persona+"\nPLAYER: "+name+". Always use first name. "+handed+" golfer. HCP "+profile.hcp+" ("+profile.handicap+"). Miss: "+profile.missTend+". Home: "+(profile.homeCourse||"unknown")+".\nBAG: "+bagStr+"\nHOLE: "+(course||"unknown")+", Hole "+hole+", Par "+holePars[hole-1]+"\nYARDAGE: "+yardStr+". Lie: "+lie+". Elevation: "+elevation+"ft.\nCONDITIONS: "+wx+"\nRECENT: "+recentStr+bMode+"\nRULES: Only clubs from bag. No markdown. No bullets. Always finish sentences. Tailor to "+handed+" player.";
+    return persona+"\nPLAYER: "+name+". Always use first name. "+handed+" golfer. HCP "+profile.hcp+" ("+profile.handicap+"). Miss: "+profile.missTend+". Home: "+(profile.homeCourse||"unknown")+".\nBAG: "+bagStr+"\nHOLE: "+(course||"unknown")+", Hole "+hole+", Par "+holePars[hole-1]+"\nYARDAGE: "+yardStr+". Lie: "+lie+". Elevation: "+elevation+"ft.\nCONDITIONS: "+wx+"\nRECENT: "+recentStr+bMode+"\nRULES: Only clubs from bag. No markdown. No bullets. KEEP RESPONSE TO 2-3 SENTENCES MAX — be concise, direct, actionable. Tailor to "+handed+" player.";
   };
 
   const [gpsPos,setGpsPos]=useState(null);
@@ -519,6 +519,8 @@ function ObiGolfApp(){
       mapRef.current=m;
       m.on("load",()=>{
         if(bbox){m.fitBounds(bbox,{padding:40,duration:0,maxZoom:20});}else if(gpsOnly&&gpsRef.current){m.setCenter([gpsRef.current.lng,gpsRef.current.lat]);m.setZoom(18);}
+        // Apply hole-up bearing after map loads
+        if(bearing&&bearing!==0){m.rotateTo(bearing,{duration:0});}
         const osm=holeData?.osmFeatures;
         if(osm?.features?.length>0){
           const types=[{type:"fairway",fillColor:"#4ade80",fillOpacity:0.3,lineColor:"#22c55e",lineWidth:2},{type:"green",fillColor:"#16a34a",fillOpacity:0.75,lineColor:"#4ade80",lineWidth:2.5},{type:"tee",fillColor:"#15803d",fillOpacity:0.8,lineColor:"#14532d",lineWidth:1.5},{type:"bunker",fillColor:"#fde68a",fillOpacity:0.8,lineColor:"#b45309",lineWidth:1.5},{type:"water",fillColor:"#3b82f6",fillOpacity:0.65,lineColor:"#1d4ed8",lineWidth:1.5}];
@@ -576,7 +578,7 @@ function ObiGolfApp(){
         if(gps?.lat){playerSourceRef.current.setData({type:"Feature",geometry:{type:"Point",coordinates:[gps.lng,gps.lat]},properties:{}});if(pinCoord){lineSourceRef.current.setData({type:"Feature",geometry:{type:"LineString",coordinates:[[gps.lng,gps.lat],pinCoord]},properties:{}}); }}
       });
       return()=>{m.remove();mapRef.current=null;playerSourceRef.current=null;lineSourceRef.current=null;};
-    },[holeData?.osmFeatures,holeData?.tee_lat,holeData?.green_lat]);
+    },[holeData?.osmFeatures,holeData?.tee_lat,holeData?.green_lat,bearing]);
 
     useEffect(()=>{
       if(!mapRef.current||!gps?.lat)return;
@@ -595,8 +597,8 @@ function ObiGolfApp(){
     },[gps]);
 
     return(
-      <div style={{position:"relative",width:"100%",height:fullscreen?"100%":H+"px"}}>
-        <div ref={containerRef} style={{width:"100%",height:"100%"}} className="bg-emerald-950/20"/>
+      <div style={{position:fullscreen?"absolute":"relative",inset:fullscreen?"0":undefined,width:"100%",height:fullscreen?"100%":H+"px"}}>
+        <div ref={containerRef} style={{position:"absolute",inset:0,width:"100%",height:"100%"}} className="bg-emerald-950/20"/>
         {(()=>{const{gpsOnly:go3}=getCenter();return go3;})()&&(
           <div style={{position:"absolute",bottom:8,left:"50%",transform:"translateX(-50%)",background:"rgba(0,0,0,0.75)",borderRadius:"8px",padding:"6px 12px",color:"#fff",fontSize:"11px",fontWeight:"700",whiteSpace:"nowrap",pointerEvents:"none"}}>
             ~{holeMap?.yards||"?"}y to pin -- tap to drop pin
@@ -1033,7 +1035,7 @@ function ObiGolfApp(){
           </div>
         </div>
       )}
-      <header className="shrink-0 sticky top-0 z-30 pt-safe" style={{background:"#CFFF04"}}>
+      <header className={cn("shrink-0 sticky top-0 z-30 pt-safe",tab==="caddie"&&"hidden")} style={{background:"#CFFF04"}}>
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2.5">
             <svg width="28" height="28" viewBox="0 0 40 40" fill="none"><line x1="13" y1="10" x2="13" y2="31" stroke={isDark?"#0d0d12":"#1a1a00"} strokeWidth="2.5" strokeLinecap="round"/><path d="M13 10 L26 14.5 L13 19 Z" fill={isDark?"#0d0d12":"#1a1a00"}/><ellipse cx="16" cy="31" rx="5" ry="1.5" fill={isDark?"rgba(0,0,0,0.2)":"rgba(0,0,0,0.15)"}/></svg>
@@ -1048,7 +1050,7 @@ function ObiGolfApp(){
         </div>
       </header>
 
-      <div className={cn("flex-1",tab==="caddie"?"overflow-hidden":"overflow-y-auto")} style={{WebkitOverflowScrolling:"touch"}}>
+      <div className={cn("flex-1 min-h-0",tab==="caddie"?"overflow-hidden":"overflow-y-auto")} style={{WebkitOverflowScrolling:"touch"}}>
         {tab==="home"&&(
           <div className="overflow-y-auto pb-8">
             <section className="px-4 pt-5 pb-1">
@@ -1146,7 +1148,7 @@ function ObiGolfApp(){
         )}
 
         {tab==="caddie"&&(
-          <div className="relative w-full h-full overflow-hidden bg-black">
+          <div className="relative w-full overflow-hidden bg-black" style={{height:"100%",minHeight:0}}>
 
             {/* ── FULL-SCREEN MAP ───────────────────────────────── */}
             {(holeMap&&(holeMap.osmFeatures||holeMap.green_lat||gpsPos))?(
@@ -1341,7 +1343,9 @@ function ObiGolfApp(){
                     )}
                     {messages.map((m,i)=>{
                       const isAI=m.role==="assistant";
-                      const isLast=i===messages.length-1;
+                      const isLastAI=isAI&&i===messages.length-1;
+                      // Skip the last AI message in history — it's shown in the analysis card above
+                      if(isLastAI&&messages.length>0)return null;
                       return(
                         <div key={i} className={cn("flex",isAI?"justify-start gap-2 items-end":"justify-end")}>
                           {isAI&&<ObiLogo size={16}/>}
