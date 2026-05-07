@@ -525,30 +525,75 @@ function OnboardingFlow({ profile, setProfile, authName, setAuthName, onComplete
   const [step, setStep] = React.useState(0);
   const [localName, setLocalName] = React.useState(authName || "");
   const [homeCourse, setHomeCourse] = React.useState(profile.homeCourse || "");
+  const [obiPreview, setObiPreview] = React.useState("");
+  const [previewLoading, setPreviewLoading] = React.useState(false);
+  const [done, setDone] = React.useState(false);
 
   function cn(...c){ return c.filter(Boolean).join(" "); }
 
   const steps = [
-    { id: "name",      title: "What\'s your name?",        sub: "Obi uses it every round." },
-    { id: "dexterity", title: "How do you swing?",          sub: "Tailors all club advice." },
-    { id: "handicap",  title: "What\'s your level?",       sub: "Calibrates strategy & tips." },
-    { id: "course",    title: "Home course?",               sub: "Optional — Obi learns it well." },
-    { id: "persona",   title: "Choose your caddie style",   sub: "Change any time in Settings." },
+    { id: "name" },
+    { id: "dexterity" },
+    { id: "handicap" },
+    { id: "persona" },
+    { id: "preview" },
   ];
-
   const current = steps[step];
-  const progress = Math.round((step / steps.length) * 100);
-  const canNext = current.id !== "name" || localName.trim().length > 0;
+  const progressPct = Math.round((step / (steps.length - 1)) * 100);
+
+  // Obi's contextual line per step — feels like he's already talking to you
+  const obiLines = {
+    name:      "Before we tee off — what do I call you?",
+    dexterity: "Good to meet you. How do you swing?",
+    handicap:  "Got it. Where's your game right now?",
+    persona:   "Last one. How do you want me to talk to you on the course?",
+    preview:   null,
+  };
+
+  const fetchPreview = async (personaId, name, handicap) => {
+    setPreviewLoading(true);
+    setObiPreview("");
+    const personas = {
+      pro:       "You are a calm, precise Tour-level golf caddie named Obi. Quiet authority.",
+      coach:     "You are an encouraging golf coach-caddie named Obi. Warm and confidence-building.",
+      hype:      "You are an energetic hype-man caddie named Obi. Enthusiastic and motivating.",
+      savage:    "You are a savage trash-talking caddie named Obi. Brutal honesty with dark humor.",
+      oldschool: "You are a gritty old-school caddie named Obi. Straight talk, no fluff.",
+    };
+    const hcpLabels = { beginner:"beginner", high:"high-handicap", mid:"mid-handicap", low:"low-handicap" };
+    try {
+      const r = await fetch("/api/chat", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({
+          messages:[{ role:"user", content:`Say one short welcome message (2 sentences max) to ${name||"this player"}, a ${hcpLabels[handicap]||"mid-handicap"} golfer who just joined Obi Golf. Make it feel personal and exciting. Sign off as their caddie. No markdown.` }],
+          system: personas[personaId] || personas.pro,
+        })
+      });
+      const d = await r.json();
+      const text = d?.content?.[0]?.text || d?.candidates?.[0]?.content?.parts?.[0]?.text || d?.text || "";
+      setObiPreview(text || "Let's go play some great golf.");
+    } catch(e) {
+      setObiPreview("Let's go play some great golf. I've got everything you need.");
+    }
+    setPreviewLoading(false);
+  };
 
   const next = () => {
-    if (current.id === "name")   setAuthName(localName.trim());
-    if (current.id === "course") setProfile(p => ({ ...p, homeCourse }));
+    if (current.id === "name") { setAuthName(localName.trim()); }
+    if (current.id === "course") { setProfile(p => ({ ...p, homeCourse })); }
     if (step < steps.length - 1) {
+      const nextStep = steps[step + 1];
+      if (nextStep.id === "preview") {
+        setProfile(p => ({ ...p, homeCourse }));
+        fetchPreview(profile.persona, localName.trim() || authName, profile.handicap);
+      }
       setStep(s => s + 1);
     } else {
       setAuthName(localName.trim());
       setProfile(p => ({ ...p, homeCourse }));
-      setTimeout(() => onComplete(), 50);
+      setDone(true);
+      setTimeout(() => onComplete(), 400);
     }
   };
 
@@ -557,18 +602,22 @@ function OnboardingFlow({ profile, setProfile, authName, setAuthName, onComplete
     else onComplete();
   };
 
-  const cardBtn = (selected, onClick, children) => (
+  const canNext =
+    current.id !== "name" ||
+    localName.trim().length > 1;
+
+  const selBtn = (selected, onClick, children) => (
     <button onClick={onClick}
       className={cn(
-        "flex flex-col items-center gap-2 rounded-xl border-2 p-4 text-center transition-all",
+        "flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition-all w-full",
         selected
-          ? "border-[#22c55e] bg-[#22c55e]/10 dark:border-[#4ade80] dark:bg-[#4ade80]/10"
-          : "border-[#e4e4ef] bg-white hover:border-[#22c55e]/50 dark:border-[#2a2a3a] dark:bg-[#17171f] dark:hover:border-[#4ade80]/50"
+          ? "border-[#CFFF04] bg-[#CFFF04]/10"
+          : "border-[#2a2a3a] bg-[#17171f] hover:border-[#CFFF04]/40"
       )}>
       {children}
       {selected && (
-        <div className="h-5 w-5 rounded-full bg-[#22c55e] dark:bg-[#4ade80] flex items-center justify-center">
-          <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none"><path d="M2 6l3 3 5-5" stroke="#000" strokeWidth="2" strokeLinecap="round"/></svg>
+        <div className="h-5 w-5 rounded-full bg-[#CFFF04] flex items-center justify-center mt-1">
+          <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none"><path d="M2 6l3 3 5-5" stroke="#000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </div>
       )}
     </button>
@@ -577,128 +626,176 @@ function OnboardingFlow({ profile, setProfile, authName, setAuthName, onComplete
   const rowBtn = (selected, onClick, children) => (
     <button onClick={onClick}
       className={cn(
-        "w-full flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all",
+        "w-full flex items-center gap-3 rounded-2xl border-2 px-4 py-3.5 text-left transition-all",
         selected
-          ? "border-[#22c55e] bg-[#22c55e]/10 dark:border-[#4ade80] dark:bg-[#4ade80]/10"
-          : "border-[#e4e4ef] bg-white hover:border-[#22c55e]/50 dark:border-[#2a2a3a] dark:bg-[#17171f] dark:hover:border-[#4ade80]/50"
+          ? "border-[#CFFF04] bg-[#CFFF04]/10"
+          : "border-[#2a2a3a] bg-[#17171f] hover:border-[#CFFF04]/40"
       )}>
       {children}
       {selected && (
-        <div className="ml-auto h-5 w-5 rounded-full bg-[#22c55e] dark:bg-[#4ade80] shrink-0 flex items-center justify-center">
-          <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none"><path d="M2 6l3 3 5-5" stroke="#000" strokeWidth="2" strokeLinecap="round"/></svg>
+        <div className="ml-auto h-5 w-5 rounded-full bg-[#CFFF04] shrink-0 flex items-center justify-center">
+          <svg viewBox="0 0 12 12" className="h-3 w-3" fill="none"><path d="M2 6l3 3 5-5" stroke="#000" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </div>
       )}
     </button>
   );
 
   return (
-    <div className="flex flex-col flex-1 animate-fade-up">
-      {/* Progress bar */}
-      <div className="h-1 bg-[#e4e4ef] dark:bg-[#2a2a3a] rounded-full mb-6 overflow-hidden">
-        <div className="h-full bg-[#22c55e] dark:bg-[#4ade80] rounded-full transition-all duration-500"
-          style={{width: progress + "%"}}/>
+    <div className="flex flex-col flex-1 min-h-0" style={{opacity: done ? 0 : 1, transition:"opacity 0.3s"}}>
+
+      {/* Progress bar — minimal, no step counter */}
+      <div className="h-0.5 bg-[#2a2a3a] rounded-full mb-8 overflow-hidden">
+        <div className="h-full bg-[#CFFF04] rounded-full transition-all duration-500"
+          style={{width: progressPct + "%"}}/>
       </div>
 
-      {/* Step counter */}
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#6b6b8a] dark:text-[#7070a0] mb-4" style={{fontFamily:"Space Grotesk,Inter,sans-serif"}}>
-        Step {step + 1} of {steps.length}
-      </p>
+      {/* Obi's line — conversational header */}
+      {obiLines[current.id] && (
+        <div className="flex items-start gap-3 mb-6">
+          <div className="h-8 w-8 rounded-full bg-[#CFFF04] flex items-center justify-center shrink-0 mt-0.5">
+            <svg width="16" height="16" viewBox="0 0 40 40" fill="none">
+              <line x1="13" y1="10" x2="13" y2="31" stroke="#000" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M13 10 L26 14.5 L13 19 Z" fill="#000"/>
+              <ellipse cx="16" cy="31" rx="5" ry="1.5" fill="rgba(0,0,0,0.3)"/>
+            </svg>
+          </div>
+          <div className="bg-[#1e1e27] rounded-2xl rounded-tl-sm px-4 py-3 flex-1">
+            <p className="text-[15px] text-white leading-snug">{obiLines[current.id]}</p>
+          </div>
+        </div>
+      )}
 
-      {/* Card */}
-      <div className="rounded-2xl border border-[#e4e4ef] dark:border-[#2a2a3a] bg-white dark:bg-[#17171f] p-5 mb-5 flex-1">
-        <h2 className="text-[22px] font-bold tracking-tight text-[#1a1a28] dark:text-[#f0f0f8] mb-1" style={{fontFamily:"Space Grotesk,Inter,sans-serif"}}>
-          {current.title}
-        </h2>
-        <p className="text-[13px] text-[#6b6b8a] dark:text-[#7070a0] mb-5">{current.sub}</p>
+      {/* Step content */}
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pb-4">
 
-        {/* STEP 0 — Name */}
+        {/* NAME */}
         {current.id === "name" && (
-          <input autoFocus placeholder="Your first name"
+          <input autoFocus placeholder="First name"
             value={localName} onChange={e => setLocalName(e.target.value)}
             onKeyDown={e => e.key === "Enter" && canNext && next()}
-            className="w-full rounded-xl border border-[#e4e4ef] dark:border-[#2a2a3a] bg-[#f1f1f6] dark:bg-[#22222e] px-4 py-3 text-[18px] font-semibold text-[#1a1a28] dark:text-[#f0f0f8] outline-none focus:border-[#22c55e] dark:focus:border-[#4ade80] transition placeholder:text-[#6b6b8a]"
+            className="w-full rounded-2xl border-2 border-[#2a2a3a] bg-[#17171f] px-5 py-4 text-[20px] font-bold text-white outline-none focus:border-[#CFFF04] transition placeholder:text-white/25"
           />
         )}
 
-        {/* STEP 1 — Dexterity */}
+        {/* DEXTERITY */}
         {current.id === "dexterity" && (
           <div className="grid grid-cols-2 gap-3">
-            {[{v:"right",label:"Right Handed",icon:"🏌️",desc:"Standard swing"},{v:"left",label:"Left Handed",icon:"🏌️",desc:"Mirror swing"}].map(dx=>(
-              cardBtn(profile.dexterity===dx.v, ()=>setProfile(p=>({...p,dexterity:dx.v})),
-                <React.Fragment>
+            {[{v:"right",icon:"🏌️",label:"Right Handed"},{v:"left",icon:"🏌️‍♂️",label:"Left Handed"}].map(dx=>(
+              selBtn(profile.dexterity===dx.v, ()=>setProfile(p=>({...p,dexterity:dx.v})),
+                <React.Fragment key={dx.v}>
                   <span className="text-3xl">{dx.icon}</span>
-                  <span className="text-[14px] font-bold text-[#1a1a28] dark:text-[#f0f0f8]" style={{fontFamily:"Space Grotesk,Inter,sans-serif"}}>{dx.label}</span>
-                  <span className="text-[11px] text-[#6b6b8a] dark:text-[#7070a0]">{dx.desc}</span>
+                  <span className="text-[14px] font-bold text-white">{dx.label}</span>
                 </React.Fragment>
               )
             ))}
           </div>
         )}
 
-        {/* STEP 2 — Handicap */}
+        {/* HANDICAP */}
         {current.id === "handicap" && (
           <div className="grid grid-cols-2 gap-3">
-            {[{label:"Beginner",sub:"30+",value:"beginner",hcp:36,icon:"🌱"},{label:"High",sub:"18–29",value:"high",hcp:24,icon:"📈"},{label:"Mid",sub:"9–17",value:"mid",hcp:13,icon:"⛳"},{label:"Low",sub:"0–8",value:"low",hcp:4,icon:"🏆"}].map(h=>(
-              cardBtn(profile.handicap===h.value, ()=>setProfile(p=>({...p,handicap:h.value,hcp:h.hcp})),
-                <React.Fragment>
+            {[
+              {label:"Just Starting",sub:"Brand new",value:"beginner",hcp:36,icon:"🌱"},
+              {label:"Still Learning",sub:"HCP 18–29",value:"high",hcp:24,icon:"📈"},
+              {label:"Getting Good",sub:"HCP 9–17",value:"mid",hcp:13,icon:"⛳"},
+              {label:"Scratch Territory",sub:"HCP 0–8",value:"low",hcp:4,icon:"🏆"},
+            ].map(h=>(
+              selBtn(profile.handicap===h.value, ()=>setProfile(p=>({...p,handicap:h.value,hcp:h.hcp})),
+                <React.Fragment key={h.value}>
                   <span className="text-3xl">{h.icon}</span>
-                  <span className="text-[14px] font-bold text-[#1a1a28] dark:text-[#f0f0f8]" style={{fontFamily:"Space Grotesk,Inter,sans-serif"}}>{h.label}</span>
-                  <span className="text-[11px] text-[#6b6b8a] dark:text-[#7070a0]">HCP {h.sub}</span>
+                  <span className="text-[13px] font-bold text-white leading-tight">{h.label}</span>
+                  <span className="text-[11px] text-white/40">{h.sub}</span>
                 </React.Fragment>
               )
             ))}
           </div>
         )}
 
-        {/* STEP 3 — Home course */}
-        {current.id === "course" && (
-          <div>
-            <input placeholder="e.g. Pebble Beach, my local muni..."
-              value={homeCourse} onChange={e=>setHomeCourse(e.target.value)}
-              className="w-full rounded-xl border border-[#e4e4ef] dark:border-[#2a2a3a] bg-[#f1f1f6] dark:bg-[#22222e] px-4 py-3 text-[15px] text-[#1a1a28] dark:text-[#f0f0f8] outline-none focus:border-[#22c55e] dark:focus:border-[#4ade80] transition placeholder:text-[#6b6b8a] mb-3"
-            />
-            <p className="text-[12px] text-[#6b6b8a] dark:text-[#7070a0] leading-relaxed">Obi will know your home course layout, typical conditions, and key holes to watch out for.</p>
-          </div>
-        )}
-
-        {/* STEP 4 — Persona */}
+        {/* PERSONA */}
         {current.id === "persona" && (
-          <div className="space-y-2.5">
-            {[{id:"pro",icon:"🎯",label:"Tour Pro",desc:"Calm, clinical precision. Quiet authority, every shot."},{id:"coach",icon:"📚",label:"The Coach",desc:"Warm and encouraging. Builds your confidence every hole."},{id:"oldschool",icon:"🪨",label:"Old School",desc:"Gritty, direct, no-nonsense. Old-fashioned and real."}].map(p=>(
+          <div className="space-y-2">
+            {[
+              {id:"pro",     icon:"🎯", label:"Tour Caddie",   desc:"Precise, calm, data-driven. Every shot is calculated."},
+              {id:"coach",   icon:"📚", label:"The Coach",     desc:"Warm and encouraging. Builds your confidence hole by hole."},
+              {id:"hype",    icon:"⚡", label:"Hype Man",      desc:"Fired up, loud, relentless. You're going to crush it."},
+              {id:"savage",  icon:"💀", label:"Savage",        desc:"Brutal honesty. Hilarious. Absolutely no filter."},
+              {id:"oldschool",icon:"🪨",label:"Old School",    desc:"Gritty and direct. Seen it all. Short on words."},
+            ].map(p=>(
               rowBtn(profile.persona===p.id, ()=>setProfile(prev=>({...prev,persona:p.id})),
-                <React.Fragment>
-                  <span className="text-2xl">{p.icon}</span>
+                <React.Fragment key={p.id}>
+                  <span className="text-2xl shrink-0">{p.icon}</span>
                   <div>
-                    <p className="text-[14px] font-bold text-[#1a1a28] dark:text-[#f0f0f8]" style={{fontFamily:"Space Grotesk,Inter,sans-serif"}}>{p.label}</p>
-                    <p className="text-[11px] text-[#6b6b8a] dark:text-[#7070a0] mt-0.5">{p.desc}</p>
+                    <p className="text-[14px] font-bold text-white">{p.label}</p>
+                    <p className="text-[11px] text-white/40 mt-0.5">{p.desc}</p>
                   </div>
                 </React.Fragment>
               )
             ))}
           </div>
         )}
+
+        {/* PREVIEW — Obi speaks live in their chosen persona */}
+        {current.id === "preview" && (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-full bg-[#CFFF04] flex items-center justify-center shrink-0 mt-0.5">
+                <svg width="18" height="18" viewBox="0 0 40 40" fill="none">
+                  <line x1="13" y1="10" x2="13" y2="31" stroke="#000" strokeWidth="2.5" strokeLinecap="round"/>
+                  <path d="M13 10 L26 14.5 L13 19 Z" fill="#000"/>
+                  <ellipse cx="16" cy="31" rx="5" ry="1.5" fill="rgba(0,0,0,0.3)"/>
+                </svg>
+              </div>
+              <div className="flex-1">
+                {previewLoading ? (
+                  <div className="bg-[#1e1e27] rounded-2xl rounded-tl-sm px-4 py-4 flex gap-1.5 items-center">
+                    {[0,1,2].map(i=>(
+                      <div key={i} className="w-2 h-2 rounded-full bg-white/40"
+                        style={{animation:`typing-dot 1.2s ${i*0.2}s infinite ease-in-out`}}/>
+                    ))}
+                  </div>
+                ) : obiPreview ? (
+                  <div className="bg-[#1e1e27] rounded-2xl rounded-tl-sm px-4 py-3">
+                    <p className="text-[15px] text-white leading-relaxed">{obiPreview}</p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            {!previewLoading && obiPreview && (
+              <div className="rounded-2xl bg-[#CFFF04]/10 border border-[#CFFF04]/30 p-4 text-center">
+                <p className="text-[13px] text-white/70 leading-relaxed">
+                  That's your caddie. You can change the style any time in settings.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Buttons */}
-      <button onClick={next} disabled={!canNext}
-        className="w-full rounded-xl py-3.5 text-[13px] font-bold uppercase tracking-wider transition mb-2"
-        style={{fontFamily:"Space Grotesk,Inter,sans-serif",background:canNext?"#22c55e":"#e4e4ef",color:canNext?"#000":"#6b6b8a",cursor:canNext?"pointer":"default"}}>
-        {step === steps.length - 1 ? "Let\'s Play Golf 🏌️" : "Continue →"}
-      </button>
-      {(current.id !== "name") && (
-        <button onClick={skip}
-          className="w-full py-2.5 text-[12px] font-bold uppercase tracking-wider text-[#6b6b8a] hover:text-[#1a1a28] dark:hover:text-[#f0f0f8] transition"
-          style={{fontFamily:"Space Grotesk,Inter,sans-serif"}}>
-          Skip for now
+      {/* Actions */}
+      <div className="pt-4 space-y-2 shrink-0">
+        <button onClick={next}
+          disabled={!canNext || (current.id === "preview" && previewLoading)}
+          className="w-full rounded-2xl py-4 text-[14px] font-bold uppercase tracking-wider transition"
+          style={{
+            background: (canNext && !(current.id==="preview"&&previewLoading)) ? "#CFFF04" : "#2a2a3a",
+            color:      (canNext && !(current.id==="preview"&&previewLoading)) ? "#000" : "#555",
+            cursor:     (canNext && !(current.id==="preview"&&previewLoading)) ? "pointer" : "default",
+          }}>
+          {current.id === "preview" ? (previewLoading ? "Obi is getting ready..." : "Let's Play Golf 🏌️") : "Continue →"}
         </button>
-      )}
-      {step > 0 && (
-        <button onClick={()=>setStep(s=>s-1)}
-          className="w-full py-2 text-[11px] font-bold uppercase tracking-wider text-[#6b6b8a] hover:text-[#1a1a28] dark:hover:text-[#f0f0f8] transition"
-          style={{fontFamily:"Space Grotesk,Inter,sans-serif"}}>
-          ← Back
-        </button>
-      )}
+        {current.id !== "name" && current.id !== "preview" && (
+          <button onClick={skip}
+            className="w-full py-2.5 text-[12px] font-bold uppercase tracking-wider text-white/25 hover:text-white/50 transition">
+            Skip for now
+          </button>
+        )}
+        {step > 0 && current.id !== "preview" && (
+          <button onClick={()=>setStep(s=>s-1)}
+            className="w-full py-2 text-[11px] font-bold uppercase tracking-wider text-white/20 hover:text-white/40 transition">
+            ← Back
+          </button>
+        )}
+      </div>
     </div>
   );
 }
