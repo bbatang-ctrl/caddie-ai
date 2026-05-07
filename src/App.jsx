@@ -695,7 +695,7 @@ function ObiGolfApp(){
       // They answered "what's costing you strokes" — respond + ask course
       setWelcomeStage(2);
       const name=firstName(userProfile?.full_name)||"";
-      const prompt="The player just told you what's costing them strokes: ""+userMsg+"". Respond in 2 sentences: first validate their answer with a specific insight (don't be generic), then ask what course they play most. Be warm and direct. Use their name: "+name+". No markdown.";
+      const prompt=`The player just said this is costing them strokes: "${userMsg}". Respond in 2 sentences: first give a specific insight validating their answer (not generic), then ask what course they play most. Warm and direct. Use their name: ${name}. No markdown.`;
       setObiTyping(true);
       try{
         const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},
