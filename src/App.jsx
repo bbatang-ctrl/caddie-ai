@@ -434,8 +434,8 @@ function ObiGolfApp(){
           const dLat1=toRad(validatedGd.green_lat-validatedGd.tee_lat),dLng1=toRad(validatedGd.green_lng-validatedGd.tee_lng);
           const a1=Math.sin(dLat1/2)**2+Math.cos(toRad(validatedGd.tee_lat))*Math.cos(toRad(validatedGd.green_lat))*Math.sin(dLng1/2)**2;
           const holeLen=2*R*Math.asin(Math.sqrt(a1))*1.09361;
-          let bad=holeLen<30||holeLen>800;
-          if(!bad&&gpsPos?.lat){const midLat=(validatedGd.tee_lat+validatedGd.green_lat)/2,midLng=(validatedGd.tee_lng+validatedGd.green_lng)/2;const dLat2=toRad(midLat-gpsPos.lat),dLng2=toRad(midLng-gpsPos.lng);const a2=Math.sin(dLat2/2)**2+Math.cos(toRad(gpsPos.lat))*Math.cos(toRad(midLat))*Math.sin(dLng2/2)**2;const distToPlayer=2*R*Math.asin(Math.sqrt(a2))*1.09361;if(distToPlayer>5280){console.warn("Gemini "+Math.round(distToPlayer)+"y from player");bad=true;}}
+          let bad=holeLen<20||holeLen>1500; // wider range: par 3s can be short, long par 5s ~700y
+          if(!bad&&gpsPos?.lat){const midLat=(validatedGd.tee_lat+validatedGd.green_lat)/2,midLng=(validatedGd.tee_lng+validatedGd.green_lng)/2;const dLat2=toRad(midLat-gpsPos.lat),dLng2=toRad(midLng-gpsPos.lng);const a2=Math.sin(dLat2/2)**2+Math.cos(toRad(gpsPos.lat))*Math.cos(toRad(midLat))*Math.sin(dLng2/2)**2;const distToPlayer=2*R*Math.asin(Math.sqrt(a2))*1.09361;if(distToPlayer>52800){console.warn("Gemini coords "+Math.round(distToPlayer)+"y from player — nulling");bad=true;}}
           if(bad)validatedGd={...validatedGd,tee_lat:null,tee_lng:null,green_lat:null,green_lng:null};
         }
         setHoleMap(validatedGd);setYardage(String(finalYards));setHolePars(prev=>{const n=[...prev];n[holeNum-1]=finalPar;return n;});
@@ -459,11 +459,15 @@ function ObiGolfApp(){
     const db=matchCourse(course);
     if(db?.holes){setHolePars(db.holes.map(h=>h.par));}
     setManualPins({});
-    setSelectedTee(null);  // reset tee selection on course change
-    setHoleMap(null);setShowHoleMap(false);
+    setSelectedTee(null);
+    setHoleMap(null);
+    // Don't auto-fetch here — the hole/course effect below handles it
   },[course]);
 
-  useEffect(()=>{if(course&&showHoleMap)fetchHoleMap(course,hole);},[hole,course]);
+  useEffect(()=>{
+    // Auto-fetch when hole or course changes — no longer gated on showHoleMap
+    if(course)fetchHoleMap(course,hole);
+  },[hole,course]);
 
   const prevHoleRef=useRef(1);
   useEffect(()=>{
@@ -546,7 +550,20 @@ function ObiGolfApp(){
             if(distFeats.length>0){m.addSource("dist-m",{type:"geojson",data:{type:"FeatureCollection",features:distFeats}});m.addLayer({id:"dist-d",type:"circle",source:"dist-m",paint:{"circle-radius":5,"circle-color":"rgba(255,255,255,0.85)","circle-stroke-color":"#374151","circle-stroke-width":1.5}});}
           }
         }
-        const{gpsOnly:go}=getCenter();const pinCoord=(go||!holeData?.green_lat)?null:[holeData.green_lng,holeData.green_lat];
+        const{gpsOnly:go}=getCenter();
+        // Best pin coord: OSM green centroid > Gemini coords > null
+        let pinCoord=null;
+        if(!go){
+          const osmGreen=holeData?.osmFeatures?.features?.filter(f=>f.type==="green")?.[0];
+          if(osmGreen?.coords?.length>0){
+            // Use centroid of OSM green polygon — always accurate
+            const avgLat=osmGreen.coords.reduce((s,c)=>s+c.lat,0)/osmGreen.coords.length;
+            const avgLng=osmGreen.coords.reduce((s,c)=>s+c.lng,0)/osmGreen.coords.length;
+            pinCoord=[avgLng,avgLat];
+          } else if(holeData?.green_lat){
+            pinCoord=[holeData.green_lng,holeData.green_lat];
+          }
+        }
         if(pinCoord){const flagEl=document.createElement("div");flagEl.innerHTML='<div style="width:16px;height:16px;border-radius:50%;background:#ffffff;border:2.5px solid #000;box-shadow:0 2px 8px rgba(0,0,0,0.5);"></div>';
           flagEl.style.cssText="cursor:default;";new maplibregl.Marker({element:flagEl,anchor:"bottom"}).setLngLat(pinCoord).addTo(m);
           // Yardage rings 100/150/200y from pin
@@ -611,22 +628,32 @@ function ObiGolfApp(){
   const sendMessage=async(text)=>{
     const msg=text||input;if(!msg.trim()||loading)return;setInput("");
     const userMsg={role:"user",content:msg};const newMessages=[...messages,userMsg];setMessages(newMessages);setLoading(true);
-    try{
+    const doFetch=async(attempt)=>{
       const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:newMessages,system:buildSystem()})});
-      if(!r.ok){const errText=await r.text().catch(()=>"HTTP "+r.status);throw new Error(errText);}
+      if(!r.ok){const t=await r.text().catch(()=>"HTTP "+r.status);throw new Error(t);}
       const d=await r.json();
-      // Handle multiple response shapes: Anthropic {content:[{text}]}, Gemini {candidates:[{content:{parts:[{text}]}}]}, or direct {text}
       let reply="";
-      if(d?.content?.[0]?.text){reply=d.content[0].text;}
-      else if(d?.candidates?.[0]?.content?.parts?.[0]?.text){reply=d.candidates[0].content.parts[0].text;}
-      else if(typeof d?.text==="string"){reply=d.text;}
-      else if(typeof d?.message==="string"){reply=d.message;}
-      else if(typeof d?.response==="string"){reply=d.response;}
-      else{console.error("Unexpected API response shape:",JSON.stringify(d).slice(0,300));reply="No response from caddie. Check your GEMINI_API_KEY in Vercel.";}
+      if(d?.content?.[0]?.text)reply=d.content[0].text;
+      else if(d?.candidates?.[0]?.content?.parts?.[0]?.text)reply=d.candidates[0].content.parts[0].text;
+      else if(typeof d?.text==="string")reply=d.text;
+      else if(typeof d?.message==="string")reply=d.message;
+      else if(typeof d?.response==="string")reply=d.response;
+      else{console.error("API shape:",JSON.stringify(d).slice(0,300));if(attempt<2)throw new Error("retry");reply="Having trouble connecting. Try again.";}
+      return reply;
+    };
+    try{
+      let reply="";
+      try{reply=await doFetch(1);}
+      catch(e){
+        if(e.message==="retry"||e.message.includes("5")){
+          await new Promise(res=>setTimeout(res,1200));
+          reply=await doFetch(2);
+        } else throw e;
+      }
       setMessages(m=>[...m,{role:"assistant",content:reply}]);
       if(autoSpeak&&reply){setTimeout(()=>speakText(reply),400);}
     }
-    catch(e){console.error("Chat error:",e);setMessages(m=>[...m,{role:"assistant",content:"Connection error: "+e.message+". Check /api/chat is deployed on Vercel."}]);}
+    catch(e){console.error("Chat error:",e);setMessages(m=>[...m,{role:"assistant",content:"Connection error — check your internet and try again."}]);}
     setLoading(false);
   };
 
@@ -1151,7 +1178,7 @@ function ObiGolfApp(){
           <div className="relative w-full overflow-hidden bg-black" style={{height:"100%",minHeight:0}}>
 
             {/* ── FULL-SCREEN MAP ───────────────────────────────── */}
-            {(holeMap&&(holeMap.osmFeatures||holeMap.green_lat||gpsPos))?(
+            {holeMap?(
               <div className="absolute inset-0" style={{width:"100%",height:"100%"}}>
                 <HoleMapCanvas
                   map={holeMap} gps={gpsPos}
