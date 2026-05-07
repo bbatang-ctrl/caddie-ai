@@ -557,8 +557,22 @@ function ObiGolfApp(){
   const sendMessage=async(text)=>{
     const msg=text||input;if(!msg.trim()||loading)return;setInput("");
     const userMsg={role:"user",content:msg};const newMessages=[...messages,userMsg];setMessages(newMessages);setLoading(true);
-    try{const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:newMessages,system:buildSystem()})});const d=await r.json();const reply=d.content[0].text;setMessages(m=>[...m,{role:"assistant",content:reply}]);if(autoSpeak){setTimeout(()=>speakText(reply),400);}}
-    catch(e){setMessages(m=>[...m,{role:"assistant",content:"Sorry, having trouble connecting. Try again."}]);}
+    try{
+      const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:newMessages,system:buildSystem()})});
+      if(!r.ok){const errText=await r.text().catch(()=>"HTTP "+r.status);throw new Error(errText);}
+      const d=await r.json();
+      // Handle multiple response shapes: Anthropic {content:[{text}]}, Gemini {candidates:[{content:{parts:[{text}]}}]}, or direct {text}
+      let reply="";
+      if(d?.content?.[0]?.text){reply=d.content[0].text;}
+      else if(d?.candidates?.[0]?.content?.parts?.[0]?.text){reply=d.candidates[0].content.parts[0].text;}
+      else if(typeof d?.text==="string"){reply=d.text;}
+      else if(typeof d?.message==="string"){reply=d.message;}
+      else if(typeof d?.response==="string"){reply=d.response;}
+      else{console.error("Unexpected API response shape:",JSON.stringify(d).slice(0,300));reply="No response from caddie. Check your GEMINI_API_KEY in Vercel.";}
+      setMessages(m=>[...m,{role:"assistant",content:reply}]);
+      if(autoSpeak&&reply){setTimeout(()=>speakText(reply),400);}
+    }
+    catch(e){console.error("Chat error:",e);setMessages(m=>[...m,{role:"assistant",content:"Connection error: "+e.message+". Check /api/chat is deployed on Vercel."}]);}
     setLoading(false);
   };
 
@@ -825,7 +839,7 @@ function ObiGolfApp(){
 
         {tab==="caddie"&&(
           <div className="flex flex-col h-full min-h-0">
-            <div className="px-4 pt-3 shrink-0 space-y-3">
+            <div className="px-4 pt-3 shrink-0 space-y-3 overflow-y-auto" style={{maxHeight:"62vh",scrollbarWidth:"none"}}>
               {/* Course banner */}
               <div className="rounded-xl bg-foreground text-background p-3.5">
                 <div className="flex items-center gap-3">
