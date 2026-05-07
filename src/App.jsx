@@ -262,6 +262,14 @@ function ObiGolfApp(){
   const [rulesAnswer,setRulesAnswer]=useState("");
   const [rulesLoading,setRulesLoading]=useState(false);
   const [postRoundRecap,setPostRoundRecap]=useState(null);
+  const [shareCard,setShareCard]=useState(null); // {total,diff,course,insight,persona,name,fwy,putts}
+  const [shareGenerating,setShareGenerating]=useState(false);
+  // Group round state
+  const [groupRoundCode,setGroupRoundCode]=useState(null);  // 6-char join code
+  const [groupPlayers,setGroupPlayers]=useState([]);        // [{name,scores:[],color}]
+  const [showGroupModal,setShowGroupModal]=useState(false);
+  const [joinCodeInput,setJoinCodeInput]=useState("");
+  const [groupName,setGroupName]=useState("");
   const [mapFullscreen,setMapFullscreen]=useState(false);
   const [chatOpen,setChatOpen]=useState(false); // caddie drawer open/closed
   const [obiTyping,setObiTyping]=useState(false); // typing indicator
@@ -790,7 +798,19 @@ function ObiGolfApp(){
             let insight="";
             if(d?.content?.[0]?.text)insight=d.content[0].text;
             else if(d?.candidates?.[0]?.content?.parts?.[0]?.text)insight=d.candidates[0].content.parts[0].text;
-            if(insight)setPostRoundRecap({total,diff,diffStr,insight,milestones,fwyCount,fwyTot,puttTotal});
+            if(insight){
+              setPostRoundRecap({total,diff,diffStr,insight,milestones,fwyCount,fwyTot,puttTotal});
+              // Build share card data
+              setShareCard({
+                total,diff,diffStr,
+                course:course||"Unknown Course",
+                insight,
+                persona:profile.persona||"pro",
+                name:firstName(userProfile?.full_name)||"Golfer",
+                fwyCount,fwyTot,puttTotal,
+                date:new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}),
+              });
+            }
           }
         }catch(e){console.warn("Recap error",e);}
       })();
@@ -801,6 +821,36 @@ function ObiGolfApp(){
   const handleAvatarUpload=async(e)=>{
     const file=e.target.files?.[0];if(!file||!user)return;setUploadingAvatar(true);
     try{const canvas=document.createElement("canvas");const img=new Image();img.onload=async()=>{const maxSize=400;let{width:w,height:h}={width:img.width,height:img.height};if(w>h){if(w>maxSize){h=h*(maxSize/w);w=maxSize;}}else{if(h>maxSize){w=w*(maxSize/h);h=maxSize;}}canvas.width=w;canvas.height=h;canvas.getContext("2d").drawImage(img,0,0,w,h);canvas.toBlob(async(blob)=>{if(!blob)return;const ext=file.name.split(".").pop()||"jpg";const path=user.id+"."+ext;const{error:upErr}=await supabase.storage.from("avatars").upload(path,blob,{upsert:true,contentType:"image/jpeg"});if(!upErr){const{data:{publicUrl}}=supabase.storage.from("avatars").getPublicUrl(path);const url=publicUrl+"?t="+Date.now();setAvatarUrl(url);await supabase.from("profiles").update({avatar_url:url}).eq("id",user.id);}setUploadingAvatar(false);},"image/jpeg",0.85);};img.src=URL.createObjectURL(file);}catch{setUploadingAvatar(false);}
+  };
+
+  // ── GROUP ROUND ───────────────────────────────────────────────
+  const generateGroupCode=()=>{
+    const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    return Array.from({length:6},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+  };
+
+  const startGroupRound=()=>{
+    const code=generateGroupCode();
+    setGroupRoundCode(code);
+    const me={id:user?.id||"me",name:firstName(userProfile?.full_name)||"You",scores:Array(18).fill(null),color:"#CFFF04",isMe:true};
+    setGroupPlayers([me]);
+    setShowGroupModal(true);
+    // Share text
+    const shareText=`Join my Obi Golf round! Code: ${code}\nDownload Obi Golf and enter this code to follow along live.\ncaddie-ai-ivory.vercel.app`;
+    if(navigator.share){navigator.share({title:"Join my Obi Golf round",text:shareText}).catch(()=>{});}
+    else{navigator.clipboard?.writeText(shareText).catch(()=>{});}
+  };
+
+  const addGroupPlayer=(name)=>{
+    if(!name.trim())return;
+    const colors=["#60a5fa","#f87171","#a78bfa","#34d399","#fb923c"];
+    const color=colors[groupPlayers.length%colors.length];
+    setGroupPlayers(p=>[...p,{id:"p"+Date.now(),name:name.trim(),scores:Array(18).fill(null),color,isMe:false}]);
+    setGroupName("");
+  };
+
+  const updateGroupScore=(playerId,holeIdx,score)=>{
+    setGroupPlayers(ps=>ps.map(p=>p.id===playerId?{...p,scores:p.scores.map((s,i)=>i===holeIdx?score:s)}:p));
   };
 
   const lookupRule=async(query)=>{
@@ -993,6 +1043,119 @@ function ObiGolfApp(){
           </div>
         </div>
       )}
+      {/* ── SHARE CARD MODAL ─────────────────────────────────── */}
+      {shareCard&&(
+        <div className="fixed inset-0 z-[62] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-sm">
+            <div className="rounded-2xl overflow-hidden bg-zinc-900 border border-white/10">
+              <div className="bg-primary px-5 pt-5 pb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <ObiLogo size={18}/>
+                    <span className="display text-[13px] font-bold text-black">Obi Golf</span>
+                  </div>
+                  <span className="display text-[11px] font-bold text-black/50">{shareCard.date}</span>
+                </div>
+                <p className="display text-[11px] font-bold uppercase tracking-[0.15em] text-black/60 mb-1">{shareCard.course}</p>
+                <div className="flex items-end gap-3">
+                  <p className="stat text-[64px] leading-none text-black">{shareCard.total}</p>
+                  <div className="pb-2">
+                    <p className="display text-[24px] font-bold text-black">{shareCard.diff===0?"E":shareCard.diff>0?"+"+shareCard.diff:""+shareCard.diff}</p>
+                    <p className="display text-[10px] font-bold text-black/50 uppercase tracking-wider">{shareCard.diffStr}</p>
+                  </div>
+                </div>
+              </div>
+              {(shareCard.fwyTot>0||shareCard.puttTotal>0)&&(
+                <div className="flex border-b border-white/10">
+                  {shareCard.fwyTot>0&&<div className="flex-1 px-4 py-3 text-center border-r border-white/10"><p className="display text-[9px] font-bold uppercase tracking-wider text-white/40 mb-0.5">Fairways</p><p className="stat text-[20px] text-white">{shareCard.fwyCount}/{shareCard.fwyTot}</p></div>}
+                  {shareCard.puttTotal>0&&<div className="flex-1 px-4 py-3 text-center"><p className="display text-[9px] font-bold uppercase tracking-wider text-white/40 mb-0.5">Putts</p><p className="stat text-[20px] text-white">{shareCard.puttTotal}</p></div>}
+                </div>
+              )}
+              <div className="px-5 py-4">
+                <p className="display text-[9px] font-bold uppercase tracking-[0.15em] text-primary mb-2">Obi says</p>
+                <p className="text-[14px] text-white/90 leading-relaxed italic">&ldquo;{shareCard.insight}&rdquo;</p>
+              </div>
+              <div className="px-5 pb-4">
+                <p className="display text-[9px] font-bold text-white/25 uppercase tracking-wider">caddie-ai-ivory.vercel.app</p>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-3">
+              <button onClick={async()=>{
+                const shareText=`I shot ${shareCard.total} (${shareCard.diffStr}) at ${shareCard.course} today.\n\nObi says: "${shareCard.insight}"\n\nTracked with Obi Golf — caddie-ai-ivory.vercel.app`;
+                if(navigator.share){try{await navigator.share({title:"My round at "+shareCard.course,text:shareText});}catch(e){}}
+                else{navigator.clipboard?.writeText(shareText);alert("Copied to clipboard!");}
+              }} className="flex-1 bg-primary text-black rounded-xl py-3 display text-[13px] font-bold uppercase tracking-wider hover:opacity-90 transition">
+                Share Round
+              </button>
+              <button onClick={()=>setShareCard(null)} className="flex-1 bg-white/10 text-white rounded-xl py-3 display text-[13px] font-bold uppercase tracking-wider hover:bg-white/20 transition">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── GROUP ROUND MODAL ─────────────────────────────────── */}
+      {showGroupModal&&(
+        <div className="fixed inset-0 z-[61] flex items-end justify-center bg-black/70 backdrop-blur-sm" onClick={()=>setShowGroupModal(false)}>
+          <div className="bg-zinc-950 border border-white/10 rounded-t-2xl w-full p-5 pb-8 shadow-2xl" style={{maxWidth:"480px"}} onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="display text-[11px] font-bold uppercase tracking-[0.15em] text-white/40">Group Round</p>
+                <p className="display text-[18px] font-bold text-white mt-0.5">Playing with friends?</p>
+              </div>
+              <button onClick={()=>setShowGroupModal(false)} className="text-white/40 hover:text-white"><X className="h-5 w-5"/></button>
+            </div>
+            {groupRoundCode&&(
+              <div className="rounded-xl bg-primary/10 border border-primary/30 p-4 mb-4">
+                <p className="display text-[10px] font-bold uppercase tracking-wider text-primary/70 mb-2">Round code — share with your group</p>
+                <div className="flex items-center justify-between">
+                  <p className="stat text-[36px] text-white tracking-[0.2em]">{groupRoundCode}</p>
+                  <button onClick={()=>{const t=`Join my Obi Golf round! Code: ${groupRoundCode}\ncaddie-ai-ivory.vercel.app`;if(navigator.share){navigator.share({title:"Join my round",text:t}).catch(()=>{});}else{navigator.clipboard?.writeText(t).catch(()=>{});}}} className="bg-primary text-black rounded-xl px-4 py-2 display text-[12px] font-bold uppercase tracking-wider">Share Code</button>
+                </div>
+              </div>
+            )}
+            <div className="space-y-2 mb-4">
+              {groupPlayers.map(p=>(
+                <div key={p.id} className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2.5">
+                  <div className="h-3 w-3 rounded-full shrink-0" style={{background:p.color}}/>
+                  <p className="display text-[13px] font-bold text-white flex-1">{p.name}{p.isMe?" (you)":""}</p>
+                  <div className="flex items-center gap-1">
+                    {[1,2,3,4,5,6,7,8,9,10].filter(v=>v>=(holePars[hole-1]||4)-1&&v<=(holePars[hole-1]||4)+4).map(v=>(
+                      <button key={v} onClick={()=>updateGroupScore(p.id,hole-1,p.scores[hole-1]===v?null:v)}
+                        className="h-7 w-7 rounded-lg display text-[11px] font-bold transition"
+                        style={{background:p.scores[hole-1]===v?p.color:"rgba(255,255,255,0.08)",color:p.scores[hole-1]===v?"#000":"rgba(255,255,255,0.5)"}}>
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 mb-4">
+              <input value={groupName} onChange={e=>setGroupName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addGroupPlayer(groupName)} placeholder="Add player name..." className="flex-1 bg-white/5 border border-white/15 rounded-xl px-3.5 py-2.5 text-[14px] text-white placeholder:text-white/25 outline-none focus:border-white/40"/>
+              <button onClick={()=>addGroupPlayer(groupName)} disabled={!groupName.trim()} className="bg-white/10 text-white rounded-xl px-4 display text-[12px] font-bold uppercase tracking-wider hover:bg-white/20 disabled:opacity-30 transition">Add</button>
+            </div>
+            {groupPlayers.some(p=>p.scores.some(s=>s!==null))&&(
+              <div>
+                <p className="display text-[9px] font-bold uppercase tracking-wider text-white/30 mb-2">Live — Hole {hole}</p>
+                <div className="space-y-1">
+                  {[...groupPlayers].sort((a,b)=>a.scores.filter(Boolean).reduce((x,y)=>x+y,0)-b.scores.filter(Boolean).reduce((x,y)=>x+y,0)).map((p,rank)=>{
+                    const tot=p.scores.filter(Boolean).reduce((a,b)=>a+b,0);
+                    const par=holePars.slice(0,p.scores.filter(Boolean).length).reduce((a,b)=>a+b,0);
+                    const d=tot-par;
+                    return(<div key={p.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/5">
+                      <span className="display text-[11px] font-bold text-white/40 w-4">{rank+1}</span>
+                      <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{background:p.color}}/>
+                      <p className="display text-[13px] font-bold text-white flex-1">{p.name}</p>
+                      <p className={cn("display text-[13px] font-bold",d<0?"text-primary":d>0?"text-red-400":"text-white")}>{tot===0?"--":d===0?"E":d>0?"+"+d:""+d}</p>
+                    </div>);
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── CELEBRATION MODAL ──────────────────────────────── */}
       {celebration&&(
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/70 backdrop-blur-sm" onClick={()=>setCelebration(null)}>
@@ -1206,6 +1369,18 @@ function ObiGolfApp(){
                   <div><p className="display text-[12px] font-bold">Etiquette Tip</p><p className="text-[10px] text-muted-foreground mt-0.5">From Obi</p></div>
                 </button>
               </div>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <button onClick={()=>{setTab("caddie");if(!groupRoundCode)startGroupRound();else setShowGroupModal(true);}}
+                  className="rounded-xl border border-border bg-card p-3.5 flex items-center gap-2.5 hover:bg-secondary/40 transition text-left">
+                  <span className="text-2xl shrink-0">👥</span>
+                  <div><p className="display text-[12px] font-bold">Group Round</p><p className="text-[10px] text-muted-foreground mt-0.5">Play with friends</p></div>
+                </button>
+                {shareCard&&<button onClick={()=>setShareCard(shareCard)}
+                  className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 flex items-center gap-2.5 hover:bg-primary/10 transition text-left">
+                  <span className="text-2xl shrink-0">📊</span>
+                  <div><p className="display text-[12px] font-bold text-primary">Share Round</p><p className="text-[10px] text-muted-foreground mt-0.5">Show your score</p></div>
+                </button>}
+              </div>
             </section>
             {/* Etiquette cards — beginners only, first visit */}
             {beginnerMode&&rounds.length===0&&(
@@ -1336,6 +1511,13 @@ function ObiGolfApp(){
                     className="h-9 w-9 rounded-xl bg-black/70 backdrop-blur-md flex items-center justify-center text-white/70 hover:text-white transition">
                     <MapPin className="h-4 w-4" strokeWidth={2.5}/>
                   </button>}
+                  {/* Group round */}
+                  <button onClick={()=>{if(!groupRoundCode)startGroupRound();else setShowGroupModal(true);}}
+                    className={cn("h-9 w-9 rounded-xl backdrop-blur-md flex items-center justify-center transition",
+                      groupPlayers.length>1?"bg-primary/90 text-black":"bg-black/70 text-white/70 hover:text-white")}
+                    title="Group round">
+                    <Users className="h-4 w-4" strokeWidth={2.5}/>
+                  </button>
                 </div>
               </div>
 
