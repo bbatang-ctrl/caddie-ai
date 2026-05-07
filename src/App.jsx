@@ -490,7 +490,7 @@ function ObiGolfApp(){
       const{center,bbox,reliable,gpsOnly}=getCenter();
       let finalCenter=center;
       if(center[0]===0&&center[1]===0){if(gpsRef.current?.lat){finalCenter=[gpsRef.current.lng,gpsRef.current.lat];}else return;}
-      const m=new maplibregl.Map({container:containerRef.current,style:{version:8,glyphs:"https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",sources:{satellite:{type:"raster",tiles:["https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token="+import.meta.env.VITE_MAPBOX_TOKEN],tileSize:512,maxzoom:22,attribution:"(c) Mapbox (c) OpenStreetMap"}},layers:[{id:"satellite",type:"raster",source:"satellite",paint:{"raster-brightness-min":0.05}}]},center:finalCenter,zoom:(gpsOnly||(center[0]===0&&gps?.lat))?18:18,bearing:0,pitch:0,interactive:true,attributionControl:false});
+      const m=new maplibregl.Map({container:containerRef.current,style:{version:8,glyphs:"https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",sources:{satellite:{type:"raster",tiles:["https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token="+import.meta.env.VITE_MAPBOX_TOKEN],tileSize:512,maxzoom:22,attribution:"(c) Mapbox (c) OpenStreetMap"}},layers:[{id:"satellite",type:"raster",source:"satellite",paint:{"raster-brightness-min":0.15,"raster-saturation":0.15,"raster-contrast":0.1}}]},center:finalCenter,zoom:(gpsOnly||(center[0]===0&&gps?.lat))?18:18,bearing:0,pitch:0,interactive:true,attributionControl:false});
       mapRef.current=m;
       m.on("load",()=>{
         if(bbox){m.fitBounds(bbox,{padding:40,duration:0,maxZoom:20});}else if(gpsOnly&&gpsRef.current){m.setCenter([gpsRef.current.lng,gpsRef.current.lat]);m.setZoom(18);}
@@ -802,7 +802,7 @@ function ObiGolfApp(){
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto" style={{WebkitOverflowScrolling:"touch"}}>
+      <div className={cn("flex-1",tab==="caddie"?"overflow-hidden":"overflow-y-auto")} style={{WebkitOverflowScrolling:"touch"}}>
         {tab==="home"&&(
           <div className="overflow-y-auto pb-8">
             <section className="px-4 pt-5"><p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Dashboard</p><h1 className="display text-[24px] font-bold tracking-tight leading-tight mt-0.5">Your game, by the numbers.</h1></section>
@@ -839,7 +839,7 @@ function ObiGolfApp(){
 
         {tab==="caddie"&&(
           <div className="flex flex-col h-full min-h-0">
-            <div className="px-4 pt-3 shrink-0 space-y-3 overflow-y-auto" style={{maxHeight:"62vh",scrollbarWidth:"none"}}>
+            <div className="px-4 pt-3 shrink-0 space-y-3 overflow-y-auto" style={{maxHeight:showHoleMap?"55vh":"280px",scrollbarWidth:"none"}}>
               {/* Course banner */}
               <div className="rounded-xl bg-foreground text-background p-3.5">
                 <div className="flex items-center gap-3">
