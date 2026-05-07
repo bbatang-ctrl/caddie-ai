@@ -176,7 +176,7 @@ body{font-family:var(--font-sans);-webkit-font-smoothing:antialiased;overflow-x:
 input,textarea,select{font-family:var(--font-sans);}
 input::placeholder,textarea::placeholder{color:var(--muted-fg);}
 button{cursor:pointer;font-family:inherit;}
-@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}\n@keyframes typing-dot{0%,60%,100%{transform:translateY(0);opacity:0.35}30%{transform:translateY(-5px);opacity:1}}
 @keyframes popIn{from{opacity:0;transform:scale(0.8)}to{opacity:1;transform:scale(1)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}@keyframes spin{to{transform:rotate(360deg)}}
 .fade-up{animation:fadeUp 0.4s cubic-bezier(.2,.8,.4,1) both;}
@@ -264,6 +264,9 @@ function ObiGolfApp(){
   const [postRoundRecap,setPostRoundRecap]=useState(null);
   const [mapFullscreen,setMapFullscreen]=useState(false);
   const [chatOpen,setChatOpen]=useState(false); // caddie drawer open/closed
+  const [obiTyping,setObiTyping]=useState(false); // typing indicator
+  const [welcomeSent,setWelcomeSent]=useState(()=>{try{return localStorage.getItem("obi_welcome_sent")==="true";}catch{return false;}});
+  const [welcomeStage,setWelcomeStage]=useState(0); // 0=not started,1=asked q1,2=asked course,3=done
   // IMPROVEMENT 1: tee selector state
   const [selectedTee,setSelectedTee]=useState(null);
   const [weather,setWeather]=useState(null);
@@ -628,6 +631,12 @@ function ObiGolfApp(){
   const sendMessage=async(text)=>{
     const msg=text||input;if(!msg.trim()||loading)return;setInput("");
     const userMsg={role:"user",content:msg};const newMessages=[...messages,userMsg];setMessages(newMessages);setLoading(true);
+    // During welcome conversation, route to welcome handler
+    if(welcomeStage===1||welcomeStage===2){
+      setLoading(false);
+      await handleWelcomeReply(msg,welcomeStage);
+      return;
+    }
     const doFetch=async(attempt)=>{
       const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:newMessages,system:buildSystem()})});
       if(!r.ok){const t=await r.text().catch(()=>"HTTP "+r.status);throw new Error(t);}
@@ -657,6 +666,68 @@ function ObiGolfApp(){
     setLoading(false);
   };
 
+  // ── OBI WELCOME CONVERSATION ───────────────────────────────────
+  // Fires once per user, ever. Obi speaks first, asks one question,
+  // builds context through natural back-and-forth.
+  const obiSpeak=async(text,delayMs=400)=>{
+    setObiTyping(true);
+    await new Promise(r=>setTimeout(r,delayMs+Math.min(text.length*18,1800)));
+    setObiTyping(false);
+    setMessages(m=>[...m,{role:"assistant",content:text}]);
+  };
+
+  const triggerWelcome=useCallback(async()=>{
+    if(welcomeSent)return;
+    try{localStorage.setItem("obi_welcome_sent","true");}catch{}
+    setWelcomeSent(true);
+    setChatOpen(true);
+    setWelcomeStage(1);
+    const name=firstName(userProfile?.full_name)||"there";
+    await obiSpeak(
+      "Hey "+name+" — I'm Obi, your caddie. I've been on the bag for players at every level, from first-timers to scratch golfers. One question before we do anything else: what's the single thing costing you the most strokes right now?",
+      600
+    );
+  },[welcomeSent,userProfile]);
+
+  // Handle welcome follow-ups after user responds
+  const handleWelcomeReply=useCallback(async(userMsg,stage)=>{
+    if(stage===1){
+      // They answered "what's costing you strokes" — respond + ask course
+      setWelcomeStage(2);
+      const name=firstName(userProfile?.full_name)||"";
+      const prompt="The player just told you what's costing them strokes: ""+userMsg+"". Respond in 2 sentences: first validate their answer with a specific insight (don't be generic), then ask what course they play most. Be warm and direct. Use their name: "+name+". No markdown.";
+      setObiTyping(true);
+      try{
+        const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({messages:[{role:"user",content:prompt}],
+            system:"You are Obi, a warm expert golf caddie. MAX 2 sentences. Plain English. No markdown. Ask what course they play at the end."})});
+        const d=await r.json();
+        let reply=d?.content?.[0]?.text||d?.candidates?.[0]?.content?.parts?.[0]?.text||d?.text||"";
+        if(reply){
+          await new Promise(res=>setTimeout(res,Math.min(reply.length*15,2000)));
+          setObiTyping(false);
+          setMessages(m=>[...m,{role:"assistant",content:reply}]);
+        } else setObiTyping(false);
+      }catch{setObiTyping(false);}
+    } else if(stage===2){
+      // They named their course — set it and respond
+      setWelcomeStage(3);
+      const detectedCourse=userMsg.trim();
+      if(detectedCourse.length>2){
+        setCourse(detectedCourse);
+        setCourseInput(detectedCourse);
+        fetchHoleMap(detectedCourse,1);
+      }
+      const name=firstName(userProfile?.full_name)||"";
+      await obiSpeak(
+        "Perfect — I know that course well. I'm pulling up the layout now. "+
+        (detectedCourse.length>2?"Start on hole 1 or tell me which hole you want to talk about. ":"")+
+        "From here on, just ask me anything — what club, where to aim, rules questions, anything. I've got you, "+name+".",
+        300
+      );
+    }
+  },[userProfile,welcomeStage]);
+
   const speakText=(text)=>{
     if(!window.speechSynthesis||!text)return;window.speechSynthesis.cancel();setSpeaking(false);
     const clean=text.replace(new RegExp("[*_#]","g"),"").replace(new RegExp("\n","g")," ").trim();if(!clean)return;
@@ -681,6 +752,14 @@ function ObiGolfApp(){
   const speak=(text)=>{if(!window.speechSynthesis)return;if(speaking){window.speechSynthesis.cancel();setSpeaking(false);return;}const utt=new SpeechSynthesisUtterance(text.replace(new RegExp("[*_#]","g"),""));utt.rate=0.93;utt.pitch=0.95;utt.onend=()=>setSpeaking(false);setSpeaking(true);window.speechSynthesis.speakText(utt);};
 
   useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"});},[messages]);
+
+  // Trigger welcome conversation when caddie tab opens for the first time
+  useEffect(()=>{
+    if(tab==="caddie"&&!welcomeSent&&userProfile){
+      const t=setTimeout(()=>triggerWelcome(),800);
+      return()=>clearTimeout(t);
+    }
+  },[tab,welcomeSent,userProfile]);
 
   const saveRound=async()=>{
     if(!user)return;const filled=scorecard.filter(Boolean);if(filled.length===0)return;
@@ -1312,8 +1391,19 @@ function ObiGolfApp(){
 
                 {/* Collapsed: last AI message or prompt */}
                 {!chatOpen&&(
-                  <div className="px-4 pb-2">
-                    {messages.length>0&&messages[messages.length-1].role==="assistant"?(
+                  <div className="px-4 pb-2" onClick={()=>setChatOpen(true)}>
+                    {obiTyping||loading?(
+                      <div className="flex items-center gap-2">
+                        <ObiLogo size={14}/>
+                        <div className="flex gap-1 items-center">
+                          {[0,1,2].map(i=>(
+                            <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/50"
+                              style={{animation:"typing-dot 1.2s "+(i*0.2)+"s infinite ease-in-out"}}/>
+                          ))}
+                        </div>
+                        <span className="display text-[10px] font-bold text-white/40 uppercase tracking-wider">Obi is thinking...</span>
+                      </div>
+                    ):messages.length>0&&messages[messages.length-1].role==="assistant"?(
                       <p className="text-[13px] text-white leading-snug line-clamp-2 opacity-90">
                         {messages[messages.length-1].content}
                       </p>
@@ -1383,6 +1473,18 @@ function ObiGolfApp(){
                         </div>
                       );
                     })}
+                    {/* Obi typing indicator */}
+                    {(obiTyping||loading)&&(
+                      <div className="flex justify-start gap-2 items-end">
+                        <ObiLogo size={16}/>
+                        <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-3.5 py-3 flex gap-1 items-center">
+                          {[0,1,2].map(i=>(
+                            <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/50"
+                              style={{animation:"typing-dot 1.2s "+(i*0.2)+"s infinite ease-in-out"}}/>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div ref={chatEndRef}/>
                   </div>
 
