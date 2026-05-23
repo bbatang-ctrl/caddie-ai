@@ -505,19 +505,36 @@ function ObiGolfApp(){
     const dbHole=teeHoles?.[holeNum-1];
     if(dbHole){setYardage(String(dbHole.yards));setHolePars(prev=>{const n=[...prev];n[holeNum-1]=dbHole.par;return n;});}
     let osmData=null;
+    let osmCourseCenter=null;
     try{
       const courseSafe=courseName.replace(/"/g,"");
       const courseShort=courseSafe.replace(/\s*(golf|course|club|links|cc|the)\s*/gi," ").replace(/\s+/g," ").trim();
-      const q="[out:json][timeout:30];(area[\"name\"~\""+courseSafe+"\",i][\"leisure\"=\"golf_course\"]->.a;area[\"name\"~\""+courseShort+"\",i][\"leisure\"=\"golf_course\"]->.b;);(way[\"golf\"](area.a);way[\"golf\"](area.b);node[\"golf\"](area.a););out body;>;out skel qt;";
+      // Also fetch the course boundary way so we can derive a center for validating AI coords
+      const q="[out:json][timeout:30];(area[\"name\"~\""+courseSafe+"\",i][\"leisure\"=\"golf_course\"]->.a;area[\"name\"~\""+courseShort+"\",i][\"leisure\"=\"golf_course\"]->.b;);(way[\"golf\"](area.a);way[\"golf\"](area.b);node[\"golf\"](area.a);way[\"leisure\"=\"golf_course\"](area.a);way[\"leisure\"=\"golf_course\"](area.b););out body;>;out skel qt;";
       const resp=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}});
-      if(resp.ok){const d=await resp.json();osmData=parseOSMHole(d,holeNum);}
+      if(resp.ok){
+        const d=await resp.json();
+        osmData=parseOSMHole(d,holeNum);
+        // Derive course center from boundary ways — used to validate AI coords for any course
+        const nodeMap={};
+        d.elements.filter(e=>e.type==="node").forEach(n=>{nodeMap[n.id]={lat:n.lat,lng:n.lon};});
+        const boundaryWays=d.elements.filter(e=>e.type==="way"&&e.tags?.leisure==="golf_course");
+        if(boundaryWays.length>0){
+          const pts=boundaryWays.flatMap(w=>(w.nodes||[]).map(id=>nodeMap[id]).filter(Boolean));
+          if(pts.length>0)osmCourseCenter={lat:pts.reduce((s,p)=>s+p.lat,0)/pts.length,lng:pts.reduce((s,p)=>s+p.lng,0)/pts.length};
+        }
+        if(!osmCourseCenter&&osmData?.bounds){
+          osmCourseCenter={lat:(osmData.bounds.minLat+osmData.bounds.maxLat)/2,lng:(osmData.bounds.minLng+osmData.bounds.maxLng)/2};
+        }
+      }
     }catch(e){console.warn("Overpass failed",e);}
     try{
       const knownYards=dbHole?dbHole.yards:null;const knownPar=dbHole?dbHole.par:null;
-      const anchor=getCourseAnchor(courseName);
-      const anchorHint=anchor?" The course is near GPS "+anchor.lat.toFixed(4)+","+anchor.lng.toFixed(4)+". Tee and green coords MUST be within 1 mile of this location.":"";
+      const staticAnchor=getCourseAnchor(courseName);
+      const anchor=staticAnchor||osmCourseCenter;
+      const anchorHint=anchor?" The course center is near GPS "+anchor.lat.toFixed(4)+","+anchor.lng.toFixed(4)+". tee_lat/tee_lng must be the center of the actual tee box for hole "+holeNum+" (NOT the clubhouse, parking lot, or road entrance). green_lat/green_lng must be the center of the putting green. All coords must be within 1 mile of the course center.":" tee_lat/tee_lng must be the GPS center of the tee box for hole "+holeNum+" (NOT the clubhouse, parking lot, or road). green_lat/green_lng must be the GPS center of the putting green. Coords must be on the actual course property.";
       const p=`Return ONLY valid JSON, no markdown. Golf course: ${courseName}. Hole number: ${holeNum}. ${knownPar?'Par is '+knownPar+'.':''}${knownYards?'Yardage is '+knownYards+' yards. ':''}${anchorHint} Return exactly this JSON shape: {"par":${knownPar||4},"yards":${knownYards||400},"strokeIndex":1,"description":"one sentence","shape":"straight","tee_lat":0.0,"tee_lng":0.0,"green_lat":0.0,"green_lng":0.0,"hazards":["example"],"tips":"one tip"}. Replace 0.0 with real GPS coords for this hole. GPS must be accurate and on the actual course property.`;
-      const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:p}],system:"Golf course data API. Return only valid JSON. Be accurate with real course data."})});
+      const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:p}],system:"Golf course data API. Return only valid JSON. Be accurate with real course data. tee_lat/tee_lng must be the actual tee box GPS, not the clubhouse or road."})});
       const d=await r.json();
       const raw=d?.content?.[0]?.text||"";const t=raw.split("```json").join("").split("```").join("").trim();
       const s=t.indexOf("{"),e=t.lastIndexOf("}");
@@ -527,12 +544,18 @@ function ObiGolfApp(){
         let validatedGd={...gd,par:finalPar,yards:finalYards,strokeIndex:finalSI,osmFeatures:osmData};
         if(validatedGd.green_lat&&validatedGd.tee_lat){
           const R=6371000,rad=x=>x*Math.PI/180;
-          // Check 1: hole length must be 20-1500 yards
           const dLt=rad(validatedGd.green_lat-validatedGd.tee_lat),dLg=rad(validatedGd.green_lng-validatedGd.tee_lng);
           const a1=Math.sin(dLt/2)**2+Math.cos(rad(validatedGd.tee_lat))*Math.cos(rad(validatedGd.green_lat))*Math.sin(dLg/2)**2;
           const holeLen=2*R*Math.asin(Math.sqrt(a1))*1.09361;
-          // Check 2: coords must be near the known course anchor — uses module-level function
-          const nearAnchor=coordsNearAnchor(validatedGd.tee_lat,validatedGd.tee_lng,validatedGd.green_lat,validatedGd.green_lng,courseName);
+          // Validate against static anchor or OSM-derived course center (covers any course in OSM)
+          const dynAnchor=staticAnchor||osmCourseCenter;
+          let nearAnchor=true;
+          if(dynAnchor){
+            const midLat=(validatedGd.tee_lat+validatedGd.green_lat)/2,midLng=(validatedGd.tee_lng+validatedGd.green_lng)/2;
+            const dLa=rad(midLat-dynAnchor.lat),dLo=rad(midLng-dynAnchor.lng);
+            const aA=Math.sin(dLa/2)**2+Math.cos(rad(dynAnchor.lat))*Math.cos(rad(midLat))*Math.sin(dLo/2)**2;
+            nearAnchor=2*R*Math.asin(Math.sqrt(aA))*1.09361<=5280;
+          }
           const bad=holeLen<20||holeLen>1500||!nearAnchor;
           if(bad){
             console.warn("Rejecting Gemini coords: holeLen="+holeLen.toFixed(0)+"y nearAnchor="+nearAnchor);
