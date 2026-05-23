@@ -500,7 +500,7 @@ function ObiGolfApp(){
     try{
       const courseSafe=courseName.replace(/"/g,"");
       const courseShort=courseSafe.replace(/\s*(golf|course|club|links|cc|the)\s*/gi," ").replace(/\s+/g," ").trim();
-      const q="[out:json][timeout:30];(area[\"name\"~\""+courseSafe+"\",i][\"leisure\"=\"golf_course\"]->.a;area[\"name\"~\""+courseShort+"\",i][\"leisure\"=\"golf_course\"]->.b;);(way[\"golf\"](area.a);way[\"golf\"](area.b);node[\"golf\"](area.a););out body;>;out skel qt;";(way[\"golf\"](area.c);node[\"golf\"](area.c););out body;>;out skel qt;";
+      const q="[out:json][timeout:30];(area[\"name\"~\""+courseSafe+"\",i][\"leisure\"=\"golf_course\"]->.a;area[\"name\"~\""+courseShort+"\",i][\"leisure\"=\"golf_course\"]->.b;);(way[\"golf\"](area.a);way[\"golf\"](area.b);node[\"golf\"](area.a););out body;>;out skel qt;";
       const resp=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}});
       if(resp.ok){const d=await resp.json();osmData=parseOSMHole(d,holeNum);}
     }catch(e){console.warn("Overpass failed",e);}
