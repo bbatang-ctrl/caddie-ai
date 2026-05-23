@@ -460,6 +460,34 @@ function ObiGolfApp(){
   const [pinDropMode,setPinDropMode]=useState(false);
   const [holeBearing,setHoleBearing]=useState(0); // degrees: tee→green angle (0=north)
 
+  // Known course GPS anchors — used to validate Gemini's coords
+  // If Gemini returns coords more than 3 miles from here, we reject them
+  const COURSE_ANCHORS={
+    "serrano":        {lat:34.0195, lng:-117.0641},
+    "olympic":        {lat:37.7290, lng:-122.4940},  // covers lake + ocean + cliffs
+    "empire ranch":   {lat:38.6721, lng:-121.0648},
+    "harding park":   {lat:37.7239, lng:-122.5047},
+    "poplar creek":   {lat:37.5694, lng:-122.2619},
+    "pebble beach":   {lat:36.5680, lng:-121.9500},
+    "augusta":        {lat:33.5021, lng:-82.0232},
+    "tpc sawgrass":   {lat:30.1975, lng:-81.3956},
+    "st andrews":     {lat:56.3438, lng:-2.8022},
+    "torrey pines":   {lat:32.8997, lng:-117.2527},
+    "pinehurst":      {lat:35.1957, lng:-79.4699},
+    "bethpage":       {lat:40.7437, lng:-73.4637},
+    "kiawah":         {lat:32.6076, lng:-80.0830},
+    "erin hills":     {lat:43.3527, lng:-88.3643},
+  };
+
+  const getCourseAnchor=(name)=>{
+    if(!name)return null;
+    const lower=name.toLowerCase();
+    for(const[key,anchor] of Object.entries(COURSE_ANCHORS)){
+      if(lower.includes(key))return anchor;
+    }
+    return null;
+  };
+
   const fetchHoleMap=useCallback(async(courseName,holeNum)=>{
     if(!courseName||holeMapLoading)return;
     setHoleMapLoading(true);setHoleMap(null);setOsmError(false);
@@ -470,13 +498,17 @@ function ObiGolfApp(){
     if(dbHole){setYardage(String(dbHole.yards));setHolePars(prev=>{const n=[...prev];n[holeNum-1]=dbHole.par;return n;});}
     let osmData=null;
     try{
-      const q="[out:json][timeout:25];area[\"name\"~\""+courseName.replace(/"/g,"")+"\"\",i][\"leisure\"=\"golf_course\"]->.c;(way[\"golf\"](area.c);node[\"golf\"](area.c););out body;>;out skel qt;";
+      const courseSafe=courseName.replace(/"/g,"");
+      const courseShort=courseSafe.replace(/\s*(golf|course|club|links|cc|the)\s*/gi," ").replace(/\s+/g," ").trim();
+      const q="[out:json][timeout:30];(area[\"name\"~\""+courseSafe+"\",i][\"leisure\"=\"golf_course\"]->.a;area[\"name\"~\""+courseShort+"\",i][\"leisure\"=\"golf_course\"]->.b;);(way[\"golf\"](area.a);way[\"golf\"](area.b);node[\"golf\"](area.a););out body;>;out skel qt;";(way[\"golf\"](area.c);node[\"golf\"](area.c););out body;>;out skel qt;";
       const resp=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}});
       if(resp.ok){const d=await resp.json();osmData=parseOSMHole(d,holeNum);}
     }catch(e){console.warn("Overpass failed",e);}
     try{
       const knownYards=dbHole?dbHole.yards:null;const knownPar=dbHole?dbHole.par:null;
-      const p="Return ONLY valid JSON, no markdown. Golf course: "+courseName+". Hole number: "+holeNum+". "+(knownPar?"Par is "+knownPar+". ":"")+(knownYards?"Yardage is "+knownYards+" yards. ":"")+"Return: {\"par\":"+(knownPar||"integer")+",\"yards\":"+(knownYards||"integer")+",\"strokeIndex\":integer 1-18,\"description\":\"one sentence about this specific hole layout and main challenge\",\"shape\":\"straight OR dogleg-left OR dogleg-right OR double-dogleg\",\"tee_lat\":decimal GPS lat,\"tee_lng\":decimal GPS lng,\"green_lat\":decimal GPS lat,\"green_lng\":decimal GPS lng,\"hazards\":[\"short string per hazard e.g. water left, bunker front right\"],\"tips\":\"one actionable strategic sentence for this specific hole\"}. Use your knowledge of the real course layout. GPS coords must be accurate.";
+      const anchor=getCourseAnchor(courseName);
+      const anchorHint=anchor?" The course is near GPS "+anchor.lat.toFixed(4)+","+anchor.lng.toFixed(4)+". Tee and green coords MUST be within 1 mile of this location.":"";
+      const p="Return ONLY valid JSON, no markdown. Golf course: "+courseName+". Hole number: "+holeNum+". "+(knownPar?"Par is "+knownPar+". ":"")+(knownYards?"Yardage is "+knownYards+" yards. ":"")+anchorHint+" Return: {\"par\":\"+(knownPar||"integer")+"\",\"yards\":\"+(knownYards||"integer")+"\",\"strokeIndex\":integer,\"description\":\"one sentence about this hole\",\"shape\":\"straight|dogleg-left|dogleg-right\",\"tee_lat\":GPS_lat,\"tee_lng\":GPS_lng,\"green_lat\":GPS_lat,\"green_lng\":GPS_lng,\"hazards\":[\"hazard\"],\"tips\":\"one strategic tip\"}. Use real GPS coords for this specific hole.";
       const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:p}],system:"Golf course data API. Return only valid JSON. Be accurate with real course data."})});
       const d=await r.json();
       const raw=d?.content?.[0]?.text||"";const t=raw.split("```json").join("").split("```").join("").trim();
@@ -487,11 +519,34 @@ function ObiGolfApp(){
         let validatedGd={...gd,par:finalPar,yards:finalYards,strokeIndex:finalSI,osmFeatures:osmData};
         if(validatedGd.green_lat&&validatedGd.tee_lat){
           const R=6371000,toRad=x=>x*Math.PI/180;
+          // Check 1: hole length sanity (20-1500 yards)
           const dLat1=toRad(validatedGd.green_lat-validatedGd.tee_lat),dLng1=toRad(validatedGd.green_lng-validatedGd.tee_lng);
           const a1=Math.sin(dLat1/2)**2+Math.cos(toRad(validatedGd.tee_lat))*Math.cos(toRad(validatedGd.green_lat))*Math.sin(dLng1/2)**2;
           const holeLen=2*R*Math.asin(Math.sqrt(a1))*1.09361;
-          let bad=holeLen<20||holeLen>1500; // wider range: par 3s can be short, long par 5s ~700y
-          if(!bad&&gpsPos?.lat){const midLat=(validatedGd.tee_lat+validatedGd.green_lat)/2,midLng=(validatedGd.tee_lng+validatedGd.green_lng)/2;const dLat2=toRad(midLat-gpsPos.lat),dLng2=toRad(midLng-gpsPos.lng);const a2=Math.sin(dLat2/2)**2+Math.cos(toRad(gpsPos.lat))*Math.cos(toRad(midLat))*Math.sin(dLng2/2)**2;const distToPlayer=2*R*Math.asin(Math.sqrt(a2))*1.09361;if(distToPlayer>52800){console.warn("Gemini coords "+Math.round(distToPlayer)+"y from player — nulling");bad=true;}}
+          let bad=holeLen<20||holeLen>1500;
+          // Check 2: coords must be near the known course anchor (within 3 miles)
+          if(!bad){
+            const anchor=getCourseAnchor(courseName);
+            if(anchor){
+              const midLat=(validatedGd.tee_lat+validatedGd.green_lat)/2;
+              const midLng=(validatedGd.tee_lng+validatedGd.green_lng)/2;
+              const dLa=toRad(midLat-anchor.lat),dLo=toRad(midLng-anchor.lng);
+              const aA=Math.sin(dLa/2)**2+Math.cos(toRad(anchor.lat))*Math.cos(toRad(midLat))*Math.sin(dLo/2)**2;
+              const distFromAnchor=2*R*Math.asin(Math.sqrt(aA))*1.09361;
+              if(distFromAnchor>5280){
+                console.warn("Gemini coords "+Math.round(distFromAnchor)+"y from known course location — rejecting");
+                bad=true;
+              }
+            }
+          }
+          // Check 3: if GPS active, coords must be near player (within 10 miles)
+          if(!bad&&gpsPos?.lat){
+            const midLat=(validatedGd.tee_lat+validatedGd.green_lat)/2,midLng=(validatedGd.tee_lng+validatedGd.green_lng)/2;
+            const dLat2=toRad(midLat-gpsPos.lat),dLng2=toRad(midLng-gpsPos.lng);
+            const a2=Math.sin(dLat2/2)**2+Math.cos(toRad(gpsPos.lat))*Math.cos(toRad(midLat))*Math.sin(dLng2/2)**2;
+            const distToPlayer=2*R*Math.asin(Math.sqrt(a2))*1.09361;
+            if(distToPlayer>52800){console.warn("Gemini coords far from player — nulling");bad=true;}
+          }
           if(bad)validatedGd={...validatedGd,tee_lat:null,tee_lng:null,green_lat:null,green_lng:null};
         }
         setHoleMap(validatedGd);setYardage(String(finalYards));setHolePars(prev=>{const n=[...prev];n[holeNum-1]=finalPar;return n;});
