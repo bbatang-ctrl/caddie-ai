@@ -563,7 +563,8 @@ function ObiGolfApp(){
     let apiHole=null;
     if(!osmData){
       try{
-        const cr=await fetch("/api/course?name="+encodeURIComponent(courseName)+"&hole="+holeNum);
+        const locParam=osmCourseCenter?`&lat=${osmCourseCenter.lat}&lng=${osmCourseCenter.lng}`:"";
+        const cr=await fetch("/api/course?name="+encodeURIComponent(courseName)+"&hole="+holeNum+locParam);
         if(cr.ok){
           const cd=await cr.json();
           if(cd.found){
