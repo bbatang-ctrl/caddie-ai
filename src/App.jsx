@@ -506,75 +506,116 @@ function ObiGolfApp(){
     if(dbHole){setYardage(String(dbHole.yards));setHolePars(prev=>{const n=[...prev];n[holeNum-1]=dbHole.par;return n;});}
     let osmData=null;
     let osmCourseCenter=null;
+
+    // ── Step 1: Nominatim geocoding (free OSM geocoder) ───────────────────────
+    // Gets a reliable course center lat/lng for ANY golf course worldwide.
+    // Much more reliable than name-matching in Overpass.
     try{
-      const courseSafe=courseName.replace(/"/g,"");
-      const courseShort=courseSafe.replace(/\s*(golf|course|club|links|cc|the)\s*/gi," ").replace(/\s+/g," ").trim();
-      // Also fetch the course boundary way so we can derive a center for validating AI coords
-      const q="[out:json][timeout:30];(area[\"name\"~\""+courseSafe+"\",i][\"leisure\"=\"golf_course\"]->.a;area[\"name\"~\""+courseShort+"\",i][\"leisure\"=\"golf_course\"]->.b;);(way[\"golf\"](area.a);way[\"golf\"](area.b);node[\"golf\"](area.a);way[\"leisure\"=\"golf_course\"](area.a);way[\"leisure\"=\"golf_course\"](area.b););out body;>;out skel qt;";
+      const staticAnchorFirst=getCourseAnchor(courseName);
+      if(staticAnchorFirst){
+        osmCourseCenter=staticAnchorFirst; // already have it for hardcoded courses
+      } else {
+        const geoQuery=encodeURIComponent(courseName+" golf course");
+        const geoResp=await fetch("https://nominatim.openstreetmap.org/search?q="+geoQuery+"&format=json&limit=1&featuretype=leisure",{headers:{"User-Agent":"CaddieAI/1.0 (golf app)"}});
+        if(geoResp.ok){
+          const geoData=await geoResp.json();
+          if(geoData[0]){osmCourseCenter={lat:parseFloat(geoData[0].lat),lng:parseFloat(geoData[0].lon)};}
+        }
+      }
+    }catch(e){console.warn("Nominatim failed",e);}
+
+    // ── Step 2: Overpass — search by LOCATION (not name) ──────────────────────
+    // Searching within 1.2km of the geocoded center is far more reliable than
+    // regex name matching, which breaks on "The Olympic Club" vs "olympic club lake course".
+    try{
+      let q;
+      if(osmCourseCenter){
+        // Location-based search: find all golf features near the course center
+        const{lat,lng}=osmCourseCenter;
+        q="[out:json][timeout:30];(way[\"golf\"](around:1200,"+lat+","+lng+");node[\"golf\"](around:1200,"+lat+","+lng+");way[\"leisure\"=\"golf_course\"](around:1200,"+lat+","+lng+"););out body;>;out skel qt;";
+      } else {
+        // Fallback: name-based search (less reliable, used when geocoding fails)
+        const courseSafe=courseName.replace(/"/g,"");
+        const courseKey=courseSafe.split(" ").filter(w=>!/^(golf|course|links|the|cc)$/i.test(w)).slice(0,2).join(" ");
+        q="[out:json][timeout:30];(area[\"name\"~\""+courseSafe+"\",i][\"leisure\"=\"golf_course\"]->.a;area[\"name\"~\""+courseKey+"\",i][\"leisure\"=\"golf_course\"]->.b;);(way[\"golf\"](area.a);way[\"golf\"](area.b);node[\"golf\"](area.a);way[\"leisure\"=\"golf_course\"](area.a);way[\"leisure\"=\"golf_course\"](area.b););out body;>;out skel qt;";
+      }
       const resp=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}});
       if(resp.ok){
         const d=await resp.json();
         osmData=parseOSMHole(d,holeNum);
-        // Derive course center from boundary ways — used to validate AI coords for any course
-        const nodeMap={};
-        d.elements.filter(e=>e.type==="node").forEach(n=>{nodeMap[n.id]={lat:n.lat,lng:n.lon};});
-        const boundaryWays=d.elements.filter(e=>e.type==="way"&&e.tags?.leisure==="golf_course");
-        if(boundaryWays.length>0){
-          const pts=boundaryWays.flatMap(w=>(w.nodes||[]).map(id=>nodeMap[id]).filter(Boolean));
-          if(pts.length>0)osmCourseCenter={lat:pts.reduce((s,p)=>s+p.lat,0)/pts.length,lng:pts.reduce((s,p)=>s+p.lng,0)/pts.length};
-        }
-        if(!osmCourseCenter&&osmData?.bounds){
-          osmCourseCenter={lat:(osmData.bounds.minLat+osmData.bounds.maxLat)/2,lng:(osmData.bounds.minLng+osmData.bounds.maxLng)/2};
+        // Refine course center from OSM boundary if we got one
+        if(!getCourseAnchor(courseName)){
+          const nodeMap={};
+          d.elements.filter(e=>e.type==="node").forEach(n=>{nodeMap[n.id]={lat:n.lat,lng:n.lon};});
+          const boundaryWays=d.elements.filter(e=>e.type==="way"&&e.tags?.leisure==="golf_course");
+          if(boundaryWays.length>0){
+            const pts=boundaryWays.flatMap(w=>(w.nodes||[]).map(id=>nodeMap[id]).filter(Boolean));
+            if(pts.length>0)osmCourseCenter={lat:pts.reduce((s,p)=>s+p.lat,0)/pts.length,lng:pts.reduce((s,p)=>s+p.lng,0)/pts.length};
+          }
+          if(!osmCourseCenter&&osmData?.bounds)osmCourseCenter={lat:(osmData.bounds.minLat+osmData.bounds.maxLat)/2,lng:(osmData.bounds.minLng+osmData.bounds.maxLng)/2};
         }
       }
     }catch(e){console.warn("Overpass failed",e);}
+
+    // ── Step 3: GolfCourseAPI — reliable tee/green GPS per hole ───────────────
+    // Only called when OSM has no hole-specific feature data (osmData is null).
+    // 300 free requests/day; results cached in state so navigating holes reuses data.
+    let apiHole=null;
+    if(!osmData){
+      try{
+        const cr=await fetch("/api/course?name="+encodeURIComponent(courseName)+"&hole="+holeNum);
+        if(cr.ok){
+          const cd=await cr.json();
+          if(cd.found){
+            apiHole=cd.hole;
+            // If we didn't get a course center from Nominatim/OSM, use the API's location
+            if(!osmCourseCenter&&cd.location?.lat)osmCourseCenter=cd.location;
+          }
+        }
+      }catch(e){console.warn("GolfCourseAPI failed",e);}
+    }
+
+    // ── Step 4: AI for text data only (description, tips, hazards) ────────────
+    // Never used for GPS — AI cannot reliably generate coordinates.
     try{
-      const knownYards=dbHole?dbHole.yards:null;const knownPar=dbHole?dbHole.par:null;
-      const staticAnchor=getCourseAnchor(courseName);
-      const anchor=staticAnchor||osmCourseCenter;
-      const anchorHint=anchor?" The course center is near GPS "+anchor.lat.toFixed(4)+","+anchor.lng.toFixed(4)+". tee_lat/tee_lng must be the center of the actual tee box for hole "+holeNum+" (NOT the clubhouse, parking lot, or road entrance). green_lat/green_lng must be the center of the putting green. All coords must be within 1 mile of the course center.":" tee_lat/tee_lng must be the GPS center of the tee box for hole "+holeNum+" (NOT the clubhouse, parking lot, or road). green_lat/green_lng must be the GPS center of the putting green. Coords must be on the actual course property.";
-      const p=`Return ONLY valid JSON, no markdown. Golf course: ${courseName}. Hole number: ${holeNum}. ${knownPar?'Par is '+knownPar+'.':''}${knownYards?'Yardage is '+knownYards+' yards. ':''}${anchorHint} Return exactly this JSON shape: {"par":${knownPar||4},"yards":${knownYards||400},"strokeIndex":1,"description":"one sentence","shape":"straight","tee_lat":0.0,"tee_lng":0.0,"green_lat":0.0,"green_lng":0.0,"hazards":["example"],"tips":"one tip"}. Replace 0.0 with real GPS coords for this hole. GPS must be accurate and on the actual course property.`;
-      const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:p}],system:"Golf course data API. Return only valid JSON. Be accurate with real course data. tee_lat/tee_lng must be the actual tee box GPS, not the clubhouse or road."})});
+      const knownYards=dbHole?.yards||apiHole?.yards||null;
+      const knownPar=dbHole?.par||apiHole?.par||null;
+      const p=`Return ONLY valid JSON, no markdown. Golf course: ${courseName}. Hole number: ${holeNum}. ${knownPar?'Par is '+knownPar+'.':''}${knownYards?'Yardage is '+knownYards+' yards. ':''} Return exactly this JSON shape: {"par":${knownPar||4},"yards":${knownYards||400},"strokeIndex":1,"description":"one sentence describing this hole","shape":"straight","hazards":["hazard description"],"tips":"one actionable tip"}. Do not include any GPS or coordinate fields.`;
+      const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:p}],system:"Golf course data API. Return only valid JSON with hole description, shape, hazards, and tips. Never include GPS coordinates."})});
       const d=await r.json();
       const raw=d?.content?.[0]?.text||"";const t=raw.split("```json").join("").split("```").join("").trim();
       const s=t.indexOf("{"),e=t.lastIndexOf("}");
       if(s>=0&&e>s){
         const gd=JSON.parse(t.slice(s,e+1));
-        const finalPar=dbHole?.par||gd.par||4;const finalYards=dbHole?.yards||gd.yards||400;const finalSI=dbHole?.si||gd.strokeIndex||holeNum;
-        let validatedGd={...gd,par:finalPar,yards:finalYards,strokeIndex:finalSI,osmFeatures:osmData};
-        if(validatedGd.green_lat&&validatedGd.tee_lat){
-          const R=6371000,rad=x=>x*Math.PI/180;
-          const dLt=rad(validatedGd.green_lat-validatedGd.tee_lat),dLg=rad(validatedGd.green_lng-validatedGd.tee_lng);
-          const a1=Math.sin(dLt/2)**2+Math.cos(rad(validatedGd.tee_lat))*Math.cos(rad(validatedGd.green_lat))*Math.sin(dLg/2)**2;
-          const holeLen=2*R*Math.asin(Math.sqrt(a1))*1.09361;
-          // Validate against static anchor or OSM-derived course center (covers any course in OSM)
-          const dynAnchor=staticAnchor||osmCourseCenter;
-          let nearAnchor=true;
-          if(dynAnchor){
-            const midLat=(validatedGd.tee_lat+validatedGd.green_lat)/2,midLng=(validatedGd.tee_lng+validatedGd.green_lng)/2;
-            const dLa=rad(midLat-dynAnchor.lat),dLo=rad(midLng-dynAnchor.lng);
-            const aA=Math.sin(dLa/2)**2+Math.cos(rad(dynAnchor.lat))*Math.cos(rad(midLat))*Math.sin(dLo/2)**2;
-            nearAnchor=2*R*Math.asin(Math.sqrt(aA))*1.09361<=5280;
-          }
-          const bad=holeLen<20||holeLen>1500||!nearAnchor;
-          if(bad){
-            console.warn("Rejecting Gemini coords: holeLen="+holeLen.toFixed(0)+"y nearAnchor="+nearAnchor);
-            validatedGd={...validatedGd,tee_lat:null,tee_lng:null,green_lat:null,green_lng:null};
-          }
-        }
-        setHoleMap(validatedGd);setYardage(String(finalYards));setHolePars(prev=>{const n=[...prev];n[holeNum-1]=finalPar;return n;});
-        // Compute bearing: angle from tee to green so map rotates hole-up
-        if(validatedGd.tee_lat&&validatedGd.green_lat){
+        const finalPar=dbHole?.par||apiHole?.par||gd.par||4;
+        const finalYards=dbHole?.yards||apiHole?.yards||gd.yards||400;
+        const finalSI=dbHole?.si||apiHole?.strokeIndex||gd.strokeIndex||holeNum;
+        // GPS priority: 1) GolfCourseAPI (surveyed), 2) OSM features, 3) nothing
+        const tee_lat=apiHole?.tee_lat||null;
+        const tee_lng=apiHole?.tee_lng||null;
+        const green_lat=apiHole?.green_lat||null;
+        const green_lng=apiHole?.green_lng||null;
+        const holeMap={
+          par:finalPar,yards:finalYards,strokeIndex:finalSI,
+          description:gd.description||"",shape:gd.shape||"straight",
+          hazards:gd.hazards||[],tips:gd.tips||"",
+          osmFeatures:osmData,courseCenterFallback:osmCourseCenter,
+          tee_lat,tee_lng,green_lat,green_lng
+        };
+        setHoleMap(holeMap);setYardage(String(finalYards));setHolePars(prev=>{const n=[...prev];n[holeNum-1]=finalPar;return n;});
+        if(tee_lat&&green_lat){
           const toRad=x=>x*Math.PI/180;const toDeg=x=>x*180/Math.PI;
-          const dLng=toRad(validatedGd.green_lng-validatedGd.tee_lng);
-          const y=Math.sin(dLng)*Math.cos(toRad(validatedGd.green_lat));
-          const x=Math.cos(toRad(validatedGd.tee_lat))*Math.sin(toRad(validatedGd.green_lat))-Math.sin(toRad(validatedGd.tee_lat))*Math.cos(toRad(validatedGd.green_lat))*Math.cos(dLng);
+          const dLng=toRad(green_lng-tee_lng);
+          const y=Math.sin(dLng)*Math.cos(toRad(green_lat));
+          const x=Math.cos(toRad(tee_lat))*Math.sin(toRad(green_lat))-Math.sin(toRad(tee_lat))*Math.cos(toRad(green_lat))*Math.cos(dLng);
           setHoleBearing((toDeg(Math.atan2(y,x))+360)%360);
         }
       }
     }catch(e){
-      if(osmData||dbHole){const fallPar=dbHole?.par||osmData?.estimatedPar||4;const fallYards=dbHole?.yards||osmData?.estimatedYards||400;setHoleMap({par:fallPar,yards:fallYards,strokeIndex:dbHole?.si||holeNum,description:courseName+" hole "+holeNum,shape:"straight",hazards:[],tips:"",osmFeatures:osmData});setYardage(String(fallYards));setHolePars(prev=>{const n=[...prev];n[holeNum-1]=fallPar;return n;});}
-      else{setHoleMap({par:4,yards:400,description:courseName+" hole "+holeNum,shape:"straight",hazards:[],tips:"Play to the center.",osmFeatures:null});}
+      const fallPar=dbHole?.par||apiHole?.par||osmData?.estimatedPar||4;
+      const fallYards=dbHole?.yards||apiHole?.yards||osmData?.estimatedYards||400;
+      setHoleMap({par:fallPar,yards:fallYards,strokeIndex:dbHole?.si||holeNum,description:courseName+" hole "+holeNum,shape:"straight",hazards:[],tips:"",osmFeatures:osmData,courseCenterFallback:osmCourseCenter,tee_lat:apiHole?.tee_lat||null,tee_lng:apiHole?.tee_lng||null,green_lat:apiHole?.green_lat||null,green_lng:apiHole?.green_lng||null});
+      setYardage(String(fallYards));setHolePars(prev=>{const n=[...prev];n[holeNum-1]=fallPar;return n;});
     }
     setHoleMapLoading(false);
   },[holeMapLoading,holePars,yardage,selectedTee]);
@@ -630,19 +671,23 @@ function ObiGolfApp(){
     const getCenter=()=>{
       if(holeData?.osmFeatures?.bounds){const{minLat,maxLat,minLng,maxLng}=holeData.osmFeatures.bounds;return{center:[(minLng+maxLng)/2,(minLat+maxLat)/2],bbox:[[minLng-0.0003,minLat-0.0003],[maxLng+0.0003,maxLat+0.0003]],reliable:true};}
       if(holeData?.tee_lat&&holeData?.green_lat){const cLat=(holeData.tee_lat+holeData.green_lat)/2,cLng=(holeData.tee_lng+holeData.green_lng)/2;if(gps?.lat){const R=6371000,toRad=x=>x*Math.PI/180;const dLat=toRad(cLat-gps.lat),dLng=toRad(cLng-gps.lng);const a=Math.sin(dLat/2)**2+Math.cos(toRad(gps.lat))*Math.cos(toRad(cLat))*Math.sin(dLng/2)**2;const distYards=2*R*Math.asin(Math.sqrt(a))*1.09361;if(distYards>3000){return{center:[gps.lng,gps.lat],bbox:null,reliable:false,gpsOnly:true};}}return{center:[cLng,cLat],bbox:null,reliable:true};}
+      // Use OSM-derived course center when AI coords were rejected — at least show the correct course
+      if(holeData?.courseCenterFallback){const cc=holeData.courseCenterFallback;return{center:[cc.lng,cc.lat],bbox:null,reliable:true,courseOnly:true};}
       if(gps?.lat)return{center:[gps.lng,gps.lat],bbox:null,reliable:false,gpsOnly:true};
       return{center:[0,0],bbox:null,reliable:false};
     };
     useEffect(()=>{
       if(!containerRef.current||!holeData)return;
-      const{center,bbox,reliable,gpsOnly}=getCenter();
+      const{center,bbox,reliable,gpsOnly,courseOnly}=getCenter();
       let finalCenter=center;
       if(center[0]===0&&center[1]===0){if(gpsRef.current?.lat){finalCenter=[gpsRef.current.lng,gpsRef.current.lat];}else return;}
+      // courseOnly = OSM gave us the course center but no hole detail — zoom out to show the course
+      const initZoom=courseOnly?15:(gpsOnly||(center[0]===0&&gps?.lat))?18:18;
       const m=new maplibregl.Map({container:containerRef.current,style:{version:8,glyphs:"https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",sources:{satellite:{type:"raster",tiles:["https://api.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg90?access_token="+import.meta.env.VITE_MAPBOX_TOKEN],tileSize:512,maxzoom:22,attribution:"© Mapbox © OpenStreetMap"}},layers:[{id:"satellite",type:"raster",source:"satellite",paint:{
           // Vivid, high-contrast satellite: greens pop, bunkers read white, water reads blue
           "raster-brightness-min":0.05,"raster-brightness-max":1.0,
           "raster-saturation":0.5,"raster-contrast":0.3,"raster-hue-rotate":0
-        }}]},center:finalCenter,zoom:(gpsOnly||(center[0]===0&&gps?.lat))?18:18,
+        }}]},center:finalCenter,zoom:initZoom,
         bearing:bearing,pitch:0,interactive:true,attributionControl:false});
       mapRef.current=m;
       m.on("load",()=>{
