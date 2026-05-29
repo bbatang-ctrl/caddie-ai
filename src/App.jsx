@@ -591,31 +591,20 @@ function ObiGolfApp(){
         const finalPar=dbHole?.par||apiHole?.par||gd.par||4;
         const finalYards=dbHole?.yards||apiHole?.yards||gd.yards||400;
         const finalSI=dbHole?.si||apiHole?.strokeIndex||gd.strokeIndex||holeNum;
-        // GPS priority: 1) GolfCourseAPI (surveyed), 2) OSM features, 3) nothing
-        const tee_lat=apiHole?.tee_lat||null;
-        const tee_lng=apiHole?.tee_lng||null;
-        const green_lat=apiHole?.green_lat||null;
-        const green_lng=apiHole?.green_lng||null;
+        // GPS comes from OSM only — GolfCourseAPI has no per-hole coordinates
         const holeMap={
           par:finalPar,yards:finalYards,strokeIndex:finalSI,
           description:gd.description||"",shape:gd.shape||"straight",
           hazards:gd.hazards||[],tips:gd.tips||"",
           osmFeatures:osmData,courseCenterFallback:osmCourseCenter,
-          tee_lat,tee_lng,green_lat,green_lng
+          tee_lat:null,tee_lng:null,green_lat:null,green_lng:null
         };
         setHoleMap(holeMap);setYardage(String(finalYards));setHolePars(prev=>{const n=[...prev];n[holeNum-1]=finalPar;return n;});
-        if(tee_lat&&green_lat){
-          const toRad=x=>x*Math.PI/180;const toDeg=x=>x*180/Math.PI;
-          const dLng=toRad(green_lng-tee_lng);
-          const y=Math.sin(dLng)*Math.cos(toRad(green_lat));
-          const x=Math.cos(toRad(tee_lat))*Math.sin(toRad(green_lat))-Math.sin(toRad(tee_lat))*Math.cos(toRad(green_lat))*Math.cos(dLng);
-          setHoleBearing((toDeg(Math.atan2(y,x))+360)%360);
-        }
       }
     }catch(e){
       const fallPar=dbHole?.par||apiHole?.par||osmData?.estimatedPar||4;
       const fallYards=dbHole?.yards||apiHole?.yards||osmData?.estimatedYards||400;
-      setHoleMap({par:fallPar,yards:fallYards,strokeIndex:dbHole?.si||holeNum,description:courseName+" hole "+holeNum,shape:"straight",hazards:[],tips:"",osmFeatures:osmData,courseCenterFallback:osmCourseCenter,tee_lat:apiHole?.tee_lat||null,tee_lng:apiHole?.tee_lng||null,green_lat:apiHole?.green_lat||null,green_lng:apiHole?.green_lng||null});
+      setHoleMap({par:fallPar,yards:fallYards,strokeIndex:dbHole?.si||holeNum,description:courseName+" hole "+holeNum,shape:"straight",hazards:[],tips:"",osmFeatures:osmData,courseCenterFallback:osmCourseCenter,tee_lat:null,tee_lng:null,green_lat:null,green_lng:null});
       setYardage(String(fallYards));setHolePars(prev=>{const n=[...prev];n[holeNum-1]=fallPar;return n;});
     }
     setHoleMapLoading(false);
