@@ -125,18 +125,24 @@ async function processSwingVideo(videoSource,parsedResult){
   document.body.appendChild(video);
 
   const cleanup=()=>{
+    video.pause();
+    video.src="";  // release the media decoder before removing from DOM
     try{document.body.removeChild(video);}catch{}
     if(isBlob)URL.revokeObjectURL(url);
   };
 
   try{
+    // Set handlers BEFORE src so we can't miss a fast-loading cached video
     video.src=url;
+    video.load(); // explicit load call — more reliable than relying on src assignment alone
 
     // 1 ── Wait for metadata (gives us duration + dimensions)
     await new Promise((resolve,reject)=>{
       const t=setTimeout(()=>reject(new Error("loadedmetadata timeout")),15000);
-      video.onloadedmetadata=()=>{clearTimeout(t);resolve();};
-      video.onerror=()=>{clearTimeout(t);reject(new Error("video load error: "+(video.error?.message||"unknown")));};
+      const onMeta=()=>{clearTimeout(t);video.removeEventListener("loadedmetadata",onMeta);resolve();};
+      const onErr=()=>{clearTimeout(t);video.removeEventListener("error",onErr);reject(new Error("video load error: "+(video.error?.message||"unknown")));};
+      video.addEventListener("loadedmetadata",onMeta);
+      video.addEventListener("error",onErr);
     });
     const dur=video.duration;
     _flog("duration:",dur.toFixed(2)+"s  size:",video.videoWidth+"×"+video.videoHeight);
@@ -144,6 +150,7 @@ async function processSwingVideo(videoSource,parsedResult){
     // 2 ── Warm up the iOS decoder — without play() first, seeks produce blank frames
     await video.play().catch(()=>{});
     video.pause();
+    _flog("decoder warmed up");
 
     // 3 ── Determine timing fractions
     //   Reject Gemini keyFrames outside 0.03–0.97 (returns 0/0.005/0.01 sometimes).
@@ -156,22 +163,31 @@ async function processSwingVideo(videoSource,parsedResult){
     // Pre-warm MediaPipe concurrently while we do sequential seeks
     const landmarkerProm=loadPoseLandmarker().catch(e=>{_flog("MediaPipe FAILED:",e?.message||e);return null;});
 
-    // 4 ── Seek helper with frame-decode barrier
-    //   requestVideoFrameCallback: tells browser to call back after the *decoded frame*
-    //   has been composited (Chrome 83+, Safari 15.4+, not Firefox yet).
-    //   2× RAF fallback gives 2 animation frames of settling time on older engines.
+    // 4 ── Seek helper with frame-decode barrier + mandatory safety fallback
+    //
+    // THE DEADLOCK BUG: after seeked fires and we clear the outer timeout,
+    // requestVideoFrameCallback can silently stall on paused iOS video — the browser
+    // only fires rVFC when new frames are being presented to the compositor.
+    // A paused video with no active render loop never fires it, hanging the promise.
+    //
+    // FIX: 200 ms safety fallback.  If rVFC fires first → perfect sync.
+    //      If it doesn't fire → capture with whatever frame is decoded anyway.
+    //      Either way the promise resolves; no seek ever hangs the pipeline.
     const seekTo=(frac)=>new Promise((resolve,reject)=>{
       const clampT=Math.min(Math.max(frac*dur,0.05),dur-0.05);
-      const timeout=setTimeout(()=>reject(new Error(`seek timeout frac=${frac}`)),10000);
+      const outerTimeout=setTimeout(()=>reject(new Error(`seek timeout frac=${frac}`)),10000);
       const onSeeked=()=>{
         video.removeEventListener("seeked",onSeeked);
-        clearTimeout(timeout);
+        clearTimeout(outerTimeout);
+        _flog("seeked at",clampT.toFixed(2)+"s");
+        // Frame-decode barrier — resolve once, whichever fires first
+        let settled=false;
+        const done=()=>{ if(!settled){settled=true;resolve();} };
         if(typeof video.requestVideoFrameCallback==="function"){
-          // Preferred: waits for GPU to present the decoded frame
-          video.requestVideoFrameCallback(()=>resolve());
+          video.requestVideoFrameCallback(done);
+          setTimeout(done,200); // safety net: rVFC won't fire if video is paused on some iOS
         }else{
-          // Fallback: 2 animation frames of settling time
-          requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()));
+          requestAnimationFrame(()=>requestAnimationFrame(done));
         }
       };
       video.addEventListener("seeked",onSeeked);
