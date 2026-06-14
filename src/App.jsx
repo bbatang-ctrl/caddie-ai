@@ -27,6 +27,105 @@ let CapGeo=null,CapHaptics=null,CapSpeech=null,CapKeyboard=null,CapStatusBar=nul
 )();
 import { Home,MessageCircle,Target,Users,Sun,Moon,Settings,Cloud,ChevronRight,ChevronDown,MapPin,ArrowUp,Video,Sparkles,LogOut,Briefcase,BarChart3,X,TrendingDown,TrendingUp,Trophy } from "lucide-react";
 function cn(...c){return c.filter(Boolean).join(" ");}
+
+// ─── Swing video analysis helpers ────────────────────────────────────────────
+let _poseLandmarker=null,_poseLandmarkerLoading=false;
+async function loadPoseLandmarker(){
+  if(_poseLandmarker)return _poseLandmarker;
+  if(_poseLandmarkerLoading)return null;
+  _poseLandmarkerLoading=true;
+  try{
+    const{FilesetResolver,PoseLandmarker}=await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs");
+    const vision=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
+    _poseLandmarker=await PoseLandmarker.createFromOptions(vision,{
+      baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",delegate:"GPU"},
+      runningMode:"IMAGE",numPoses:1
+    });
+    _poseLandmarkerLoading=false;
+    return _poseLandmarker;
+  }catch(e){console.warn("MediaPipe load failed:",e);_poseLandmarkerLoading=false;return null;}
+}
+async function extractVideoFrame(videoFile,fraction){
+  return new Promise((resolve,reject)=>{
+    const video=document.createElement("video");
+    video.muted=true;video.playsInline=true;
+    const url=URL.createObjectURL(videoFile);
+    video.src=url;
+    const timer=setTimeout(()=>{URL.revokeObjectURL(url);reject(new Error("Timeout"));},15000);
+    video.onloadedmetadata=()=>{
+      video.onseeked=()=>{
+        clearTimeout(timer);
+        try{
+          const cv=document.createElement("canvas");
+          cv.width=video.videoWidth||480;cv.height=video.videoHeight||640;
+          cv.getContext("2d").drawImage(video,0,0,cv.width,cv.height);
+          URL.revokeObjectURL(url);resolve({canvas:cv});
+        }catch(e){URL.revokeObjectURL(url);reject(e);}
+      };
+      video.currentTime=video.duration*Math.max(0.01,Math.min(0.99,fraction));
+    };
+    video.onerror=()=>{clearTimeout(timer);URL.revokeObjectURL(url);reject(new Error("Video load failed"));};
+  });
+}
+function drawPoseOnCanvas(canvas,landmarks){
+  if(!landmarks?.length)return;
+  const ctx=canvas.getContext("2d"),W=canvas.width,H=canvas.height;
+  const pt=(i)=>({x:landmarks[i].x*W,y:landmarks[i].y*H});
+  const vis=(i)=>(landmarks[i]?.visibility??1)>0.4;
+  // Skeleton connections
+  [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[24,26],[25,27],[26,28]].forEach(([a,b])=>{
+    if(!vis(a)||!vis(b))return;
+    const pa=pt(a),pb=pt(b);
+    ctx.strokeStyle="rgba(0,255,128,0.6)";ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(pa.x,pa.y);ctx.lineTo(pb.x,pb.y);ctx.stroke();
+  });
+  [11,12,13,14,15,16,23,24,25,26].forEach(i=>{
+    if(!vis(i))return;const p=pt(i);
+    ctx.fillStyle="#00ff80";ctx.beginPath();ctx.arc(p.x,p.y,3.5,0,Math.PI*2);ctx.fill();
+  });
+  // Golf key lines (spine / shoulders / hips)
+  if(vis(11)&&vis(12)&&vis(23)&&vis(24)){
+    const ls=pt(11),rs=pt(12),lh=pt(23),rh=pt(24);
+    const smx=(ls.x+rs.x)/2,smy=(ls.y+rs.y)/2,hmx=(lh.x+rh.x)/2,hmy=(lh.y+rh.y)/2;
+    const dx=hmx-smx,dy=hmy-smy;
+    // Spine angle — yellow dashed
+    const spineDeg=Math.round(Math.abs(Math.atan2(Math.abs(dx),Math.abs(dy))*180/Math.PI));
+    ctx.save();ctx.strokeStyle="rgba(255,220,0,0.9)";ctx.lineWidth=2.5;ctx.setLineDash([6,3]);
+    ctx.beginPath();ctx.moveTo(smx-dx*0.2,smy-dy*0.2);ctx.lineTo(hmx+dx*0.2,hmy+dy*0.2);ctx.stroke();ctx.restore();
+    ctx.fillStyle="#ffe000";ctx.font="bold 11px sans-serif";ctx.fillText("Spine "+spineDeg+"°",hmx+5,hmy);
+    // Shoulder line — blue dashed
+    const shDeg=Math.round(Math.abs(Math.atan2(rs.y-ls.y,rs.x-ls.x)*180/Math.PI));
+    ctx.save();ctx.strokeStyle="rgba(100,180,255,0.85)";ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.moveTo(ls.x,ls.y);ctx.lineTo(rs.x,rs.y);ctx.stroke();ctx.restore();
+    ctx.fillStyle="#64b4ff";ctx.font="bold 10px sans-serif";ctx.fillText("Shldr "+shDeg+"°",Math.min(ls.x,rs.x),Math.min(ls.y,rs.y)-4);
+    // Hip line — red dashed
+    const hipDeg=Math.round(Math.abs(Math.atan2(rh.y-lh.y,rh.x-lh.x)*180/Math.PI));
+    ctx.save();ctx.strokeStyle="rgba(255,120,120,0.85)";ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.moveTo(lh.x,lh.y);ctx.lineTo(rh.x,rh.y);ctx.stroke();ctx.restore();
+    ctx.fillStyle="#ff7878";ctx.font="bold 10px sans-serif";ctx.fillText("Hip "+hipDeg+"°",Math.min(lh.x,rh.x),Math.max(lh.y,rh.y)+13);
+  }
+}
+async function processSwingVideo(videoFile,parsedResult){
+  const kf=parsedResult?.keyFrames||{};
+  const stamps=[{key:"setup",t:kf.setup??0.15},{key:"top",t:kf.backswingTop??0.45},{key:"impact",t:kf.impact??0.70}];
+  // Pre-warm MediaPipe while first frame loads
+  let landmarker=null;
+  loadPoseLandmarker().then(l=>{landmarker=l;}).catch(()=>{});
+  const out={};
+  for(const{key,t}of stamps){
+    try{
+      const{canvas}=await extractVideoFrame(videoFile,t);
+      try{
+        if(!landmarker)landmarker=await loadPoseLandmarker();
+        if(landmarker){const res=landmarker.detect(canvas);if(res?.landmarks?.[0])drawPoseOnCanvas(canvas,res.landmarks[0]);}
+      }catch(e){console.warn("Pose on",key,":",e);}
+      out[key]=canvas.toDataURL("image/jpeg",0.82);
+    }catch(e){console.warn("Frame",key,"failed:",e);}
+  }
+  return Object.keys(out).length>0?out:{};
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const COURSE_ANCHORS={
   "serrano":      {lat:34.0195,lng:-117.0641},
   "olympic":      {lat:37.7290,lng:-122.4940},
@@ -1024,41 +1123,49 @@ function ObiGolfApp(){
   const handleSwingAnalyze=async()=>{
     if(!swingFile||swingLoading)return;
     setSwingLoading(true);setSwingAnalysis("");
-    // Capture current values before async work
     const currentFile=swingFile;
     const currentNotes=swingNotes;
     const currentThumb=swingThumb;
+    const isVideo=currentFile.type.startsWith("video/");
+    const videoBlobUrl=isVideo?URL.createObjectURL(currentFile):null;
     try{
-      const isVideo=currentFile.type.startsWith("video/");
       let result;
       if(isVideo){result=await analyzeSwingVideo(currentFile,currentNotes,profile);}
       else{result=await analyzeSwing(currentFile,currentNotes,profile);}
       setSwingAnalysis(result);
-      // Build the new history entry
+      // Parse JSON to extract keyFrames for frame extraction
+      let parsedResult=null;
+      try{const js=result.replace(/^```json\n?/,"").replace(/\n?```$/,"").trim();parsedResult=JSON.parse(js);}catch(e){}
+      const entryTime=new Date().toISOString();
       const newEntry={
         id:null,
         club_used:currentNotes||"unknown",
         notes:currentNotes,
         analysis:result,
         thumbnail:currentThumb||null,
-        created_at:new Date().toISOString(),
+        videoUrl:videoBlobUrl,
+        frames:null,  // null = loading; {} = done (even if failed); object = ready
+        created_at:entryTime,
       };
-      // Try to save to DB and get back the real id
       if(user){
         const{data}=await supabase.from("swing_analyses").insert({
           user_id:user.id,notes:currentNotes,analysis:result,
           club_used:currentNotes||"unknown",thumbnail:currentThumb||null,
-          created_at:newEntry.created_at,
+          created_at:entryTime,
         }).select().single();
         if(data)newEntry.id=data.id;
       }
-      // Always push to history, logged in or not
       setSwingHistory(h=>[{...newEntry},...h]);
+      // Process frames + pose async — non-blocking, frames pop in after analysis
+      if(isVideo&&parsedResult){
+        processSwingVideo(currentFile,parsedResult)
+          .then(frames=>setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:frames||{}}:e)))
+          .catch(()=>setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:{}}:e)));
+      }
     }catch(e){
       console.error("Swing analysis error:",e);
       setSwingAnalysis("Analysis failed: "+e.message);
     }
-    // Clear file and reset input
     setSwingFile(null);setSwingThumb(null);
     if(swingInputRef.current)swingInputRef.current.value="";
     setSwingLoading(false);
@@ -1084,7 +1191,7 @@ function ObiGolfApp(){
   const startRecording=()=>{if(!videoRef.current?.srcObject)return;chunksRef.current=[];const mr=new MediaRecorder(videoRef.current.srcObject,{mimeType:"video/webm;codecs=vp8"});mr.ondataavailable=e=>{if(e.data.size>0)chunksRef.current.push(e.data);};mr.onstop=()=>{const blob=new Blob(chunksRef.current,{type:"video/webm"});stopCamera();analyzeRangeShot(blob);};mediaRecorderRef.current=mr;mr.start();setRecording(true);setTimeout(()=>{if(mr.state==="recording")mr.stop();},4000);};
   const stopRecording=()=>{if(mediaRecorderRef.current?.state==="recording")mediaRecorderRef.current.stop();setRecording(false);};
 
-  const renderSwingAnalysis=(text,thumb,noteLabel,isCollapsible,expandedKey,expandedState,setExpandedState)=>{
+  const renderSwingAnalysis=(text,thumb,noteLabel,isCollapsible,expandedKey,expandedState,setExpandedState,videoUrl,frames)=>{
     if(!text)return null;
 
     // Try to parse as structured JSON (new format from upgraded prompts)
@@ -1122,6 +1229,33 @@ function ObiGolfApp(){
           {(!isCollapsible||expandedState)&&(
             <React.Fragment>
               <div className="p-3 space-y-2">
+                {/* Video player */}
+                {videoUrl&&(
+                  <video src={videoUrl} controls playsInline loop className="w-full rounded-xl bg-black" style={{maxHeight:"240px",objectFit:"contain"}}/>
+                )}
+                {/* Key frames filmstrip with pose overlays */}
+                {videoUrl&&frames&&frames.setup&&(
+                  <div className="rounded-xl border border-border bg-secondary/20 overflow-hidden">
+                    <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-3 pt-2.5 pb-1">Key Frames · Pose Analysis</p>
+                    <div className="grid grid-cols-3 divide-x divide-border border-t border-border">
+                      {[{key:"setup",label:"Setup"},{key:"top",label:"Top"},{key:"impact",label:"Impact"}].map(({key,label})=>(
+                        frames[key]?(
+                          <div key={key} className="flex flex-col">
+                            <img src={frames[key]} alt={label} className="w-full object-cover" style={{aspectRatio:"9/16"}}/>
+                            <p className="display text-[9px] font-bold uppercase text-center text-muted-foreground py-1.5">{label}</p>
+                          </div>
+                        ):null
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Frames still loading */}
+                {videoUrl&&frames===null&&(
+                  <div className="rounded-xl border border-border bg-secondary/20 p-3.5 flex items-center gap-3">
+                    <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent shrink-0" style={{animation:"spin 0.8s linear infinite"}}/>
+                    <p className="display text-[11px] font-bold text-muted-foreground">Analyzing movement frames…</p>
+                  </div>
+                )}
                 {/* Phase scorecard */}
                 <div className="rounded-xl border border-border bg-secondary/20 p-3">
                   <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Swing Breakdown</p>
