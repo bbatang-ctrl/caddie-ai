@@ -598,7 +598,23 @@ export default function PracticeTab({
           <div className="rounded-xl border border-border bg-card p-8 text-center">
             <div className="h-12 w-12 rounded-full border-2 border-primary border-t-transparent mx-auto mb-4" style={{ animation:"spin 0.8s linear infinite" }}/>
             <p className="display text-[15px] font-bold">Analyzing your swing…</p>
-            <p className="text-[12px] text-muted-foreground mt-1">Usually about 15 seconds</p>
+            <p className="text-[12px] text-muted-foreground mt-1">Usually about 15–30 seconds</p>
+          </div>
+        )}
+
+        {/* ── Analysis error (shown when analysis fails and no file is staged) ── */}
+        {!swingLoading && !swingFile && swingAnalysis && (swingAnalysis.startsWith("Analysis failed") || swingAnalysis === "Could not analyze swing.") && (
+          <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span style={{ fontSize:15 }}>⚠️</span>
+              <p className="display text-[11px] font-bold uppercase tracking-wider text-destructive">Analysis failed</p>
+            </div>
+            <p className="text-[12px] text-muted-foreground leading-relaxed">
+              {swingAnalysis.replace("Analysis failed: ", "")}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-2 opacity-60">
+              Check that all updated files are deployed to Vercel, then try again.
+            </p>
           </div>
         )}
 
