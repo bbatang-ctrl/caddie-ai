@@ -1,12 +1,10 @@
 // Proxies raw video chunks from the browser to Google's resumable upload URL.
-// Solves two problems at once:
+// Solves two problems:
 //   1. CORS — browsers can't POST directly to generativelanguage.googleapis.com
-//   2. Vercel body limit — each chunk is ≤ 3 MB, well under the 4.5 MB cap
+//   2. Vercel body limit — each chunk is ≤ 3 MB, under the 4.5 MB cap
 //
-// Called by analyzeSwingVideo() in AppPart1.jsx for each chunk.
-// Headers: X-Upload-Url (Google session URL), X-Upload-Offset (byte offset),
-//          X-Upload-Last ("true" for the final chunk).
-// Body: raw binary chunk (bodyParser must be disabled).
+// Headers: X-Upload-Url, X-Upload-Offset, X-Upload-Last ("true" on final chunk)
+// Body: raw binary chunk — bodyParser MUST be disabled.
 
 export const config = {
   api: { bodyParser: false },
@@ -25,15 +23,25 @@ export default async function handler(req, res) {
   const uploadUrl = req.headers["x-upload-url"];
   const offset    = parseInt(req.headers["x-upload-offset"] || "0");
   const isLast    = req.headers["x-upload-last"] === "true";
-  const mimeType  = req.headers["content-type"] || "video/mp4";
+  // Strip parameters like "; codecs=..." — Google rejects them
+  const mimeType  = (req.headers["content-type"] || "video/mp4").split(";")[0].trim();
 
   if (!uploadUrl) return res.status(400).json({ error: "X-Upload-Url header required" });
 
-  // Collect raw binary body
-  const buffers = [];
-  for await (const chunk of req) buffers.push(chunk);
-  const body = Buffer.concat(buffers);
+  // Read raw binary body with Node.js events (more reliable than for-await in Vercel)
+  let body;
+  try {
+    body = await new Promise((resolve, reject) => {
+      const chunks = [];
+      req.on("data", chunk => chunks.push(Buffer.from(chunk)));
+      req.on("end",  ()    => resolve(Buffer.concat(chunks)));
+      req.on("error", err  => reject(err));
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to read request body: " + err.message });
+  }
 
+  // Forward chunk to Google's resumable upload session
   try {
     const uploadRes = await fetch(uploadUrl, {
       method: "POST",
@@ -48,12 +56,11 @@ export default async function handler(req, res) {
     if (!uploadRes.ok) {
       const t = await uploadRes.text().catch(() => "");
       return res.status(500).json({
-        error: `Google upload error (HTTP ${uploadRes.status}): ${t.slice(0, 200)}`,
+        error: `Google upload error (HTTP ${uploadRes.status}): ${t.slice(0, 300)}`,
       });
     }
 
     if (isLast) {
-      // Final chunk — Google returns the file metadata
       const data = await uploadRes.json().catch(() => ({}));
       return res.status(200).json({
         fileUri:  data?.file?.uri  || null,
@@ -61,9 +68,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // Intermediate chunk — just acknowledge
     return res.status(200).json({ ok: true });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: "Upload proxy error: " + err.message });
   }
 }
