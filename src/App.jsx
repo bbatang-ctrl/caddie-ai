@@ -423,6 +423,7 @@ function ObiGolfApp(){
   const [groupName,setGroupName]=useState("");
   const [mapFullscreen,setMapFullscreen]=useState(false);
   const [chatOpen,setChatOpen]=useState(false); // caddie drawer open/closed
+  const [caddieView,setCaddieView]=useState(()=>{try{return localStorage.getItem("obi_caddie_view")||"chat";}catch{return "chat";}});
   const [obiTyping,setObiTyping]=useState(false); // typing indicator
   const [welcomeSent,setWelcomeSent]=useState(()=>{try{return localStorage.getItem("obi_welcome_sent")==="true";}catch{return false;}});
   const [welcomeStage,setWelcomeStage]=useState(0); // 0=not started,1=asked q1,2=asked course,3=done
@@ -1873,311 +1874,508 @@ function ObiGolfApp(){
         )}
 
         {tab==="caddie"&&(
-          <div className="relative w-full overflow-hidden bg-black" style={{height:"100%",minHeight:0}}>
+          <div className="flex flex-col h-full min-h-0 bg-zinc-950">
 
-            {/* ── FULL-SCREEN MAP ───────────────────────────────── */}
-            {holeMap?(
-              <div className="absolute inset-0" style={{width:"100%",height:"100%"}}>
-                <HoleMapCanvas
-                  map={holeMap} gps={gpsPos}
-                  W={480} H={800}
-                  weather={weather}
-                  bearing={holeBearing}
-                  fullscreen={true}
-                />
-              </div>
-            ):(
-              <div className="absolute inset-0 bg-zinc-950 flex items-center justify-center">
-                {holeMapLoading?(
-                  <div className="text-center">
-                    <div className="h-10 w-10 rounded-full border-2 border-primary border-t-transparent mx-auto mb-3" style={{animation:"spin 0.8s linear infinite"}}/>
-                    <p className="display text-[13px] font-bold text-white/60 uppercase tracking-wider">Loading hole map...</p>
-                  </div>
-                ):(
-                  <div className="text-center px-8">
-                    <p className="text-5xl mb-3">⛳</p>
-                    <p className="display text-[15px] font-bold text-white">Set your course to see the map</p>
-                    <p className="text-[12px] text-white/50 mt-1.5">Type your course name below and tap a hole</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── TOP OVERLAY: course + hole info ──────────────── */}
-            <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none" style={{paddingTop:"env(safe-area-inset-top)"}}>
-              <div className="flex items-start justify-between px-3 pt-2 gap-2">
-
-                {/* Left: hole + yardage pill */}
-                <div className="bg-black/70 backdrop-blur-md rounded-xl px-3 py-2 pointer-events-auto">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="display text-[11px] font-bold text-white/60 uppercase tracking-wider">Hole</span>
-                    <select value={hole} onChange={e=>{setHole(Number(e.target.value));if(course)fetchHoleMap(course,Number(e.target.value));}}
-                      className="appearance-none bg-transparent display text-[18px] font-bold text-white outline-none cursor-pointer w-8">
-                      {Array.from({length:18},(_,i)=>i+1).map(n=><option key={n} value={n} className="bg-zinc-900">{n}</option>)}
-                    </select>
-                    {holeMap&&<span className="display text-[11px] font-bold text-white/60">Par {holeMap.par}</span>}
-                  </div>
-                  {/* Yardage — big if GPS is live */}
-                  {(()=>{
-                    const manualPin=manualPins[hole];
-                    const gemP=holeMap?.green_lat?{lat:holeMap.green_lat,lng:holeMap.green_lng}:null;
-                    const gemOk=gpsPos&&gemP&&haversineYards(gpsPos.lat,gpsPos.lng,gemP.lat,gemP.lng)<=2000;
-                    const pin=manualPin||(gemOk?gemP:null);
-                    const dist=gpsPos&&pin?haversineYards(gpsPos.lat,gpsPos.lng,pin.lat,pin.lng):null;
-                    return dist?(
-                      <div>
-                        <span className="stat text-[36px] leading-none text-white">{dist<3?"Pin":dist}</span>
-                        {dist>=3&&<span className="display text-[11px] font-bold text-white/50 ml-1">yds</span>}
-                      </div>
-                    ):(
-                      holeMap?.yards?<div><span className="stat text-[22px] leading-none text-white/70">{holeMap.yards}</span><span className="display text-[10px] font-bold text-white/40 ml-1">yds</span></div>:null
-                    );
-                  })()}
+            {/* ── MODE TOGGLE BAR ──────────────────────────────── */}
+            <div className="shrink-0 px-4 pt-4 pb-2" style={{paddingTop:"calc(1rem + env(safe-area-inset-top))"}}>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">Caddie</p>
+                  <h1 className="display text-[22px] font-bold tracking-tight text-white leading-tight">Obi.</h1>
                 </div>
-
-                {/* Right: controls */}
-                <div className="flex flex-col gap-1.5 pointer-events-auto">
-                  {/* GPS toggle */}
-                  <button onClick={gpsWatcher==null?startGPS:stopGPS}
-                    className={cn("h-9 w-9 rounded-xl flex items-center justify-center backdrop-blur-md transition",
-                      gpsWatcher!=null?"bg-primary/90 text-primary-foreground":"bg-black/70 text-white/70 hover:text-white")}>
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-                    </svg>
+                <div className="flex gap-1 p-1 rounded-xl bg-white/5 border border-white/10">
+                  <button
+                    onClick={()=>{setCaddieView("chat");try{localStorage.setItem("obi_caddie_view","chat");}catch{}}}
+                    className={cn("display text-[11px] font-bold px-3 py-1.5 rounded-lg transition",caddieView==="chat"?"bg-primary text-black":"text-white/50 hover:text-white")}>
+                    💬 Caddie
                   </button>
-                  {/* Reload map */}
-                  {course&&<button onClick={()=>fetchHoleMap(course,hole)}
-                    className="h-9 w-9 rounded-xl bg-black/70 backdrop-blur-md flex items-center justify-center text-white/70 hover:text-white transition">
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
-                  </button>}
-                  {/* Drop pin */}
-                  {gpsPos&&<button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
-                    className="h-9 w-9 rounded-xl bg-black/70 backdrop-blur-md flex items-center justify-center text-white/70 hover:text-white transition">
-                    <MapPin className="h-4 w-4" strokeWidth={2.5}/>
-                  </button>}
-                  {/* Group round */}
-                  <button onClick={()=>{if(!groupRoundCode)startGroupRound();else setShowGroupModal(true);}}
-                    className={cn("h-9 w-9 rounded-xl backdrop-blur-md flex items-center justify-center transition",
-                      groupPlayers.length>1?"bg-primary/90 text-black":"bg-black/70 text-white/70 hover:text-white")}
-                    title="Group round">
-                    <Users className="h-4 w-4" strokeWidth={2.5}/>
+                  <button
+                    onClick={()=>{setCaddieView("map");try{localStorage.setItem("obi_caddie_view","map");}catch{}}}
+                    className={cn("display text-[11px] font-bold px-3 py-1.5 rounded-lg transition",caddieView==="map"?"bg-primary text-black":"text-white/50 hover:text-white")}>
+                    🗺️ Map
                   </button>
-                </div>
-              </div>
-
-              {/* Course name + tee strip */}
-              <div className="px-3 pt-1.5">
-                <div className="bg-black/60 backdrop-blur-md rounded-xl px-3 py-2 pointer-events-auto">
-                  <div className="flex items-center gap-2">
-                    <input value={courseInput} onChange={e=>setCourseInput(e.target.value)}
-                      onBlur={()=>{if(courseInput){setCourse(courseInput);fetchHoleMap(courseInput,hole);}}}
-                      onKeyDown={e=>{if(e.key==="Enter"&&courseInput){setCourse(courseInput);fetchHoleMap(courseInput,hole);}}}
-                      placeholder="Course name..."
-                      className="flex-1 bg-transparent display text-[13px] font-bold text-white outline-none placeholder:text-white/30"/>
-                    {course&&<span className="display text-[9px] font-bold text-primary uppercase tracking-wider shrink-0">ON</span>}
-                  </div>
-                  {/* Tee selector */}
-                  {matchCourse(courseInput)?.tees&&(
-                    <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                      {Object.entries(matchCourse(courseInput).tees).map(([tee,data])=>(
-                        <button key={tee} onClick={()=>{setSelectedTee(tee);setHoleMap(null);fetchHoleMap(courseInput,hole);}}
-                          className={"display text-[9px] font-bold px-2 py-1 rounded-lg border transition "+(selectedTee===tee?"bg-primary text-primary-foreground border-primary":"border-white/20 text-white/60 hover:border-white/50")}>
-                          {tee} <span className="opacity-50">{data.rating}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
 
-            {/* ── HAZARD TAGS floating overlay ─────────────────── */}
-            {holeMap?.hazards?.length>0&&!chatOpen&&(
-              <div className="absolute top-1/2 left-3 z-10 flex flex-col gap-1 pointer-events-none" style={{transform:"translateY(-50%)"}}>
-                {holeMap.hazards.slice(0,4).map((h,i)=>(
-                  <div key={i} className="bg-black/60 backdrop-blur-sm rounded px-1.5 py-0.5">
-                    <p className="display text-[9px] font-bold text-red-400 uppercase tracking-wider">{h}</p>
+            {/* ── CHAT MODE ────────────────────────────────────── */}
+            {caddieView==="chat"&&(
+              <div className="flex flex-col flex-1 min-h-0">
+
+                {/* Course + hole selector */}
+                <div className="shrink-0 px-4 pb-3 space-y-2">
+                  <div className="flex gap-2">
+                    <div className="flex-1 flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5">
+                      <svg className="h-3.5 w-3.5 text-white/30 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                      <input value={courseInput} onChange={e=>setCourseInput(e.target.value)}
+                        onBlur={()=>{if(courseInput.trim()){setCourse(courseInput.trim());}}}
+                        onKeyDown={e=>{if(e.key==="Enter"&&courseInput.trim()){setCourse(courseInput.trim());e.target.blur();}}}
+                        placeholder="Course name..."
+                        className="flex-1 bg-transparent display text-[13px] font-bold text-white outline-none placeholder:text-white/30"/>
+                      {course&&<span className="display text-[9px] font-bold text-primary uppercase tracking-wider shrink-0">SET</span>}
+                    </div>
+                    {/* Hole selector */}
+                    <div className="flex items-center gap-1 rounded-xl border border-white/15 bg-white/5 px-3 py-2.5">
+                      <span className="display text-[10px] font-bold text-white/40 uppercase tracking-wider">H</span>
+                      <select value={hole} onChange={e=>setHole(Number(e.target.value))}
+                        className="appearance-none bg-transparent display text-[15px] font-bold text-white outline-none cursor-pointer w-7 text-center">
+                        {Array.from({length:18},(_,i)=>i+1).map(n=><option key={n} value={n} className="bg-zinc-900">{n}</option>)}
+                      </select>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
 
-            {/* ── BOTTOM CHAT DRAWER ────────────────────────────── */}
-            <div className={cn("absolute bottom-0 left-0 right-0 z-30 transition-transform duration-300",chatOpen?"translate-y-0":"translate-y-0")}>
+                  {/* Hole quick strip */}
+                  <div className="flex gap-1.5 overflow-x-auto pb-0.5" style={{scrollbarWidth:"none"}}>
+                    {Array.from({length:18},(_,i)=>i+1).map(n=>(
+                      <button key={n} onClick={()=>setHole(n)}
+                        className={cn("h-7 w-7 rounded-lg display text-[11px] font-bold shrink-0 transition",
+                          hole===n?"bg-primary text-black":"border border-white/15 text-white/50 hover:text-white hover:border-white/40")}>
+                        {n}
+                      </button>
+                    ))}
+                  </div>
 
-              {/* Drawer handle + collapsed preview */}
-              <div
-                onClick={()=>setChatOpen(o=>!o)}
-                className="bg-black/80 backdrop-blur-xl border-t border-white/10 cursor-pointer">
-
-                {/* Handle bar */}
-                <div className="flex justify-center pt-2 pb-1">
-                  <div className="w-8 h-1 rounded-full bg-white/30"/>
-                </div>
-
-                {/* Collapsed: last AI message or prompt */}
-                {!chatOpen&&(
-                  <div className="px-4 pb-2" onClick={()=>setChatOpen(true)}>
-                    {obiTyping||loading?(
-                      <div className="flex items-center gap-2">
-                        <ObiLogo size={14}/>
-                        <div className="flex gap-1 items-center">
-                          {[0,1,2].map(i=>(
-                            <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/50"
-                              style={{animation:"typing-dot 1.2s "+(i*0.2)+"s infinite ease-in-out"}}/>
+                  {/* Par / yardage info strip if known */}
+                  {holeMap&&(
+                    <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-white/5 border border-white/10">
+                      <div className="text-center">
+                        <p className="display text-[9px] font-bold text-white/40 uppercase tracking-wider">Par</p>
+                        <p className="stat text-[18px] font-bold text-white leading-none">{holeMap.par||"—"}</p>
+                      </div>
+                      <div className="w-px h-8 bg-white/10"/>
+                      <div className="text-center">
+                        <p className="display text-[9px] font-bold text-white/40 uppercase tracking-wider">Yards</p>
+                        <p className="stat text-[18px] font-bold text-white leading-none">{holeMap.yards||"—"}</p>
+                      </div>
+                      {holeMap.strokeIndex&&(<>
+                        <div className="w-px h-8 bg-white/10"/>
+                        <div className="text-center">
+                          <p className="display text-[9px] font-bold text-white/40 uppercase tracking-wider">S/I</p>
+                          <p className="stat text-[18px] font-bold text-white leading-none">{holeMap.strokeIndex}</p>
+                        </div>
+                      </>)}
+                      {holeMap.hazards?.length>0&&(
+                        <div className="ml-auto flex flex-wrap gap-1 justify-end">
+                          {holeMap.hazards.slice(0,3).map((h,i)=>(
+                            <span key={i} className="display text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 uppercase tracking-wider">{h}</span>
                           ))}
                         </div>
-                        <span className="display text-[10px] font-bold text-white/40 uppercase tracking-wider">Obi is thinking...</span>
-                      </div>
-                    ):messages.length>0&&messages[messages.length-1].role==="assistant"?(
-                      <p className="text-[13px] text-white leading-snug line-clamp-2 opacity-90">
-                        {messages[messages.length-1].content}
-                      </p>
-                    ):(
-                      <p className="display text-[12px] font-bold text-white/50 uppercase tracking-wider">
-                        Ask Obi anything about this hole ↑
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
-              {/* Expanded drawer */}
-              {chatOpen&&(
-                <div className="bg-zinc-950 border-t border-white/10" style={{maxHeight:"60vh",display:"flex",flexDirection:"column"}}>
+                {/* Chat messages — scrollable */}
+                <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3 min-h-0" style={{scrollbarWidth:"none"}}>
 
-                  {/* AI caddie analysis card — always top of expanded drawer */}
+                  {/* Latest AI response pinned at top */}
                   {messages.length>0&&messages[messages.length-1].role==="assistant"&&(
-                    <div className="px-4 pt-3 pb-2 border-b border-white/10 shrink-0">
-                      <div className="flex items-center gap-2 mb-1.5">
+                    <div className="rounded-xl bg-white/5 border border-white/10 p-3.5">
+                      <div className="flex items-center gap-2 mb-2">
                         <ObiLogo size={16}/>
-                        <p className="display text-[9px] font-bold uppercase tracking-[0.18em] text-primary">AI Caddie Analysis</p>
+                        <p className="display text-[9px] font-bold uppercase tracking-[0.18em] text-primary">Obi's Read</p>
+                        {holeMap&&<span className="display text-[9px] font-bold text-white/30 uppercase tracking-wider ml-auto">Hole {hole} · Par {holeMap.par}</span>}
                       </div>
-                      <p className="text-[14px] text-white leading-snug">
+                      <p className="text-[14px] text-white leading-relaxed">
                         {messages[messages.length-1].content}
                       </p>
-                      {/* Action buttons */}
-                      <div className="flex gap-1.5 mt-2 flex-wrap">
-                        {["Why?","Alternatives","Risk?"].map(q=>(
-                          <button key={q} onClick={()=>sendMessage(q==="Why?"?"Why do you recommend that?":q==="Alternatives"?"What are my alternatives?":"Biggest risk?")}
-                            className="display text-[9px] font-bold uppercase tracking-wider rounded-lg px-2 py-1.5 border border-white/20 text-white/70 hover:text-white hover:border-white/50 transition">
+                      <div className="flex gap-1.5 mt-2.5 flex-wrap">
+                        {["Why?","Alternatives","Risk?","Bag?"].map(q=>(
+                          <button key={q} onClick={()=>sendMessage(q==="Why?"?"Why do you recommend that?":q==="Alternatives"?"What are my alternatives?":q==="Risk?"?"Biggest risk on this hole?":"What club from my bag?")}
+                            className="display text-[9px] font-bold uppercase tracking-wider rounded-lg px-2 py-1.5 border border-white/15 text-white/60 hover:text-white hover:border-white/40 transition">
                             {q}
                           </button>
                         ))}
                         <button onClick={()=>{speaking?stopSpeak():speakText(messages[messages.length-1].content);}}
-                          className={cn("display text-[9px] font-bold uppercase tracking-wider rounded-lg px-2 py-1.5 border transition",speaking?"bg-primary/30 border-primary text-primary":"border-white/20 text-white/70 hover:text-white")}>
+                          className={cn("display text-[9px] font-bold uppercase tracking-wider rounded-lg px-2 py-1.5 border transition",speaking?"bg-primary/20 border-primary/40 text-primary":"border-white/15 text-white/60 hover:text-white")}>
                           {speaking?"⏹ Stop":"🔊 Read"}
                         </button>
                       </div>
                     </div>
                   )}
 
-                  {/* Full chat history */}
-                  <div className="flex-1 overflow-y-auto px-4 py-2 space-y-2 min-h-0" style={{scrollbarWidth:"none"}}>
-                    {messages.length===0&&(
-                      <div className="space-y-1.5 py-1">
-                        {(beginnerMode?["What club should I hit?","How do I play this hole safe?","I'm nervous — what should I focus on?","📖 Rules question"]:["What's the smart play here?","Wind factor on this shot?","Lay up or go for it?","What's the miss to avoid?"]).map(prompt=>(
-                          <button key={prompt} onClick={()=>{if(prompt.startsWith("📖")){setShowRulesModal(true);}else{sendMessage(prompt);}}}
-                            className="w-full text-left px-3 py-2 rounded-xl border border-white/15 display text-[12px] font-bold text-white/70 hover:text-white hover:border-white/40 transition">
-                            {prompt}
-                          </button>
+                  {/* Quick prompts when no messages */}
+                  {messages.length===0&&!loading&&!obiTyping&&(
+                    <div className="space-y-2">
+                      <p className="display text-[9px] font-bold uppercase tracking-[0.18em] text-white/30 px-1">Ask Obi</p>
+                      {(beginnerMode?["What club should I hit?","How do I play this hole safe?","I'm nervous — what should I focus on?","📖 Rules question"]:["What's the smart play here?","Wind factor on this shot?","Lay up or go for it?","What's the miss to avoid?"]).map(prompt=>(
+                        <button key={prompt} onClick={()=>{if(prompt.startsWith("📖")){setShowRulesModal(true);}else{sendMessage(prompt);}}}
+                          className="w-full text-left px-3.5 py-3 rounded-xl border border-white/12 bg-white/[0.03] display text-[13px] font-bold text-white/60 hover:text-white hover:border-white/30 hover:bg-white/[0.06] transition">
+                          {prompt}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Chat history (skip last AI — pinned above) */}
+                  {messages.length>0&&(
+                    <div className="space-y-2">
+                      {messages.map((m,i)=>{
+                        const isAI=m.role==="assistant";
+                        if(isAI&&i===messages.length-1)return null; // pinned above
+                        return(
+                          <div key={i} className={cn("flex",isAI?"justify-start gap-2 items-end":"justify-end")}>
+                            {isAI&&<ObiLogo size={14}/>}
+                            <div className={cn("rounded-2xl px-3 py-2 text-[13px] leading-snug max-w-[85%]",
+                              isAI?"bg-zinc-800 text-white rounded-bl-sm":"bg-primary text-black rounded-br-sm font-medium")}>
+                              {m.content}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Typing indicator */}
+                  {(obiTyping||loading)&&(
+                    <div className="flex justify-start gap-2 items-end">
+                      <ObiLogo size={14}/>
+                      <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-3.5 py-3 flex gap-1 items-center">
+                        {[0,1,2].map(i=>(
+                          <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/50"
+                            style={{animation:"typing-dot 1.2s "+(i*0.2)+"s infinite ease-in-out"}}/>
                         ))}
                       </div>
-                    )}
-                    {messages.map((m,i)=>{
-                      const isAI=m.role==="assistant";
-                      const isLastAI=isAI&&i===messages.length-1;
-                      // Skip the last AI message in history — it's shown in the analysis card above
-                      if(isLastAI&&messages.length>0)return null;
-                      return(
-                        <div key={i} className={cn("flex",isAI?"justify-start gap-2 items-end":"justify-end")}>
-                          {isAI&&<ObiLogo size={16}/>}
-                          <div className={cn("rounded-2xl px-3 py-2 text-[13px] leading-snug max-w-[85%]",
-                            isAI?"bg-zinc-800 text-white rounded-bl-sm":"bg-primary text-black rounded-br-sm")}>
-                            {m.content}
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {/* Obi typing indicator */}
-                    {(obiTyping||loading)&&(
-                      <div className="flex justify-start gap-2 items-end">
-                        <ObiLogo size={16}/>
-                        <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-3.5 py-3 flex gap-1 items-center">
-                          {[0,1,2].map(i=>(
-                            <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/50"
-                              style={{animation:"typing-dot 1.2s "+(i*0.2)+"s infinite ease-in-out"}}/>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <div ref={chatEndRef}/>
-                  </div>
-
-                  {/* Scorecard quick strip */}
-                  <div className="border-t border-white/10 px-3 py-2 flex items-center gap-2 shrink-0 overflow-x-auto" style={{scrollbarWidth:"none"}}>
-                    <span className="display text-[9px] font-bold uppercase tracking-wider text-white/40 shrink-0">H{hole}</span>
-                    {[1,2,3,4,5,6,7,8,9,10].map(v=>(
-                      <button key={v} onClick={()=>setScorecard(s=>{const n=[...s];n[hole-1]=scorecard[hole-1]===v?null:v;return n;})}
-                        className={cn("h-7 w-7 rounded-lg display text-[11px] font-bold shrink-0 transition",
-                          scorecard[hole-1]===v?"bg-primary text-black":
-                          v===holePars[hole-1]?"border border-white/30 text-white/70":"text-white/30 hover:text-white/60")}>
-                        {v}
-                      </button>
-                    ))}
-                    {scorecard.some(Boolean)&&(
-                      <button onClick={saveRound} className="ml-auto display text-[10px] font-bold uppercase tracking-wider bg-primary text-black rounded-lg px-2.5 py-1.5 shrink-0">Save</button>
-                    )}
-                  </div>
+                    </div>
+                  )}
+                  <div ref={chatEndRef}/>
                 </div>
-              )}
 
-              {/* Input bar — always visible */}
-              <div className="bg-zinc-950/95 backdrop-blur-xl px-3 pb-safe" style={{paddingBottom:"calc(0.75rem + env(safe-area-inset-bottom))",paddingTop:"8px",borderTop:"1px solid rgba(255,255,255,0.08)"}}>
-                {beginnerMode&&(
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="display text-[9px] font-bold text-primary uppercase tracking-wider">🌱 Beginner Mode</span>
-                    <button onClick={()=>{setBeginnerMode(false);try{localStorage.setItem("obi_beginner","false");}catch{}}} className="ml-auto display text-[9px] font-bold uppercase tracking-wider text-white/30 hover:text-white/60">Off</button>
-                  </div>
-                )}
-                {speaking&&(
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <div className="flex gap-0.5 items-end h-3">{[0,1,2,3].map(i=>(<div key={i} className="w-0.5 rounded-full bg-primary" style={{height:(4+i%2*4)+"px",animation:"pulse-dot 0.8s "+(i*0.12)+"s infinite"}}/>))}</div>
-                    <span className="display text-[9px] font-bold text-primary uppercase tracking-wider">Speaking</span>
-                    <button onClick={stopSpeak} className="ml-auto display text-[9px] font-bold text-white/40 hover:text-white">Stop</button>
-                  </div>
-                )}
-                {loading&&!speaking&&(
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <div className="h-3 w-3 rounded-full border border-primary border-t-transparent" style={{animation:"spin 0.8s linear infinite"}}/>
-                    <span className="display text-[9px] font-bold text-white/40 uppercase tracking-wider">Obi thinking...</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <button onClick={()=>{const next=!autoSpeak;setAutoSpeak(next);try{localStorage.setItem("obi_autospeak",String(next));}catch{}if(!next)stopSpeak();}}
-                    className={cn("h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition border",autoSpeak?"bg-primary/20 border-primary/40 text-primary":"bg-white/5 border-white/10 text-white/40 hover:text-white/70")}>
-                    {autoSpeak?(<svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                    ):(<svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>)}
-                  </button>
-                  <div className="flex-1 flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 pl-3 pr-1.5 py-1.5">
-                    <input value={input} onChange={e=>setInput(e.target.value)}
-                      onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()}
-                      placeholder={micActive?"Listening...":"Ask Obi..."}
-                      className={cn("flex-1 bg-transparent text-[14px] outline-none",micActive?"text-primary font-medium":"text-white placeholder:text-white/30")}/>
-                    {micSupported&&(
-                      <button onClick={startMic}
-                        className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition",micActive?"bg-primary text-black":"bg-white/10 text-white/50 hover:text-white")}>
-                        <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
-                      </button>
-                    )}
-                    <button onClick={()=>sendMessage()} disabled={!input.trim()||loading}
-                      className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition bg-primary",(!input.trim()||loading)?"opacity-30":"hover:opacity-85 active:scale-95")}>
-                      <ArrowUp className="h-4 w-4 text-black" strokeWidth={3}/>
+                {/* Scorecard strip */}
+                <div className="shrink-0 border-t border-white/10 px-3 py-2 flex items-center gap-1.5 overflow-x-auto" style={{scrollbarWidth:"none"}}>
+                  <span className="display text-[9px] font-bold uppercase tracking-wider text-white/30 shrink-0 mr-1">H{hole}</span>
+                  {[1,2,3,4,5,6,7,8,9,10].map(v=>(
+                    <button key={v} onClick={()=>setScorecard(s=>{const n=[...s];n[hole-1]=scorecard[hole-1]===v?null:v;return n;})}
+                      className={cn("h-7 w-7 rounded-lg display text-[11px] font-bold shrink-0 transition",
+                        scorecard[hole-1]===v?"bg-primary text-black":
+                        v===holePars[hole-1]?"border border-white/30 text-white/70":"text-white/25 hover:text-white/60")}>
+                      {v}
                     </button>
+                  ))}
+                  {scorecard.some(Boolean)&&(
+                    <button onClick={saveRound} className="ml-auto display text-[10px] font-bold uppercase tracking-wider bg-primary text-black rounded-lg px-2.5 py-1.5 shrink-0">Save</button>
+                  )}
+                </div>
+
+                {/* Input bar */}
+                <div className="shrink-0 bg-zinc-950 px-3 pb-safe border-t border-white/10" style={{paddingBottom:"calc(0.75rem + env(safe-area-inset-bottom))",paddingTop:"10px"}}>
+                  {beginnerMode&&(
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="display text-[9px] font-bold text-primary uppercase tracking-wider">🌱 Beginner Mode</span>
+                      <button onClick={()=>{setBeginnerMode(false);try{localStorage.setItem("obi_beginner","false");}catch{}}} className="ml-auto display text-[9px] font-bold uppercase tracking-wider text-white/30 hover:text-white/60">Off</button>
+                    </div>
+                  )}
+                  {speaking&&(
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex gap-0.5 items-end h-3">{[0,1,2,3].map(i=>(<div key={i} className="w-0.5 rounded-full bg-primary" style={{height:(4+i%2*4)+"px",animation:"pulse-dot 0.8s "+(i*0.12)+"s infinite"}}/>))}</div>
+                      <span className="display text-[9px] font-bold text-primary uppercase tracking-wider">Speaking</span>
+                      <button onClick={stopSpeak} className="ml-auto display text-[9px] font-bold text-white/40 hover:text-white">Stop</button>
+                    </div>
+                  )}
+                  {loading&&!speaking&&(
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-3 w-3 rounded-full border border-primary border-t-transparent" style={{animation:"spin 0.8s linear infinite"}}/>
+                      <span className="display text-[9px] font-bold text-white/40 uppercase tracking-wider">Obi thinking...</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <button onClick={()=>{const next=!autoSpeak;setAutoSpeak(next);try{localStorage.setItem("obi_autospeak",String(next));}catch{}if(!next)stopSpeak();}}
+                      className={cn("h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition border",autoSpeak?"bg-primary/20 border-primary/40 text-primary":"bg-white/5 border-white/10 text-white/40 hover:text-white/70")}>
+                      {autoSpeak?(<svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                      ):(<svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>)}
+                    </button>
+                    <div className="flex-1 flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 pl-3 pr-1.5 py-1.5">
+                      <input value={input} onChange={e=>setInput(e.target.value)}
+                        onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()}
+                        placeholder={micActive?"Listening...":"Ask Obi anything..."}
+                        className={cn("flex-1 bg-transparent text-[14px] outline-none",micActive?"text-primary font-medium":"text-white placeholder:text-white/30")}/>
+                      {micSupported&&(
+                        <button onClick={startMic}
+                          className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition",micActive?"bg-primary text-black":"bg-white/10 text-white/50 hover:text-white")}>
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+                        </button>
+                      )}
+                      <button onClick={()=>sendMessage()} disabled={!input.trim()||loading}
+                        className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition bg-primary",(!input.trim()||loading)?"opacity-30":"hover:opacity-85 active:scale-95")}>
+                        <ArrowUp className="h-4 w-4 text-black" strokeWidth={3}/>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* ── MAP MODE (original layout preserved) ─────────── */}
+            {caddieView==="map"&&(
+              <div className="relative flex-1 min-h-0 overflow-hidden bg-black">
+
+                {/* FULL-SCREEN MAP */}
+                {holeMap?(
+                  <div className="absolute inset-0" style={{width:"100%",height:"100%"}}>
+                    <HoleMapCanvas
+                      map={holeMap} gps={gpsPos}
+                      W={480} H={800}
+                      weather={weather}
+                      bearing={holeBearing}
+                      fullscreen={true}
+                    />
+                  </div>
+                ):(
+                  <div className="absolute inset-0 bg-zinc-950 flex items-center justify-center">
+                    {holeMapLoading?(
+                      <div className="text-center">
+                        <div className="h-10 w-10 rounded-full border-2 border-primary border-t-transparent mx-auto mb-3" style={{animation:"spin 0.8s linear infinite"}}/>
+                        <p className="display text-[13px] font-bold text-white/60 uppercase tracking-wider">Loading hole map...</p>
+                      </div>
+                    ):(
+                      <div className="text-center px-8">
+                        <p className="text-5xl mb-3">⛳</p>
+                        <p className="display text-[15px] font-bold text-white">Set your course to see the map</p>
+                        <p className="text-[12px] text-white/50 mt-1.5">Type your course name below and tap a hole</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* TOP OVERLAY */}
+                <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
+                  <div className="flex items-start justify-between px-3 pt-2 gap-2">
+                    <div className="bg-black/70 backdrop-blur-md rounded-xl px-3 py-2 pointer-events-auto">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="display text-[11px] font-bold text-white/60 uppercase tracking-wider">Hole</span>
+                        <select value={hole} onChange={e=>{setHole(Number(e.target.value));if(course)fetchHoleMap(course,Number(e.target.value));}}
+                          className="appearance-none bg-transparent display text-[18px] font-bold text-white outline-none cursor-pointer w-8">
+                          {Array.from({length:18},(_,i)=>i+1).map(n=><option key={n} value={n} className="bg-zinc-900">{n}</option>)}
+                        </select>
+                        {holeMap&&<span className="display text-[11px] font-bold text-white/60">Par {holeMap.par}</span>}
+                      </div>
+                      {(()=>{
+                        const manualPin=manualPins[hole];
+                        const gemP=holeMap?.green_lat?{lat:holeMap.green_lat,lng:holeMap.green_lng}:null;
+                        const gemOk=gpsPos&&gemP&&haversineYards(gpsPos.lat,gpsPos.lng,gemP.lat,gemP.lng)<=2000;
+                        const pin=manualPin||(gemOk?gemP:null);
+                        const dist=gpsPos&&pin?haversineYards(gpsPos.lat,gpsPos.lng,pin.lat,pin.lng):null;
+                        return dist?(
+                          <div>
+                            <span className="stat text-[36px] leading-none text-white">{dist<3?"Pin":dist}</span>
+                            {dist>=3&&<span className="display text-[11px] font-bold text-white/50 ml-1">yds</span>}
+                          </div>
+                        ):(
+                          holeMap?.yards?<div><span className="stat text-[22px] leading-none text-white/70">{holeMap.yards}</span><span className="display text-[10px] font-bold text-white/40 ml-1">yds</span></div>:null
+                        );
+                      })()}
+                    </div>
+                    <div className="flex flex-col gap-1.5 pointer-events-auto">
+                      <button onClick={gpsWatcher==null?startGPS:stopGPS}
+                        className={cn("h-9 w-9 rounded-xl flex items-center justify-center backdrop-blur-md transition",
+                          gpsWatcher!=null?"bg-primary/90 text-primary-foreground":"bg-black/70 text-white/70 hover:text-white")}>
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                        </svg>
+                      </button>
+                      {course&&<button onClick={()=>fetchHoleMap(course,hole)}
+                        className="h-9 w-9 rounded-xl bg-black/70 backdrop-blur-md flex items-center justify-center text-white/70 hover:text-white transition">
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+                      </button>}
+                      {gpsPos&&<button onClick={()=>setManualPins(p=>({...p,[hole]:{lat:gpsPos.lat,lng:gpsPos.lng}}))}
+                        className="h-9 w-9 rounded-xl bg-black/70 backdrop-blur-md flex items-center justify-center text-white/70 hover:text-white transition">
+                        <MapPin className="h-4 w-4" strokeWidth={2.5}/>
+                      </button>}
+                      <button onClick={()=>{if(!groupRoundCode)startGroupRound();else setShowGroupModal(true);}}
+                        className={cn("h-9 w-9 rounded-xl backdrop-blur-md flex items-center justify-center transition",
+                          groupPlayers.length>1?"bg-primary/90 text-black":"bg-black/70 text-white/70 hover:text-white")}
+                        title="Group round">
+                        <Users className="h-4 w-4" strokeWidth={2.5}/>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="px-3 pt-1.5">
+                    <div className="bg-black/60 backdrop-blur-md rounded-xl px-3 py-2 pointer-events-auto">
+                      <div className="flex items-center gap-2">
+                        <input value={courseInput} onChange={e=>setCourseInput(e.target.value)}
+                          onBlur={()=>{if(courseInput){setCourse(courseInput);fetchHoleMap(courseInput,hole);}}}
+                          onKeyDown={e=>{if(e.key==="Enter"&&courseInput){setCourse(courseInput);fetchHoleMap(courseInput,hole);}}}
+                          placeholder="Course name..."
+                          className="flex-1 bg-transparent display text-[13px] font-bold text-white outline-none placeholder:text-white/30"/>
+                        {course&&<span className="display text-[9px] font-bold text-primary uppercase tracking-wider shrink-0">ON</span>}
+                      </div>
+                      {matchCourse(courseInput)?.tees&&(
+                        <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                          {Object.entries(matchCourse(courseInput).tees).map(([tee,data])=>(
+                            <button key={tee} onClick={()=>{setSelectedTee(tee);setHoleMap(null);fetchHoleMap(courseInput,hole);}}
+                              className={"display text-[9px] font-bold px-2 py-1 rounded-lg border transition "+(selectedTee===tee?"bg-primary text-primary-foreground border-primary":"border-white/20 text-white/60 hover:border-white/50")}>
+                              {tee} <span className="opacity-50">{data.rating}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* HAZARD TAGS */}
+                {holeMap?.hazards?.length>0&&!chatOpen&&(
+                  <div className="absolute top-1/2 left-3 z-10 flex flex-col gap-1 pointer-events-none" style={{transform:"translateY(-50%)"}}>
+                    {holeMap.hazards.slice(0,4).map((h,i)=>(
+                      <div key={i} className="bg-black/60 backdrop-blur-sm rounded px-1.5 py-0.5">
+                        <p className="display text-[9px] font-bold text-red-400 uppercase tracking-wider">{h}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* BOTTOM CHAT DRAWER */}
+                <div className="absolute bottom-0 left-0 right-0 z-30">
+                  <div onClick={()=>setChatOpen(o=>!o)} className="bg-black/80 backdrop-blur-xl border-t border-white/10 cursor-pointer">
+                    <div className="flex justify-center pt-2 pb-1">
+                      <div className="w-8 h-1 rounded-full bg-white/30"/>
+                    </div>
+                    {!chatOpen&&(
+                      <div className="px-4 pb-2">
+                        {obiTyping||loading?(
+                          <div className="flex items-center gap-2">
+                            <ObiLogo size={14}/>
+                            <div className="flex gap-1 items-center">
+                              {[0,1,2].map(i=>(
+                                <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/50"
+                                  style={{animation:"typing-dot 1.2s "+(i*0.2)+"s infinite ease-in-out"}}/>
+                              ))}
+                            </div>
+                            <span className="display text-[10px] font-bold text-white/40 uppercase tracking-wider">Obi is thinking...</span>
+                          </div>
+                        ):messages.length>0&&messages[messages.length-1].role==="assistant"?(
+                          <p className="text-[13px] text-white leading-snug line-clamp-2 opacity-90">{messages[messages.length-1].content}</p>
+                        ):(
+                          <p className="display text-[12px] font-bold text-white/50 uppercase tracking-wider">Ask Obi anything about this hole ↑</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {chatOpen&&(
+                    <div className="bg-zinc-950 border-t border-white/10" style={{maxHeight:"60vh",display:"flex",flexDirection:"column"}}>
+                      {messages.length>0&&messages[messages.length-1].role==="assistant"&&(
+                        <div className="px-4 pt-3 pb-2 border-b border-white/10 shrink-0">
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <ObiLogo size={16}/>
+                            <p className="display text-[9px] font-bold uppercase tracking-[0.18em] text-primary">AI Caddie Analysis</p>
+                          </div>
+                          <p className="text-[14px] text-white leading-snug">{messages[messages.length-1].content}</p>
+                          <div className="flex gap-1.5 mt-2 flex-wrap">
+                            {["Why?","Alternatives","Risk?"].map(q=>(
+                              <button key={q} onClick={()=>sendMessage(q==="Why?"?"Why do you recommend that?":q==="Alternatives"?"What are my alternatives?":"Biggest risk?")}
+                                className="display text-[9px] font-bold uppercase tracking-wider rounded-lg px-2 py-1.5 border border-white/20 text-white/70 hover:text-white hover:border-white/50 transition">
+                                {q}
+                              </button>
+                            ))}
+                            <button onClick={()=>{speaking?stopSpeak():speakText(messages[messages.length-1].content);}}
+                              className={cn("display text-[9px] font-bold uppercase tracking-wider rounded-lg px-2 py-1.5 border transition",speaking?"bg-primary/30 border-primary text-primary":"border-white/20 text-white/70 hover:text-white")}>
+                              {speaking?"⏹ Stop":"🔊 Read"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex-1 overflow-y-auto px-4 py-2 space-y-2 min-h-0" style={{scrollbarWidth:"none"}}>
+                        {messages.length===0&&(
+                          <div className="space-y-1.5 py-1">
+                            {(beginnerMode?["What club should I hit?","How do I play this hole safe?","I'm nervous — what should I focus on?","📖 Rules question"]:["What's the smart play here?","Wind factor on this shot?","Lay up or go for it?","What's the miss to avoid?"]).map(prompt=>(
+                              <button key={prompt} onClick={()=>{if(prompt.startsWith("📖")){setShowRulesModal(true);}else{sendMessage(prompt);}}}
+                                className="w-full text-left px-3 py-2 rounded-xl border border-white/15 display text-[12px] font-bold text-white/70 hover:text-white hover:border-white/40 transition">
+                                {prompt}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {messages.map((m,i)=>{
+                          const isAI=m.role==="assistant";
+                          const isLastAI=isAI&&i===messages.length-1;
+                          if(isLastAI&&messages.length>0)return null;
+                          return(
+                            <div key={i} className={cn("flex",isAI?"justify-start gap-2 items-end":"justify-end")}>
+                              {isAI&&<ObiLogo size={16}/>}
+                              <div className={cn("rounded-2xl px-3 py-2 text-[13px] leading-snug max-w-[85%]",
+                                isAI?"bg-zinc-800 text-white rounded-bl-sm":"bg-primary text-black rounded-br-sm")}>
+                                {m.content}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {(obiTyping||loading)&&(
+                          <div className="flex justify-start gap-2 items-end">
+                            <ObiLogo size={16}/>
+                            <div className="bg-zinc-800 rounded-2xl rounded-bl-sm px-3.5 py-3 flex gap-1 items-center">
+                              {[0,1,2].map(i=>(
+                                <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/50"
+                                  style={{animation:"typing-dot 1.2s "+(i*0.2)+"s infinite ease-in-out"}}/>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div ref={chatEndRef}/>
+                      </div>
+                      <div className="border-t border-white/10 px-3 py-2 flex items-center gap-2 shrink-0 overflow-x-auto" style={{scrollbarWidth:"none"}}>
+                        <span className="display text-[9px] font-bold uppercase tracking-wider text-white/40 shrink-0">H{hole}</span>
+                        {[1,2,3,4,5,6,7,8,9,10].map(v=>(
+                          <button key={v} onClick={()=>setScorecard(s=>{const n=[...s];n[hole-1]=scorecard[hole-1]===v?null:v;return n;})}
+                            className={cn("h-7 w-7 rounded-lg display text-[11px] font-bold shrink-0 transition",
+                              scorecard[hole-1]===v?"bg-primary text-black":
+                              v===holePars[hole-1]?"border border-white/30 text-white/70":"text-white/30 hover:text-white/60")}>
+                            {v}
+                          </button>
+                        ))}
+                        {scorecard.some(Boolean)&&(
+                          <button onClick={saveRound} className="ml-auto display text-[10px] font-bold uppercase tracking-wider bg-primary text-black rounded-lg px-2.5 py-1.5 shrink-0">Save</button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <div className="bg-zinc-950/95 backdrop-blur-xl px-3 pb-safe" style={{paddingBottom:"calc(0.75rem + env(safe-area-inset-bottom))",paddingTop:"8px",borderTop:"1px solid rgba(255,255,255,0.08)"}}>
+                    {beginnerMode&&(
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="display text-[9px] font-bold text-primary uppercase tracking-wider">🌱 Beginner Mode</span>
+                        <button onClick={()=>{setBeginnerMode(false);try{localStorage.setItem("obi_beginner","false");}catch{}}} className="ml-auto display text-[9px] font-bold uppercase tracking-wider text-white/30 hover:text-white/60">Off</button>
+                      </div>
+                    )}
+                    {speaking&&(
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div className="flex gap-0.5 items-end h-3">{[0,1,2,3].map(i=>(<div key={i} className="w-0.5 rounded-full bg-primary" style={{height:(4+i%2*4)+"px",animation:"pulse-dot 0.8s "+(i*0.12)+"s infinite"}}/>))}</div>
+                        <span className="display text-[9px] font-bold text-primary uppercase tracking-wider">Speaking</span>
+                        <button onClick={stopSpeak} className="ml-auto display text-[9px] font-bold text-white/40 hover:text-white">Stop</button>
+                      </div>
+                    )}
+                    {loading&&!speaking&&(
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <div className="h-3 w-3 rounded-full border border-primary border-t-transparent" style={{animation:"spin 0.8s linear infinite"}}/>
+                        <span className="display text-[9px] font-bold text-white/40 uppercase tracking-wider">Obi thinking...</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <button onClick={()=>{const next=!autoSpeak;setAutoSpeak(next);try{localStorage.setItem("obi_autospeak",String(next));}catch{}if(!next)stopSpeak();}}
+                        className={cn("h-9 w-9 rounded-xl flex items-center justify-center shrink-0 transition border",autoSpeak?"bg-primary/20 border-primary/40 text-primary":"bg-white/5 border-white/10 text-white/40 hover:text-white/70")}>
+                        {autoSpeak?(<svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                        ):(<svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>)}
+                      </button>
+                      <div className="flex-1 flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 pl-3 pr-1.5 py-1.5">
+                        <input value={input} onChange={e=>setInput(e.target.value)}
+                          onKeyDown={e=>e.key==="Enter"&&!e.shiftKey&&sendMessage()}
+                          placeholder={micActive?"Listening...":"Ask Obi..."}
+                          className={cn("flex-1 bg-transparent text-[14px] outline-none",micActive?"text-primary font-medium":"text-white placeholder:text-white/30")}/>
+                        {micSupported&&(
+                          <button onClick={startMic}
+                            className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition",micActive?"bg-primary text-black":"bg-white/10 text-white/50 hover:text-white")}>
+                            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+                          </button>
+                        )}
+                        <button onClick={()=>sendMessage()} disabled={!input.trim()||loading}
+                          className={cn("h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition bg-primary",(!input.trim()||loading)?"opacity-30":"hover:opacity-85 active:scale-95")}>
+                          <ArrowUp className="h-4 w-4 text-black" strokeWidth={3}/>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            )}
 
           </div>
         )}
