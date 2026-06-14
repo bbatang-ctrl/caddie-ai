@@ -52,6 +52,10 @@ async function extractVideoFrame(videoSource,fraction){
     // Accept either a Blob/File or a pre-existing URL string (e.g. Supabase signed URL)
     const isBlob=videoSource instanceof Blob;
     const url=isBlob?URL.createObjectURL(videoSource):videoSource;
+    // crossOrigin must be set BEFORE src so the browser uses CORS mode.
+    // Required for canvas.toDataURL() when loading from a remote URL (e.g. Supabase).
+    // Supabase Storage sends Access-Control-Allow-Origin: * so this is safe.
+    if(!isBlob)video.crossOrigin="anonymous";
     video.src=url;
     let settled=false;
     const done=(cv)=>{
@@ -160,7 +164,7 @@ async function processSwingVideo(videoSource,parsedResult){
         if(lm)drawPoseOnCanvas(r.canvas,lm);
       }catch{}
     }
-    out[key]=r.canvas.toDataURL("image/jpeg",0.82);
+    try{out[key]=r.canvas.toDataURL("image/jpeg",0.82);}catch{/* tainted canvas — skip */}
   }
   return Object.keys(out).length>0?out:{};
 }
