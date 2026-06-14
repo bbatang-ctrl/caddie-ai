@@ -145,10 +145,16 @@ async function analyzeSwingVideo(videoFile,notes,bag,hcp){
   const resolvedHcp=typeof bag==="object"?bag?.hcp:(hcp||bag||"unknown");
   const clubUsed=notes||"not specified";
   const mimeType=videoFile.type||"video/mp4";
-  // Send raw binary — avoids base64 encoding and the large-string TypeError on Safari/iOS
+  // Send raw binary body — no base64 encoding, avoids large-string issues on Safari/iOS
   const params=new URLSearchParams({mimeType,hcp:String(resolvedHcp),club:clubUsed,notes:notes||""});
-  const res=await fetch(`/api/analyze-swing?${params}`,{method:"POST",headers:{"Content-Type":mimeType},body:videoFile});
-  const data=await res.json();
+  let res;
+  try{
+    res=await fetch(`/api/analyze-swing?${params}`,{method:"POST",headers:{"Content-Type":mimeType},body:videoFile});
+  }catch(e){throw new Error("Network error: "+e.message);}
+  let data;
+  try{
+    data=await res.json();
+  }catch(e){throw new Error("Server error (HTTP "+res.status+") — is api/analyze-swing.js deployed?");}
   if(data.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
   return data.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
 }

@@ -1164,15 +1164,19 @@ function ObiGolfApp(){
         frames:null,  // null = loading; {} = done (even if failed); object = ready
         created_at:entryTime,
       };
+      // Add to local history immediately — before any DB call that could throw
+      setSwingHistory(h=>[{...newEntry},...h]);
+      // Save to DB in background — non-fatal, never blocks or hides the result
       if(user){
-        const{data}=await supabase.from("swing_analyses").insert({
+        supabase.from("swing_analyses").insert({
           user_id:user.id,notes:currentNotes,analysis:result,
           club_used:currentNotes||"unknown",thumbnail:currentThumb||null,
           created_at:entryTime,
-        }).select().single();
-        if(data)newEntry.id=data.id;
+        }).select("id").single().then(({data,error})=>{
+          if(error){console.warn("DB save:",error.message);return;}
+          if(data?.id)setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,id:data.id}:e));
+        }).catch(err=>console.warn("DB save error:",err.message));
       }
-      setSwingHistory(h=>[{...newEntry},...h]);
       // Process frames + pose async — runs for ALL videos regardless of JSON parse success
       if(isVideo){
         processSwingVideo(currentFile,parsedResult||{})
