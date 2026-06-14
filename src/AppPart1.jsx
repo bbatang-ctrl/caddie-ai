@@ -146,20 +146,8 @@ async function analyzeSwingVideo(videoFile,notes,bag,hcp){
   const clubUsed=notes||"not specified";
   const mimeType=videoFile.type||"video/mp4";
 
-  // Vercel's platform body limit is 4.5 MB regardless of plan.
-  // Google's resumable upload also requires intermediate chunks to be 8 MB multiples,
-  // which can't be routed through Vercel. So we send the whole file as a single
-  // "upload, finalize" command — the final chunk has no size requirement.
-  const MAX_BYTES=4*1024*1024;
-  if(videoFile.size>MAX_BYTES){
-    const mb=(videoFile.size/1024/1024).toFixed(1);
-    throw new Error(
-      `Video is ${mb} MB — please use a clip under 4 MB. `+
-      `Trim to the swing itself (5–10 sec), or lower your camera quality to 720p in Settings.`
-    );
-  }
-
-  // Step 1: Server starts a Google resumable upload session (API key stays server-side)
+  // Step 1: Server opens a Google resumable-upload session (API key stays server-side).
+  // The session URL returned here has no API key — it IS the short-lived auth token.
   let uploadUrl;
   try{
     const r=await fetch("/api/analyze-swing?action=start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mimeType,fileSize:videoFile.size})});
@@ -169,31 +157,37 @@ async function analyzeSwingVideo(videoFile,notes,bag,hcp){
     if(!uploadUrl)throw new Error("No upload URL returned");
   }catch(e){throw new Error("Could not start upload: "+e.message);}
 
-  // Step 2: Send entire video as single finalize chunk through our server proxy.
-  // Single-chunk finalizes have no minimum size requirement — only intermediate
-  // chunks in a multi-chunk resumable upload need to be 8 MB multiples.
+  // Step 2: Upload the ENTIRE file directly from the browser to Google — no Vercel proxy.
+  //
+  // Key insight: the "8 MB granularity" rule only applies to INTERMEDIATE chunks in a
+  // multi-request resumable upload. A single "upload, finalize" command sends the whole
+  // file in one shot and has NO minimum-size requirement. This also completely bypasses
+  // Vercel's 4.5 MB body-size cap because the file never passes through Vercel.
+  //
+  // The session URL is safe to use from the browser — it contains no API key.
   let fileUri,fileName;
   try{
-    const r=await fetch("/api/video-chunk",{
+    const r=await fetch(uploadUrl,{
       method:"POST",
       headers:{
+        "X-Goog-Upload-Command":"upload, finalize",
+        "X-Goog-Upload-Offset":"0",
         "Content-Type":mimeType,
-        "X-Upload-Url":uploadUrl,
-        "X-Upload-Offset":"0",
-        "X-Upload-Last":"true",
       },
       body:videoFile,
     });
-    const d=await r.json().catch(()=>({}));
-    if(!r.ok||d.error)throw new Error(d.error||"HTTP "+r.status);
-    fileUri=d.fileUri;
-    fileName=d.fileName;
-    if(!fileUri)throw new Error("No file URI returned from Google");
+    if(!r.ok){
+      const t=await r.text().catch(()=>"");
+      throw new Error("HTTP "+r.status+(t?": "+t.slice(0,150):""));
+    }
+    const d=await r.json();
+    fileUri=d?.file?.uri;
+    fileName=d?.file?.name;
+    if(!fileUri)throw new Error("No file URI from Google");
   }catch(e){throw new Error("Video upload failed: "+e.message);}
 
-  // Step 3: Poll until Google finishes processing, then analyze.
-  // Server checks once per call and returns 202 if not ready — client retries
-  // so we stay well under Vercel's per-invocation timeout.
+  // Step 3: Server checks once if Google has finished processing; returns 202 if not.
+  // We retry here on the client to avoid Vercel's per-invocation timeout.
   let data;
   for(let attempt=0;attempt<20;attempt++){
     if(attempt>0)await new Promise(r=>setTimeout(r,3000));
