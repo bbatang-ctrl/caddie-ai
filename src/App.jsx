@@ -1218,9 +1218,17 @@ function ObiGolfApp(){
           golfer_level:capturedLevel,
           created_at:entryTime,
         }).select("id").single().then(({data,error})=>{
-          if(error){console.warn("DB save:",error.message);return;}
+          if(error){
+            console.warn("DB save failed:",error.message);
+            // Mark entry so UI can show "not saved" warning — data is visible this session only
+            setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,saveError:error.message}:e));
+            return;
+          }
           if(data?.id)setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,id:data.id}:e));
-        }).catch(err=>console.warn("DB save error:",err.message));
+        }).catch(err=>{
+          console.warn("DB save error:",err.message);
+          setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,saveError:err.message}:e));
+        });
       }
       // Process frames + pose async — runs for ALL videos regardless of JSON parse success
       if(isVideo){

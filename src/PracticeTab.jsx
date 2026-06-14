@@ -748,11 +748,19 @@ export default function PracticeTab({
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="display text-[13px] font-bold tracking-tight">{label}</p>
                           {s.is_own_swing === false && (
                             <span className="display text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md border border-border text-muted-foreground shrink-0">
                               Guest
+                            </span>
+                          )}
+                          {s.saveError && (
+                            <span
+                              title={"Not saved to your account. Run the Supabase SQL fix. Error: " + s.saveError}
+                              className="display text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-500 shrink-0"
+                            >
+                              ⚠ Not saved
                             </span>
                           )}
                         </div>
