@@ -1,12 +1,26 @@
 // Serverless proxy for swing analysis — handles both images and videos.
 // ALL Google API calls happen here; GEMINI_API_KEY never reaches the browser.
+//
+// VIDEO: client POSTs raw binary (Content-Type: video/*) with metadata in query params.
+//        This avoids base64 conversion, which causes "string did not match expected pattern"
+//        on Safari/iOS WebView when the encoded string exceeds ~30 MB.
+// IMAGE: client POSTs JSON body { imageBase64, mimeType, hcp, club, notes }.
+
 export const config = {
   api: {
-    bodyParser: {
-      sizeLimit: "50mb", // base64 overhead ~33%; covers original videos up to ~37 MB
-    },
+    bodyParser: false, // We read the raw body ourselves — handles both binary and JSON
   },
 };
+
+// Read the entire request body into a Buffer.
+function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on("data", chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+}
 
 // Build the analysis prompt server-side so it never has to travel to the browser.
 function buildPrompt(hcp, club, mediaType) {
@@ -58,19 +72,23 @@ export default async function handler(req, res) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY not set" });
 
-  const { videoBase64, imageBase64, mimeType, notes, hcp, club } = req.body || {};
-  if (!mimeType) return res.status(400).json({ error: "mimeType required" });
-  if (!videoBase64 && !imageBase64) return res.status(400).json({ error: "videoBase64 or imageBase64 required" });
+  const contentType = (req.headers["content-type"] || "").split(";")[0].trim();
+  const isVideo = contentType.startsWith("video/") || contentType === "application/octet-stream";
 
-  const resolvedHcp = hcp || "unknown";
-  const clubUsed = club || notes || "not specified";
-  const prompt = buildPrompt(resolvedHcp, clubUsed, videoBase64 ? "video" : "image");
+  const rawBody = await readRawBody(req);
 
   try {
-    // ── VIDEO PATH ──────────────────────────────────────────────────────────────
-    if (videoBase64) {
-      const videoBuffer = Buffer.from(videoBase64, "base64");
-      const byteSize = videoBuffer.length;
+    // ── VIDEO PATH — raw binary body, metadata in query params ─────────────────
+    if (isVideo) {
+      const mimeType = req.query?.mimeType || contentType || "video/mp4";
+      const hcp      = req.query?.hcp   || "unknown";
+      const club     = req.query?.club  || req.query?.notes || "not specified";
+
+      if (!rawBody.length) return res.status(400).json({ error: "Empty video body" });
+
+      const videoBuffer = rawBody;
+      const byteSize    = videoBuffer.length;
+      const prompt      = buildPrompt(hcp, club, "video");
 
       // Step 1: Start resumable upload to Google File API
       const startRes = await fetch(
@@ -93,9 +111,9 @@ export default async function handler(req, res) {
       }
 
       const uploadUrl = startRes.headers.get("x-goog-upload-url");
-      if (!uploadUrl) return res.status(500).json({ error: "Could not start video upload — no upload URL returned" });
+      if (!uploadUrl) return res.status(500).json({ error: "No upload URL from Google — check GEMINI_API_KEY" });
 
-      // Step 2: Upload the video bytes
+      // Step 2: Upload video bytes
       const uploadRes = await fetch(uploadUrl, {
         method: "POST",
         headers: {
@@ -106,12 +124,12 @@ export default async function handler(req, res) {
         },
         body: videoBuffer,
       });
-      if (!uploadRes.ok) return res.status(500).json({ error: "Video bytes upload failed — try a shorter clip" });
+      if (!uploadRes.ok) return res.status(500).json({ error: "Video upload failed — try a shorter clip" });
 
       const fileData = await uploadRes.json();
-      const fileUri = fileData?.file?.uri;
+      const fileUri  = fileData?.file?.uri;
       const fileName = fileData?.file?.name;
-      if (!fileUri) return res.status(500).json({ error: "Video upload failed — no file URI returned" });
+      if (!fileUri) return res.status(500).json({ error: "No file URI returned after upload" });
 
       // Step 3: Poll until ACTIVE (max 20 × 2 s = 40 s)
       let ready = false;
@@ -138,19 +156,31 @@ export default async function handler(req, res) {
                 { text: prompt },
               ],
             }],
-            generationConfig: {
-              maxOutputTokens: 1500,
-              temperature: 0.7,
-            },
+            generationConfig: { maxOutputTokens: 1500, temperature: 0.7 },
           }),
         }
       );
       const result = await analyzeRes.json();
-      if (result.error) return res.status(500).json({ error: `Gemini error: ${result.error.message || "Video analysis failed"} (status: ${result.error.status || "unknown"})` });
+      if (result.error) return res.status(500).json({ error: `Gemini: ${result.error.message || "video analysis failed"} (${result.error.status || "?"})` });
       return res.status(200).json(result);
     }
 
-    // ── IMAGE PATH ──────────────────────────────────────────────────────────────
+    // ── IMAGE PATH — JSON body { imageBase64, mimeType, hcp, club, notes } ─────
+    let body;
+    try {
+      body = JSON.parse(rawBody.toString("utf8"));
+    } catch {
+      return res.status(400).json({ error: "Invalid JSON body for image upload" });
+    }
+
+    const { imageBase64, mimeType, notes, hcp, club } = body;
+    if (!mimeType)     return res.status(400).json({ error: "mimeType required" });
+    if (!imageBase64)  return res.status(400).json({ error: "imageBase64 required" });
+
+    const resolvedHcp = hcp   || "unknown";
+    const clubUsed    = club  || notes || "not specified";
+    const prompt      = buildPrompt(resolvedHcp, clubUsed, "image");
+
     const analyzeRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
@@ -164,15 +194,12 @@ export default async function handler(req, res) {
               { text: prompt },
             ],
           }],
-          generationConfig: {
-            maxOutputTokens: 1000,
-            temperature: 0.4,
-          },
+          generationConfig: { maxOutputTokens: 1000, temperature: 0.4 },
         }),
       }
     );
     const result = await analyzeRes.json();
-    if (result.error) return res.status(500).json({ error: `Gemini error: ${result.error.message || "Image analysis failed"} (status: ${result.error.status || "unknown"})` });
+    if (result.error) return res.status(500).json({ error: `Gemini: ${result.error.message || "image analysis failed"} (${result.error.status || "?"})` });
     return res.status(200).json(result);
 
   } catch (err) {
