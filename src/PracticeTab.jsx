@@ -354,6 +354,14 @@ function SwingAnalysisView({ parsed, videoUrl, frames, speaking, speakText, stop
             <span style={{ fontSize:11, fontWeight:600, color:FGM, fontFamily:"'Space Grotesk',sans-serif" }}>Analyzing movement frames…</span>
           </div>
         )}
+        {/* frames={} means extraction ran but produced nothing — show a clear message */}
+        {videoUrl && frames !== null && frames !== undefined && typeof frames === "object" && !frames.setup && !frames.top && !frames.impact && (
+          <div style={{ padding:"10px 12px", borderRadius:10, border:`1px solid ${BORD}`, marginBottom:14, background:SURF }}>
+            <p style={{ fontSize:11, color:FGM, margin:0, fontFamily:"'Space Grotesk',sans-serif" }}>
+              ⚠ Could not extract frame images from this video. Check browser console for [frames] logs.
+            </p>
+          </div>
+        )}
 
         {/* ── Overall score ── */}
         <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:16, padding:14, borderRadius:14, background:SURF, border:`1px solid ${color}33` }}>

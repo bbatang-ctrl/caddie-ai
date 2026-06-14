@@ -141,6 +141,12 @@ function drawPoseOnCanvas(canvas,landmarks){
 // on each element, so one slow seek never blocks the others.
 // videoSource: File/Blob OR a URL string (e.g. Supabase signed URL for history replay).
 async function processSwingVideo(videoSource,parsedResult){
+  // ── DIAGNOSTIC LOGGING — helps answer: did this run? did frames extract? did MediaPipe load?
+  const srcType=videoSource instanceof Blob
+    ? `Blob (${(videoSource.size/1024/1024).toFixed(1)} MB, ${videoSource.type||"no-type"})`
+    : `URL (${String(videoSource).slice(0,80)})`;
+  console.log("[frames] ▶ processSwingVideo started —", srcType);
+
   // Derive timing hints: use Gemini keyFrames if available, else safe empirical defaults.
   // Old default 0.70 for impact was wrong — that's well into follow-through.
   const kf=parsedResult?.keyFrames||{};
@@ -149,32 +155,44 @@ async function processSwingVideo(videoSource,parsedResult){
     top:    kf.backswingTop ??0.35,
     impact: kf.impact       ??0.50,
   };
+  console.log("[frames] timings —", JSON.stringify(timings));
 
   // Pre-warm MediaPipe while frames are loading
-  const landmarkerProm=loadPoseLandmarker().catch(()=>null);
+  const landmarkerProm=loadPoseLandmarker().catch((e)=>{
+    console.warn("[frames] MediaPipe load error:",e?.message||e);
+    return null;
+  });
 
   // Extract all 3 frames in parallel — each call creates its own video element
   const [setupR,topR,impactR]=await Promise.all([
-    extractVideoFrame(videoSource,timings.setup).catch(()=>null),
-    extractVideoFrame(videoSource,timings.top).catch(()=>null),
-    extractVideoFrame(videoSource,timings.impact).catch(()=>null),
+    extractVideoFrame(videoSource,timings.setup).catch((e)=>{console.warn("[frames] setup extract failed:",e?.message);return null;}),
+    extractVideoFrame(videoSource,timings.top).catch((e)=>{console.warn("[frames] top extract failed:",e?.message);return null;}),
+    extractVideoFrame(videoSource,timings.impact).catch((e)=>{console.warn("[frames] impact extract failed:",e?.message);return null;}),
   ]);
+  console.log("[frames] extraction results — setup:",!!setupR?.canvas,"top:",!!topR?.canvas,"impact:",!!impactR?.canvas);
 
   const landmarker=await landmarkerProm;
+  console.log("[frames] MediaPipe loaded:",!!landmarker);
 
   // Draw pose overlay on each canvas that has a valid frame
   const out={};
   for(const[key,r]of[["setup",setupR],["top",topR],["impact",impactR]]){
-    if(!r?.canvas)continue;
+    if(!r?.canvas){console.log("[frames] skip",key,"— no canvas");continue;}
     if(landmarker){
       try{
         const det=landmarker.detect(r.canvas);
         const lm=det?.landmarks?.[0]||null;
+        console.log("[frames]",key,"— landmarks detected:",lm?lm.length+" points":"none");
         if(lm)drawPoseOnCanvas(r.canvas,lm);
-      }catch{}
+      }catch(e){console.warn("[frames] pose draw error on",key,":",e?.message);}
     }
-    try{out[key]=r.canvas.toDataURL("image/jpeg",0.82);}catch{/* tainted canvas — skip */}
+    try{
+      const dataUrl=r.canvas.toDataURL("image/jpeg",0.82);
+      out[key]=dataUrl;
+      console.log("[frames]",key,"→ dataURL length:",dataUrl.length,"(first 40:",dataUrl.slice(0,40)+")");
+    }catch(e){console.warn("[frames]",key,"toDataURL failed (tainted canvas?):",e?.message);}
   }
+  console.log("[frames] ✓ final output keys:",Object.keys(out));
   return Object.keys(out).length>0?out:{};
 }
 // ─────────────────────────────────────────────────────────────────────────────
