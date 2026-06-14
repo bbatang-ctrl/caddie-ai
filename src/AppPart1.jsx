@@ -176,9 +176,9 @@ async function analyzeSwingVideo(videoFile,notes,bag,hcp){
         },
         body:chunk,
       });
-      if(!r.ok)throw new Error("HTTP "+r.status);
-      const d=await r.json();
-      if(d.error)throw new Error(d.error);
+      // Read body first so we can show the real server error, not just "HTTP 500"
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok||d.error)throw new Error(d.error||"HTTP "+r.status);
       if(isLast){fileUri=d.fileUri;fileName=d.fileName;}
       offset=end;
     }
