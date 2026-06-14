@@ -133,9 +133,21 @@ async function callGemini(sys,msgs){
 async function analyzeSwing(file,notes,profile,golferLevel){
   const hcp=typeof profile==="object"?profile?.hcp:profile;
   const clubUsed=notes||"not specified";
+  // Guard: catch zero-byte files early (e.g. iCloud photos not yet downloaded to device)
+  if(file.size===0)throw new Error("The selected file is empty. If it's stored in iCloud, open the Photos app and wait for it to download first, then try again.");
   // Convert to base64 and POST to server — API key stays server-side
-  const imageBase64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result.split(",")[1]);r.onerror=reject;r.readAsDataURL(file);});
-  const res=await fetch("/api/analyze-swing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({imageBase64,mimeType:file.type,notes,hcp:hcp||"unknown",club:clubUsed,golferLevel:golferLevel||"unknown"})});
+  const imageBase64=await new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>{
+      const b64=(r.result||"").split(",")[1]||"";
+      if(!b64)reject(new Error("Could not read image data. Make sure the file is a supported photo format (JPEG, PNG, HEIC) and is fully downloaded to your device."));
+      else resolve(b64);
+    };
+    r.onerror=()=>reject(new Error("File read error. Please try selecting the image again."));
+    r.readAsDataURL(file);
+  });
+  const mimeType=file.type||"image/jpeg"; // default if browser reports empty type
+  const res=await fetch("/api/analyze-swing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({imageBase64,mimeType,notes,hcp:hcp||"unknown",club:clubUsed,golferLevel:golferLevel||"unknown"})});
   const data=await res.json();
   if(data.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
   return data.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";

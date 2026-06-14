@@ -1173,7 +1173,9 @@ function ObiGolfApp(){
     const currentFile=swingFile;
     const currentNotes=swingNotes;
     const currentThumb=swingThumb;
-    const isVideo=currentFile.type.startsWith("video/");
+    // Some iOS devices report empty MIME type for .MOV files — fall back to extension check.
+    const isVideo=currentFile.type.startsWith("video/")||
+      /\.(mp4|mov|avi|webm|mkv|m4v|hevc|3gp|qt)$/i.test(currentFile.name||"");
     const localBlobUrl=isVideo?URL.createObjectURL(currentFile):null;
     const ownSwing=isOwnSwing; // capture current value before async work
     const capturedLevel=golferLevel; // capture before async
