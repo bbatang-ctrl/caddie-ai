@@ -146,35 +146,59 @@ async function analyzeSwingVideo(videoFile,notes,bag,hcp){
   const clubUsed=notes||"not specified";
   const mimeType=videoFile.type||"video/mp4";
 
-  // Vercel's platform body cap is 4.5 MB. Base64 adds ~33% overhead, so the
-  // raw video must be ≤ ~3.2 MB. A 5–10 sec swing clip at 720p is well under this.
-  const MAX_BYTES=3.2*1024*1024;
-  if(videoFile.size>MAX_BYTES){
-    const mb=(videoFile.size/1024/1024).toFixed(1);
-    throw new Error(
-      `Video is ${mb} MB — please trim to the swing itself (5–10 sec) `+
-      `and record at 720p. Aim for under 3 MB.`
-    );
+  // Step 1: Upload directly to Supabase Storage — browser → Supabase, no Vercel
+  // body limit, no CORS issues. Works for any video size Supabase supports.
+  const ext=(videoFile.name||"swing.mp4").split(".").pop()||"mp4";
+  const videoPath=`swings/${Date.now()}.${ext}`;
+  const{data:uploadData,error:uploadError}=await supabase.storage
+    .from("videos")
+    .upload(videoPath,videoFile,{cacheControl:"120",upsert:false});
+  if(uploadError)throw new Error("Storage upload failed: "+uploadError.message);
+
+  // Step 2: Create a 2-minute signed URL so the server can download the video
+  const{data:signedData,error:signedError}=await supabase.storage
+    .from("videos")
+    .createSignedUrl(uploadData.path,120);
+  if(signedError)throw new Error("Could not sign URL: "+signedError.message);
+
+  // Step 3: Server downloads video from Supabase and uploads to Google File API
+  // using 8 MB chunks (server-to-server — correct granularity, no size limit).
+  let fileUri,fileName;
+  try{
+    const r=await fetch("/api/analyze-swing?action=upload-to-google",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({videoUrl:signedData.signedUrl,mimeType}),
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||d.error)throw new Error(d.error||"HTTP "+r.status);
+    fileUri=d.fileUri;
+    fileName=d.fileName;
+    if(!fileUri)throw new Error("No file URI returned");
+  }finally{
+    // Clean up Supabase Storage regardless of success — video now lives in Google
+    supabase.storage.from("videos").remove([uploadData.path]).catch(()=>{});
   }
 
-  // Convert to base64 — same pattern as analyzeSwing() for images.
-  // This goes browser → our server → Gemini; no direct Google calls from the
-  // browser, so no CORS issues and the API key never leaves the server.
-  const videoBase64=await new Promise((resolve,reject)=>{
-    const reader=new FileReader();
-    reader.onload=()=>resolve(reader.result.split(",")[1]);
-    reader.onerror=reject;
-    reader.readAsDataURL(videoFile);
-  });
-
-  const res=await fetch("/api/analyze-swing?action=video",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({videoBase64,mimeType,notes,hcp:String(resolvedHcp),club:clubUsed}),
-  });
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok||data.error)throw new Error(data.error||"HTTP "+res.status);
-  return data.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
+  // Step 4: Poll until Google finishes processing, then analyze.
+  // Server checks once per call and returns 202 if not ready — client retries
+  // to stay within Vercel's per-invocation timeout.
+  let data;
+  for(let attempt=0;attempt<20;attempt++){
+    if(attempt>0)await new Promise(r=>setTimeout(r,3000));
+    try{
+      const r=await fetch("/api/analyze-swing?action=complete",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({fileUri,fileName,mimeType,hcp:String(resolvedHcp),club:clubUsed,notes:notes||""}),
+      });
+      data=await r.json();
+    }catch(e){throw new Error("Analysis request failed: "+e.message);}
+    if(!data.notReady)break;
+  }
+  if(data?.notReady)throw new Error("Video still processing — please try again in a moment");
+  if(data?.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
 }
 
 
