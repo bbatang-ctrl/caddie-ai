@@ -151,7 +151,7 @@ export default function PracticeTab({
                     </div>
                     {isExp&&(
                       <div className="border-t border-border bg-secondary/20 p-3">
-                        {renderSwingAnalysis(s.analysis||"",null,label,false,null,true,function(){})}
+                        {renderSwingAnalysis(s.analysis||"",null,label,false,null,true,function(){},s.videoUrl||null,s.frames??undefined)}
                       </div>
                     )}
                   </div>
