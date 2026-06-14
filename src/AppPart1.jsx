@@ -130,11 +130,14 @@ async function callGemini(sys,msgs){
   return data.candidates?.[0]?.content?.parts?.[0]?.text||"No response from Obi.";
 }
 
-async function analyzeSwing(b64,mime,notes,bag,hcp){
-  const goalLabels={full_swing:"full swing mechanics",driver:"driver swing",irons:"iron play",short_game:"short game (chips/pitches)",bunker:"bunker play",putting:"putting stroke",tempo:"tempo and rhythm",custom:"the specific area mentioned in notes"};
-  const goalFocus=goalLabels[notes?.split("GOAL:")[1]?.trim()]||"overall swing mechanics";
-  const cleanNotes=notes?.replace(/GOAL:[^\n]*/,"").trim()||"none";
-  const contents=[{role:"user",parts:[{inline_data:{mime_type:mime,data:b64}},{text:`You are an expert PGA teaching professional. Player HCP: ${hcp}. The player wants to focus specifically on: ${goalFocus}. Additional notes: ${cleanNotes}.\nAnalyze this golf swing with a focus on ${goalFocus}. Cover: Setup & Address, Backswing, Downswing & Transition, Impact, Follow Through.\nThen give: PRIMARY FAULT related to ${goalFocus} (the one thing to fix first), DRILL (specific step-by-step drill to fix it), POSITIVES (what they do well).\nBe encouraging, specific, and visual. Write like a great teaching pro talking directly to their student.`}]}];
+async function analyzeSwing(file,notes,profile){
+  const hcp=typeof profile==="object"?profile?.hcp:profile;
+  const clubUsed=notes||"not specified";
+  // Convert File to base64 (fixes bug where File object was sent as data)
+  const b64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result.split(",")[1]);r.onerror=reject;r.readAsDataURL(file);});
+  const mime=file.type;
+  const prompt=`You are an expert PGA teaching professional. Player handicap: ${hcp||"unknown"}. Club used: ${clubUsed}.\nAnalyze this golf swing image. Return ONLY a valid JSON object — no markdown, no code blocks, just raw JSON:\n{"overall":<0-100 score>,"phases":{"setup":{"score":<1-10>,"note":"<1 honest sentence>"},"backswing":{"score":<1-10>,"note":"<1 honest sentence>"},"downswing":{"score":<1-10>,"note":"<1 honest sentence>"},"impact":{"score":<1-10>,"note":"<1 honest sentence>"},"followThrough":{"score":<1-10>,"note":"<1 honest sentence>"}},"primaryFault":"<the single most important thing to fix — plain English, 1 sentence>","beginnerFix":"<a simple visual cue a beginner can remember on the course>","drill":["<step 1>","<step 2>","<step 3>"],"positives":["<something they do well>"],"clubNote":"<club-specific tip, or empty string>"}\nScore guide: 9-10=tour quality, 7-8=solid amateur, 5-6=needs work, 3-4=significant fault, 1-2=major issue. Be honest but encouraging. Plain language only.`;
+  const contents=[{role:"user",parts:[{inline_data:{mime_type:mime,data:b64}},{text:prompt}]}];
   const res=await fetch("/api/swing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents})});
   const data=await res.json();
   if(data.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
@@ -143,10 +146,13 @@ async function analyzeSwing(b64,mime,notes,bag,hcp){
 
 async function analyzeSwingVideo(videoFile, notes, bag, hcp) {
   const D = DARK_THEME; // fallback theme for this standalone function
+  // bag may be passed as the profile object from handleSwingAnalyze
+  const resolvedHcp = typeof bag === "object" ? bag?.hcp : (hcp || bag || "unknown");
+  const clubUsed = notes || "not specified";
   const apiKey = await fetch("/api/gemini-key").then(r=>r.json()).then(d=>d.key).catch(()=>null);
   if (!apiKey) throw new Error("Could not get API key");
 
-  const promptText = "You are an expert PGA teaching professional analyzing a full golf swing video. Player HCP: "+hcp+". Notes: "+(notes||"none")+".\nWatch the FULL swing motion and analyze: Setup, Backswing, Downswing, Impact, Follow Through.\nGive: PRIMARY FAULT (most important thing to fix), DRILL (specific drill to fix it), POSITIVES (1-2 things they do well).\nBe specific about timing, sequencing, speed. Write like a great teaching pro.";
+  const promptText = `You are an expert PGA teaching professional analyzing a full golf swing video. Player handicap: ${resolvedHcp||"unknown"}. Club used: ${clubUsed}.\nWatch the FULL swing motion carefully. Return ONLY a valid JSON object — no markdown, no code blocks, just raw JSON:\n{"overall":<0-100 score>,"phases":{"setup":{"score":<1-10>,"note":"<1 honest sentence>"},"backswing":{"score":<1-10>,"note":"<1 honest sentence>"},"downswing":{"score":<1-10>,"note":"<1 honest sentence>"},"impact":{"score":<1-10>,"note":"<1 honest sentence>"},"followThrough":{"score":<1-10>,"note":"<1 honest sentence>"}},"primaryFault":"<the single most important thing to fix — plain English, 1 sentence>","beginnerFix":"<a simple visual cue a beginner can remember on the course>","drill":["<step 1>","<step 2>","<step 3>"],"positives":["<something they do well>"],"clubNote":"<club-specific tip, or empty string>"}\nScore guide: 9-10=tour quality, 7-8=solid amateur, 5-6=needs work, 3-4=significant fault, 1-2=major issue. Be encouraging, specific about timing and sequencing. Plain language only.`;
 
   // Step 1 - Upload video to Google File API directly from browser
   const uploadRes = await fetch(
