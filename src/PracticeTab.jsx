@@ -482,6 +482,7 @@ export default function PracticeTab({
   swingThumb, setSwingThumb,
   swingInputRef,
   handleSwingAnalyze,
+  isOwnSwing = true, setIsOwnSwing,
   speaking, speakText, stopSpeak,
   supabase, fmtDateShort,
   renderSwingAnalysis,   // kept in signature — used by App.jsx elsewhere
@@ -493,9 +494,12 @@ export default function PracticeTab({
 }) {
   const [expanded, setExpanded] = useState(null);
 
-  // Build array of { label, parsed } for parsed swings (for comparison)
+  // Build array of { label, parsed } for parsed swings — MY swings only.
+  // Guest swings (is_own_swing === false) show in the history list but are
+  // excluded from Progress and Comparison so they don't pollute your stats.
   const parsedSwings = swingHistory
     .map((s, i) => {
+      if (s.is_own_swing === false) return null; // guest / demo swing — exclude
       const parsed = parseAnalysis(s.analysis || "");
       if (!parsed) return null;
       const label = s.club_used && s.club_used !== "unknown"
@@ -585,6 +589,35 @@ export default function PracticeTab({
                 onChange={e => setSwingNotes(e.target.value)}
                 className="w-full bg-input border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-foreground/40 transition"
               />
+              {/* My swing / Guest swing toggle */}
+              {setIsOwnSwing && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsOwnSwing(true)}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-xl display text-[11px] font-bold uppercase tracking-wider border transition",
+                      isOwnSwing
+                        ? "bg-primary/10 border-primary text-primary"
+                        : "border-border text-muted-foreground hover:border-foreground/30"
+                    )}
+                  >
+                    ✓ My swing
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsOwnSwing(false)}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-xl display text-[11px] font-bold uppercase tracking-wider border transition",
+                      !isOwnSwing
+                        ? "bg-secondary border-foreground/40 text-foreground"
+                        : "border-border text-muted-foreground hover:border-foreground/30"
+                    )}
+                  >
+                    👤 Guest swing
+                  </button>
+                </div>
+              )}
               <button
                 onClick={handleSwingAnalyze}
                 className="w-full bg-primary text-primary-foreground rounded-xl py-3.5 display text-[13px] font-bold uppercase tracking-wider hover:opacity-90 transition"
@@ -664,7 +697,14 @@ export default function PracticeTab({
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <p className="display text-[13px] font-bold tracking-tight">{label}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="display text-[13px] font-bold tracking-tight">{label}</p>
+                          {s.is_own_swing === false && (
+                            <span className="display text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md border border-border text-muted-foreground shrink-0">
+                              Guest
+                            </span>
+                          )}
+                        </div>
                         <p className="display text-[10px] font-bold text-muted-foreground mt-0.5">{fmtDateShort(s.created_at)}</p>
                         {!isExp && preview && (
                           <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-snug">{preview}</p>
@@ -707,7 +747,7 @@ export default function PracticeTab({
                         {parsed ? (
                           <SwingAnalysisView
                             parsed={parsed}
-                            videoUrl={s.videoUrl || null}
+                            videoUrl={s.videoUrl || s.video_url || null}
                             frames={s.frames ?? undefined}
                             speaking={speaking}
                             speakText={speakText}

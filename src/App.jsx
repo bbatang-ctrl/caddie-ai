@@ -439,6 +439,7 @@ function ObiGolfApp(){
   const [analysisExpanded,setAnalysisExpanded]=useState(true);
   const [swingLoading,setSwingLoading]=useState(false);
   const [swingHistory,setSwingHistory]=useState([]);
+  const [isOwnSwing,setIsOwnSwing]=useState(true); // true = my swing; false = guest/demo swing
   const [rangeClub,setRangeClub]=useState("7-iron");
   const [rangeResult,setRangeResult]=useState(null);
   const [rangeShotResult,setRangeShotResult]=useState(null);
@@ -1144,11 +1145,18 @@ function ObiGolfApp(){
     const currentNotes=swingNotes;
     const currentThumb=swingThumb;
     const isVideo=currentFile.type.startsWith("video/");
-    const videoBlobUrl=isVideo?URL.createObjectURL(currentFile):null;
+    const localBlobUrl=isVideo?URL.createObjectURL(currentFile):null;
+    const ownSwing=isOwnSwing; // capture current value before async work
     try{
-      let result;
-      if(isVideo){result=await analyzeSwingVideo(currentFile,currentNotes,profile);}
-      else{result=await analyzeSwing(currentFile,currentNotes,profile);}
+      // analyzeSwingVideo returns { text, videoUrl }; analyzeSwing returns a plain string
+      let analysisText,persistedVideoUrl=null;
+      if(isVideo){
+        const r=await analyzeSwingVideo(currentFile,currentNotes,profile);
+        if(r&&typeof r==="object"){analysisText=r.text;persistedVideoUrl=r.videoUrl||null;}
+        else{analysisText=r;}
+      }else{analysisText=await analyzeSwing(currentFile,currentNotes,profile);}
+      const result=analysisText;
+      const videoBlobUrl=persistedVideoUrl||localBlobUrl; // prefer persisted URL
       setSwingAnalysis(result);
       // Parse JSON to extract keyFrames for frame extraction
       // Use indexOf/lastIndexOf so preamble text from Gemini doesn't break the parse
@@ -1162,6 +1170,8 @@ function ObiGolfApp(){
         analysis:result,
         thumbnail:currentThumb||null,
         videoUrl:videoBlobUrl,
+        video_url:persistedVideoUrl||null,
+        is_own_swing:ownSwing,
         frames:null,  // null = loading; {} = done (even if failed); object = ready
         created_at:entryTime,
       };
@@ -1172,6 +1182,8 @@ function ObiGolfApp(){
         supabase.from("swing_analyses").insert({
           user_id:user.id,notes:currentNotes,analysis:result,
           club_used:currentNotes||"unknown",thumbnail:currentThumb||null,
+          video_url:persistedVideoUrl||null,
+          is_own_swing:ownSwing,
           created_at:entryTime,
         }).select("id").single().then(({data,error})=>{
           if(error){console.warn("DB save:",error.message);return;}
@@ -1190,6 +1202,7 @@ function ObiGolfApp(){
     }
     setSwingFile(null);setSwingThumb(null);
     if(swingInputRef.current)swingInputRef.current.value="";
+    setIsOwnSwing(true); // reset to "My swing" for next upload
     setSwingLoading(false);
   };
 
@@ -2417,6 +2430,7 @@ function ObiGolfApp(){
             expandedSwing={expandedSwing} setExpandedSwing={setExpandedSwing}
             swingInputRef={swingInputRef}
             handleSwingAnalyze={handleSwingAnalyze}
+            isOwnSwing={isOwnSwing} setIsOwnSwing={setIsOwnSwing}
             speaking={speaking} speakText={speakText} stopSpeak={stopSpeak}
             supabase={supabase} fmtDateShort={fmtDateShort}
             renderSwingAnalysis={renderSwingAnalysis}

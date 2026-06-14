@@ -161,8 +161,8 @@ async function analyzeSwingVideo(videoFile,notes,bag,hcp){
     .createSignedUrl(uploadData.path,120);
   if(signedError)throw new Error("Could not sign URL: "+signedError.message);
 
-  // Step 3: Server downloads video from Supabase and uploads to Google File API
-  // using 8 MB chunks (server-to-server — correct granularity, no size limit).
+  // Step 3: Server downloads video from Supabase and uploads to Google File API.
+  // On failure we clean up Supabase; on success we keep the video for history replay.
   let fileUri,fileName;
   try{
     const r=await fetch("/api/analyze-swing?action=upload-to-google",{
@@ -175,10 +175,18 @@ async function analyzeSwingVideo(videoFile,notes,bag,hcp){
     fileUri=d.fileUri;
     fileName=d.fileName;
     if(!fileUri)throw new Error("No file URI returned");
-  }finally{
-    // Clean up Supabase Storage regardless of success — video now lives in Google
+  }catch(e){
+    // Upload to Google failed — clean up Supabase so we don't waste space
     supabase.storage.from("videos").remove([uploadData.path]).catch(()=>{});
+    throw e;
   }
+
+  // Get a long-lived signed URL (10 years) so history replay works after logout
+  let persistedVideoUrl=null;
+  try{
+    const{data:sv}=await supabase.storage.from("videos").createSignedUrl(uploadData.path,315360000);
+    if(sv?.signedUrl)persistedVideoUrl=sv.signedUrl;
+  }catch(e){}
 
   // Step 4: Poll until Google finishes processing, then analyze.
   // Server checks once per call and returns 202 if not ready — client retries
@@ -198,7 +206,8 @@ async function analyzeSwingVideo(videoFile,notes,bag,hcp){
   }
   if(data?.notReady)throw new Error("Video still processing — please try again in a moment");
   if(data?.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
+  // Return both the analysis text and the persisted video URL for history replay
+  return{text:data?.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.",videoUrl:persistedVideoUrl};
 }
 
 
