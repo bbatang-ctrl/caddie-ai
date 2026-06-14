@@ -1151,8 +1151,9 @@ function ObiGolfApp(){
       else{result=await analyzeSwing(currentFile,currentNotes,profile);}
       setSwingAnalysis(result);
       // Parse JSON to extract keyFrames for frame extraction
+      // Use indexOf/lastIndexOf so preamble text from Gemini doesn't break the parse
       let parsedResult=null;
-      try{const js=result.replace(/^```json\n?/,"").replace(/\n?```$/,"").trim();parsedResult=JSON.parse(js);}catch(e){}
+      try{let js=result.replace(/^```json\s*/m,"").replace(/\s*```\s*$/m,"").trim();const s0=js.indexOf("{"),e0=js.lastIndexOf("}");if(s0!==-1&&e0>s0){js=js.slice(s0,e0+1);}parsedResult=JSON.parse(js);}catch(e){}
       const entryTime=new Date().toISOString();
       const newEntry={
         id:null,
