@@ -38,7 +38,7 @@ async function loadPoseLandmarker(){
     const{FilesetResolver,PoseLandmarker}=await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs");
     const vision=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
     _poseLandmarker=await PoseLandmarker.createFromOptions(vision,{
-      baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",delegate:"GPU"},
+      baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",delegate:"CPU"},
       runningMode:"IMAGE",numPoses:1
     });
     _poseLandmarkerLoading=false;
@@ -48,23 +48,39 @@ async function loadPoseLandmarker(){
 async function extractVideoFrame(videoFile,fraction){
   return new Promise((resolve,reject)=>{
     const video=document.createElement("video");
-    video.muted=true;video.playsInline=true;
+    video.muted=true;video.playsInline=true;video.preload="auto";
     const url=URL.createObjectURL(videoFile);
     video.src=url;
-    const timer=setTimeout(()=>{URL.revokeObjectURL(url);reject(new Error("Timeout"));},15000);
-    video.onloadedmetadata=()=>{
-      video.onseeked=()=>{
-        clearTimeout(timer);
-        try{
-          const cv=document.createElement("canvas");
-          cv.width=video.videoWidth||480;cv.height=video.videoHeight||640;
-          cv.getContext("2d").drawImage(video,0,0,cv.width,cv.height);
-          URL.revokeObjectURL(url);resolve({canvas:cv});
-        }catch(e){URL.revokeObjectURL(url);reject(e);}
-      };
-      video.currentTime=video.duration*Math.max(0.01,Math.min(0.99,fraction));
+    let settled=false;
+    const done=(cv)=>{
+      if(settled)return;settled=true;
+      clearTimeout(globalTimer);URL.revokeObjectURL(url);resolve({canvas:cv});
     };
-    video.onerror=()=>{clearTimeout(timer);URL.revokeObjectURL(url);reject(new Error("Video load failed"));};
+    const fail=(e)=>{
+      if(settled)return;settled=true;
+      clearTimeout(globalTimer);URL.revokeObjectURL(url);reject(e);
+    };
+    const capture=()=>{
+      if(settled)return;
+      try{
+        const cv=document.createElement("canvas");
+        cv.width=video.videoWidth||480;cv.height=video.videoHeight||640;
+        cv.getContext("2d").drawImage(video,0,0,cv.width,cv.height);
+        done(cv);
+      }catch(e){fail(e);}
+    };
+    const globalTimer=setTimeout(()=>fail(new Error("Timeout")),18000);
+    video.onloadedmetadata=()=>{
+      const t=video.duration*Math.max(0.01,Math.min(0.99,fraction));
+      video.currentTime=t;
+      // Primary: onseeked fires when seek is complete
+      video.onseeked=capture;
+      // Fallback A: loadeddata fires when frame data is ready at new position
+      video.onloadeddata=()=>setTimeout(capture,80);
+      // Fallback B: force-capture after 2 s regardless (handles .mov / HEVC quirks)
+      setTimeout(()=>{ if(!settled&&video.readyState>=2)capture(); },2000);
+    };
+    video.onerror=()=>fail(new Error("Video element error"));
   });
 }
 function drawPoseOnCanvas(canvas,landmarks){
@@ -1156,9 +1172,9 @@ function ObiGolfApp(){
         if(data)newEntry.id=data.id;
       }
       setSwingHistory(h=>[{...newEntry},...h]);
-      // Process frames + pose async — non-blocking, frames pop in after analysis
-      if(isVideo&&parsedResult){
-        processSwingVideo(currentFile,parsedResult)
+      // Process frames + pose async — runs for ALL videos regardless of JSON parse success
+      if(isVideo){
+        processSwingVideo(currentFile,parsedResult||{})
           .then(frames=>setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:frames||{}}:e)))
           .catch(()=>setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:{}}:e)));
       }
