@@ -489,6 +489,7 @@ export default function PracticeTab({
   speaking, speakText, stopSpeak,
   supabase, fmtDateShort,
   renderSwingAnalysis,   // kept in signature — used by App.jsx elsewhere
+  reExtractFrames,       // callback to re-extract key frames for a history entry
   profile,
   // extra props App.jsx passes — accepted silently
   practiceSubTab, setPracticeSubTab,
@@ -727,7 +728,15 @@ export default function PracticeTab({
                     {/* ── List row ── */}
                     <div
                       className="flex items-center gap-3 px-3 py-3 cursor-pointer"
-                      onClick={() => setExpanded(isExp ? null : key)}
+                      onClick={() => {
+                        const opening = !isExp;
+                        setExpanded(opening ? key : null);
+                        // Kick off frame extraction the first time a video entry is opened.
+                        // frames===undefined means never extracted (entry loaded from DB).
+                        if (opening && s.frames === undefined && (s.video_url || s.videoUrl) && reExtractFrames) {
+                          reExtractFrames(s);
+                        }
+                      }}
                     >
                       <div className="shrink-0">
                         {thumb
@@ -757,7 +766,14 @@ export default function PracticeTab({
                         {overall != null && <ScoreBadge score={overall}/>}
                         <div className="flex gap-1">
                           <button
-                            onClick={e => { e.stopPropagation(); setExpanded(isExp ? null : key); }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              const opening = !isExp;
+                              setExpanded(opening ? key : null);
+                              if (opening && s.frames === undefined && (s.video_url || s.videoUrl) && reExtractFrames) {
+                                reExtractFrames(s);
+                              }
+                            }}
                             className={cn(
                               "display text-[9px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 border transition",
                               isExp

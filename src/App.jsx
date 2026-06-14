@@ -45,20 +45,22 @@ async function loadPoseLandmarker(){
     return _poseLandmarker;
   }catch(e){console.warn("MediaPipe load failed:",e);_poseLandmarkerLoading=false;return null;}
 }
-async function extractVideoFrame(videoFile,fraction){
+async function extractVideoFrame(videoSource,fraction){
   return new Promise((resolve,reject)=>{
     const video=document.createElement("video");
     video.muted=true;video.playsInline=true;video.preload="auto";
-    const url=URL.createObjectURL(videoFile);
+    // Accept either a Blob/File or a pre-existing URL string (e.g. Supabase signed URL)
+    const isBlob=videoSource instanceof Blob;
+    const url=isBlob?URL.createObjectURL(videoSource):videoSource;
     video.src=url;
     let settled=false;
     const done=(cv)=>{
       if(settled)return;settled=true;
-      clearTimeout(globalTimer);URL.revokeObjectURL(url);resolve({canvas:cv});
+      clearTimeout(globalTimer);if(isBlob)URL.revokeObjectURL(url);resolve({canvas:cv});
     };
     const fail=(e)=>{
       if(settled)return;settled=true;
-      clearTimeout(globalTimer);URL.revokeObjectURL(url);reject(e);
+      clearTimeout(globalTimer);if(isBlob)URL.revokeObjectURL(url);reject(e);
     };
     const capture=()=>{
       if(settled)return;
@@ -121,129 +123,44 @@ function drawPoseOnCanvas(canvas,landmarks){
     ctx.fillStyle="#ff7878";ctx.font="bold 10px sans-serif";ctx.fillText("Hip "+hipDeg+"°",Math.min(lh.x,rh.x),Math.max(lh.y,rh.y)+13);
   }
 }
-// Extracts N frames from a video in a single video-element pass (much faster than
-// creating N separate video elements). Returns array of {canvas, frac} or null.
-async function extractMultipleFrames(videoFile,fractions){
-  return new Promise(resolve=>{
-    const video=document.createElement("video");
-    video.muted=true;video.playsInline=true;video.preload="auto";
-    const url=URL.createObjectURL(videoFile);
-    video.src=url;
-    const N=fractions.length;
-    const results=new Array(N).fill(null);
-    let idx=0,done=false,frameTimer=null;
-    const totalTimer=setTimeout(()=>{clearTimeout(frameTimer);finish();},N*4000+8000);
-    const finish=()=>{
-      if(done)return;done=true;
-      clearTimeout(totalTimer);clearTimeout(frameTimer);
-      URL.revokeObjectURL(url);resolve(results);
-    };
-    const advance=(snap)=>{
-      if(done||idx!==snap)return;
-      clearTimeout(frameTimer);
-      try{
-        const cv=document.createElement("canvas");
-        cv.width=video.videoWidth||480;cv.height=video.videoHeight||640;
-        cv.getContext("2d").drawImage(video,0,0,cv.width,cv.height);
-        results[snap]={canvas:cv,frac:fractions[snap]};
-      }catch{}
-      idx++;
-      seekNext();
-    };
-    const seekNext=()=>{
-      if(done||idx>=N){finish();return;}
-      const snap=idx;
-      const t=video.duration*Math.max(0.005,Math.min(0.995,fractions[snap]));
-      video.onseeked=()=>advance(snap);
-      video.onloadeddata=()=>setTimeout(()=>advance(snap),60);
-      video.currentTime=t;
-      frameTimer=setTimeout(()=>{if(video.readyState>=2)advance(snap);},3000);
-    };
-    video.onloadedmetadata=()=>seekNext();
-    video.onerror=finish;
-  });
-}
+// Extract setup / top / impact frames in parallel using 3 independent video elements.
+// More reliable than a single-element sequential approach — onseeked fires independently
+// on each element, so one slow seek never blocks the others.
+// videoSource: File/Blob OR a URL string (e.g. Supabase signed URL for history replay).
+async function processSwingVideo(videoSource,parsedResult){
+  // Derive timing hints: use Gemini keyFrames if available, else safe empirical defaults.
+  // Old default 0.70 for impact was wrong — that's well into follow-through.
+  const kf=parsedResult?.keyFrames||{};
+  const timings={
+    setup:  kf.setup        ??0.08,
+    top:    kf.backswingTop ??0.35,
+    impact: kf.impact       ??0.50,
+  };
 
-async function processSwingVideo(videoFile,parsedResult){
-  // Pre-warm MediaPipe in parallel with frame extraction
+  // Pre-warm MediaPipe while frames are loading
   const landmarkerProm=loadPoseLandmarker().catch(()=>null);
 
-  // Sample 18 frames across 3%–93% using a single video element (fast batch extraction)
-  const N=18;
-  const fracs=Array.from({length:N},(_,i)=>0.03+(i/(N-1))*0.90);
-  const rawFrames=await extractMultipleFrames(videoFile,fracs);
+  // Extract all 3 frames in parallel — each call creates its own video element
+  const [setupR,topR,impactR]=await Promise.all([
+    extractVideoFrame(videoSource,timings.setup).catch(()=>null),
+    extractVideoFrame(videoSource,timings.top).catch(()=>null),
+    extractVideoFrame(videoSource,timings.impact).catch(()=>null),
+  ]);
+
   const landmarker=await landmarkerProm;
 
-  // Run pose detection on every extracted frame
-  const scannedFrames=rawFrames.map(f=>{
-    if(!f)return null;
-    let landmarks=null;
-    if(landmarker){
-      try{const r=landmarker.detect(f.canvas);landmarks=r?.landmarks?.[0]||null;}catch{}
-    }
-    return{frac:f.frac,canvas:f.canvas,landmarks,poseDrawn:false};
-  }).filter(Boolean);
-
-  if(scannedFrames.length===0)return{};
-
-  // ── Detect actual swing moments from wrist trajectory ────────────────────
-  // In normalized MediaPipe coords: Y=0 is TOP of frame, Y=1 is BOTTOM.
-  // Top of backswing = wrist is physically highest → smallest Y value.
-  // Impact = wrists return to approximately the same height as setup.
-  const posed=scannedFrames.filter(f=>f.landmarks);
-  let timings=null;
-
-  if(posed.length>=4){
-    // SETUP: earliest detected frame in the first 25% of the video
-    const early=posed.filter(f=>f.frac<=0.25);
-    const setupF=early.length>0?early[0]:posed[0];
-    const setupWristY=((setupF.landmarks[15]?.y??0.65)+(setupF.landmarks[16]?.y??0.65))/2;
-
-    // TOP OF BACKSWING: frame where the HIGHER wrist reaches its peak elevation
-    let topF=posed[0];
-    for(const f of posed){
-      const fh=Math.min(f.landmarks[15]?.y??1,f.landmarks[16]?.y??1);
-      const th=Math.min(topF.landmarks[15]?.y??1,topF.landmarks[16]?.y??1);
-      if(fh<th)topF=f;
-    }
-
-    // IMPACT: first frame after the top where avg wrist Y returns to ≈ setup height
-    // (both wrists drop back to ball height after the backswing)
-    const afterTop=posed.filter(f=>f.frac>topF.frac);
-    let impactF=afterTop.length>=2?afterTop[1]:afterTop[0]||null;
-    for(const f of afterTop){
-      const avgY=((f.landmarks[15]?.y??0.5)+(f.landmarks[16]?.y??0.5))/2;
-      if(avgY>=setupWristY-0.10){impactF=f;break;}
-    }
-
-    timings={
-      setup:setupF.frac,
-      top:topF.frac,
-      impact:impactF?.frac??Math.min(topF.frac+0.15,0.88),
-    };
-  }
-
-  // Fallback: Gemini keyFrames → empirical defaults (NOT the old 0.45/0.70)
-  if(!timings){
-    const kf=parsedResult?.keyFrames||{};
-    timings={
-      setup:  kf.setup        ??0.08,
-      top:    kf.backswingTop ??0.35,
-      impact: kf.impact       ??0.50,
-    };
-  }
-
-  // ── Select nearest scanned frame for each moment, draw pose overlay ───────
-  const nearest=(target)=>scannedFrames.reduce((best,f)=>
-    Math.abs(f.frac-target)<Math.abs(best.frac-target)?f:best
-  ,scannedFrames[0]);
-
+  // Draw pose overlay on each canvas that has a valid frame
   const out={};
-  for(const[key,frac]of[["setup",timings.setup],["top",timings.top],["impact",timings.impact]]){
-    const f=nearest(frac);
-    if(!f?.canvas)continue;
-    if(f.landmarks&&!f.poseDrawn){drawPoseOnCanvas(f.canvas,f.landmarks);f.poseDrawn=true;}
-    out[key]=f.canvas.toDataURL("image/jpeg",0.82);
+  for(const[key,r]of[["setup",setupR],["top",topR],["impact",impactR]]){
+    if(!r?.canvas)continue;
+    if(landmarker){
+      try{
+        const det=landmarker.detect(r.canvas);
+        const lm=det?.landmarks?.[0]||null;
+        if(lm)drawPoseOnCanvas(r.canvas,lm);
+      }catch{}
+    }
+    out[key]=r.canvas.toDataURL("image/jpeg",0.82);
   }
   return Object.keys(out).length>0?out:{};
 }
@@ -1318,6 +1235,26 @@ function ObiGolfApp(){
     setSwingLoading(false);
   };
 
+  // Re-extract key frames for a historical entry that has a stored video_url.
+  // Called when the user expands a swing card loaded from the DB (frames=undefined).
+  const reExtractFrames=useCallback((entry)=>{
+    const videoUrl=entry.video_url||entry.videoUrl||null;
+    const entryTime=entry.created_at;
+    if(!videoUrl||!entryTime)return;
+    // Mark as loading so the spinner shows immediately
+    setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:null}:e));
+    // Parse stored analysis to get Gemini keyFrame hints (for timing fallback)
+    let parsedResult=null;
+    try{
+      const js=(entry.analysis||"").replace(/^```json\s*/m,"").replace(/\s*```\s*$/m,"").trim();
+      const s0=js.indexOf("{"),e0=js.lastIndexOf("}");
+      if(s0!==-1&&e0>s0)parsedResult=JSON.parse(js.slice(s0,e0+1));
+    }catch{}
+    processSwingVideo(videoUrl,parsedResult||{})
+      .then(frames=>setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:frames||{}}:e)))
+      .catch(()=>setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:{}}:e)));
+  },[]);
+
   useEffect(()=>{
     if(!user)return;
     supabase.from("swing_analyses").select("*").eq("user_id",user.id).order("created_at",{ascending:false}).limit(10).then(({data})=>{if(data)setSwingHistory(data);});
@@ -1389,7 +1326,7 @@ function ObiGolfApp(){
                   <video src={videoUrl} controls playsInline loop className="w-full rounded-xl bg-black" style={{maxHeight:"240px",objectFit:"contain"}}/>
                 )}
                 {/* Key frames filmstrip with pose overlays */}
-                {videoUrl&&frames&&frames.setup&&(
+                {videoUrl&&frames&&(frames.setup||frames.top||frames.impact)&&(
                   <div className="rounded-xl border border-border bg-secondary/20 overflow-hidden">
                     <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-3 pt-2.5 pb-1">Key Frames · Pose Analysis</p>
                     <div className="grid grid-cols-3 divide-x divide-border border-t border-border">
@@ -2547,6 +2484,7 @@ function ObiGolfApp(){
             speaking={speaking} speakText={speakText} stopSpeak={stopSpeak}
             supabase={supabase} fmtDateShort={fmtDateShort}
             renderSwingAnalysis={renderSwingAnalysis}
+            reExtractFrames={reExtractFrames}
             profile={profile}
           />
         )}
