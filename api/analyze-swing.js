@@ -98,18 +98,18 @@ export default async function handler(req, res) {
       const { fileUri, fileName, mimeType, hcp, club, notes } = req.body || {};
       if (!fileUri || !fileName) return res.status(400).json({ error: "fileUri and fileName required" });
 
-      const prompt = buildPrompt(hcp || "unknown", club || notes || "not specified", "video");
-
-      // Poll until ACTIVE (max 20 × 2 s = 40 s)
-      let ready = false;
-      for (let i = 0; i < 20 && !ready; i++) {
-        await new Promise(r => setTimeout(r, 2000));
-        const check = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`
-        ).then(r => r.json()).catch(() => ({}));
-        if (check?.state === "ACTIVE" || check?.file?.state === "ACTIVE") ready = true;
+      // Check once if Google has finished processing the video.
+      // If not ready yet, return 202 so the client can retry — this keeps each
+      // invocation well under Vercel's function timeout limit.
+      const check = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`
+      ).then(r => r.json()).catch(() => ({}));
+      const state = check?.state || check?.file?.state;
+      if (state !== "ACTIVE") {
+        return res.status(202).json({ notReady: true, state: state || "PROCESSING" });
       }
-      if (!ready) return res.status(500).json({ error: "Video processing timed out — try a clip under 30 seconds" });
+
+      const prompt = buildPrompt(hcp || "unknown", club || notes || "not specified", "video");
 
       const analyzeRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
