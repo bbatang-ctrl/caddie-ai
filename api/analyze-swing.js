@@ -23,19 +23,21 @@ function buildPrompt(hcp, club, mediaType) {
     ? "Watch the FULL swing motion carefully."
     : "Analyze this golf swing image.";
 
+  // IMPORTANT: keep notes SHORT (≤15 words each) — Gemini must not exceed token budget.
+  // The entire JSON response must fit in one completion; truncated JSON cannot be parsed.
   const schema =
     `{"overall":<integer 1-100>,` +
     `"categories":{` +
-    `"setup":{"score":<1-10>,"note":"<one specific observation>"},` +
-    `"backswing":{"score":<1-10>,"note":"<one specific observation>"},` +
-    `"downswing":{"score":<1-10>,"note":"<one specific observation>"},` +
-    `"impact":{"score":<1-10>,"note":"<one specific observation>"},` +
-    `"followthrough":{"score":<1-10>,"note":"<one specific observation>"},` +
-    `"tempo":{"score":<1-10>,"note":"<one specific observation>"}},` +
-    `"primaryFault":"<the single most important thing to fix, specific and visual>",` +
-    `"drill":"<step-by-step drill name and instructions to fix the primary fault>",` +
-    `"positives":["<specific positive 1>","<specific positive 2>"],` +
-    `"summary":"<2-3 sentence coaching summary in warm encouraging tone, use first person as if speaking to the player>"` +
+    `"setup":{"score":<1-10>,"note":"<ONE sentence, max 15 words>"},` +
+    `"backswing":{"score":<1-10>,"note":"<ONE sentence, max 15 words>"},` +
+    `"downswing":{"score":<1-10>,"note":"<ONE sentence, max 15 words>"},` +
+    `"impact":{"score":<1-10>,"note":"<ONE sentence, max 15 words>"},` +
+    `"followthrough":{"score":<1-10>,"note":"<ONE sentence, max 15 words>"},` +
+    `"tempo":{"score":<1-10>,"note":"<ONE sentence, max 15 words>"}},` +
+    `"primaryFault":"<the single most critical fault, max 20 words, specific and visual>",` +
+    `"drill":"<drill name followed by 2 sentence instructions>",` +
+    `"positives":["<strength 1, max 12 words>","<strength 2, max 12 words>"],` +
+    `"summary":"<EXACTLY 2 sentences, warm encouraging tone, speak directly to the player>"` +
     (mediaType === "video"
       ? `,"keyFrames":{"setup":<0.0-1.0>,"backswingTop":<0.0-1.0>,"impact":<0.0-1.0>}`
       : "") +
@@ -175,12 +177,21 @@ export default async function handler(req, res) {
                 { text: prompt },
               ],
             }],
-            generationConfig: { maxOutputTokens: 1500, temperature: 0.7 },
+            // 2500 tokens gives ample room for the full JSON schema without truncation.
+            // 1500 was too tight — Gemini would cut off mid-response, producing invalid JSON.
+            generationConfig: { maxOutputTokens: 2500, temperature: 0.7 },
           }),
         }
       );
       const result = await analyzeRes.json();
       if (result.error) return res.status(500).json({ error: `Gemini: ${result.error.message || "failed"} (${result.error.status || "?"})` });
+
+      // Detect truncation — if Gemini ran out of tokens the JSON will be incomplete and unparseable
+      const finishReason = result?.candidates?.[0]?.finishReason;
+      if (finishReason === "MAX_TOKENS") {
+        return res.status(500).json({ error: "Analysis was cut off mid-response (video too long or complex). Try a shorter clip (15–30 s works best)." });
+      }
+
       return res.status(200).json(result);
     }
 
