@@ -82,14 +82,18 @@ async function extractVideoFrame(videoSource,fraction){
     };
     const globalTimer=setTimeout(()=>fail(new Error("Timeout")),18000);
     video.onloadedmetadata=()=>{
+      // play() warms up the iOS Safari video decoder — without this, seeking to a
+      // specific frame often produces a blank canvas on iPhone/iPad.
+      // The video is muted + playsInline so autoplay is allowed without user gesture.
+      video.play().catch(()=>{});
       const t=video.duration*Math.max(0.01,Math.min(0.99,fraction));
       video.currentTime=t;
       // Primary: onseeked fires when seek is complete
       video.onseeked=capture;
       // Fallback A: loadeddata fires when frame data is ready at new position
-      video.onloadeddata=()=>setTimeout(capture,80);
-      // Fallback B: force-capture after 2 s regardless (handles .mov / HEVC quirks)
-      setTimeout(()=>{ if(!settled&&video.readyState>=2)capture(); },2000);
+      video.onloadeddata=()=>setTimeout(capture,150);
+      // Fallback B: force-capture after 2.5 s regardless (handles .mov / HEVC quirks)
+      setTimeout(()=>{ if(!settled&&video.readyState>=2)capture(); },2500);
     };
     video.onerror=()=>fail(new Error("Video element error"));
   });
