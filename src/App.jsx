@@ -45,59 +45,6 @@ async function loadPoseLandmarker(){
     return _poseLandmarker;
   }catch(e){console.warn("MediaPipe load failed:",e);_poseLandmarkerLoading=false;return null;}
 }
-async function extractVideoFrame(videoSource,fraction){
-  return new Promise((resolve,reject)=>{
-    const video=document.createElement("video");
-    video.muted=true;video.playsInline=true;video.preload="auto";
-    // iOS Safari won't decode frames from off-screen video elements.
-    // Must be in the DOM — positioned off-screen so it's invisible to the user.
-    video.style.cssText="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;";
-    document.body.appendChild(video);
-    // Accept either a Blob/File or a pre-existing URL string (e.g. Supabase signed URL)
-    const isBlob=videoSource instanceof Blob;
-    const url=isBlob?URL.createObjectURL(videoSource):videoSource;
-    // crossOrigin must be set BEFORE src so the browser uses CORS mode.
-    // Required for canvas.toDataURL() when loading from a remote URL (e.g. Supabase).
-    // Supabase Storage sends Access-Control-Allow-Origin: * so this is safe.
-    if(!isBlob)video.crossOrigin="anonymous";
-    video.src=url;
-    let settled=false;
-    const cleanup=()=>{try{document.body.removeChild(video);}catch{}if(isBlob)URL.revokeObjectURL(url);};
-    const done=(cv)=>{
-      if(settled)return;settled=true;
-      clearTimeout(globalTimer);cleanup();resolve({canvas:cv});
-    };
-    const fail=(e)=>{
-      if(settled)return;settled=true;
-      clearTimeout(globalTimer);cleanup();reject(e);
-    };
-    const capture=()=>{
-      if(settled)return;
-      try{
-        const cv=document.createElement("canvas");
-        cv.width=video.videoWidth||480;cv.height=video.videoHeight||640;
-        cv.getContext("2d").drawImage(video,0,0,cv.width,cv.height);
-        done(cv);
-      }catch(e){fail(e);}
-    };
-    const globalTimer=setTimeout(()=>fail(new Error("Timeout")),18000);
-    video.onloadedmetadata=()=>{
-      // play() warms up the iOS Safari video decoder — without this, seeking to a
-      // specific frame often produces a blank canvas on iPhone/iPad.
-      // The video is muted + playsInline so autoplay is allowed without user gesture.
-      video.play().catch(()=>{});
-      const t=video.duration*Math.max(0.01,Math.min(0.99,fraction));
-      video.currentTime=t;
-      // Primary: onseeked fires when seek is complete
-      video.onseeked=capture;
-      // Fallback A: loadeddata fires when frame data is ready at new position
-      video.onloadeddata=()=>setTimeout(capture,150);
-      // Fallback B: force-capture after 2.5 s regardless (handles .mov / HEVC quirks)
-      setTimeout(()=>{ if(!settled&&video.readyState>=2)capture(); },2500);
-    };
-    video.onerror=()=>fail(new Error("Video element error"));
-  });
-}
 function drawPoseOnCanvas(canvas,landmarks){
   if(!landmarks?.length)return;
   const ctx=canvas.getContext("2d"),W=canvas.width,H=canvas.height;
@@ -136,13 +83,9 @@ function drawPoseOnCanvas(canvas,landmarks){
     ctx.fillStyle="#ff7878";ctx.font="bold 10px sans-serif";ctx.fillText("Hip "+hipDeg+"°",Math.min(lh.x,rh.x),Math.max(lh.y,rh.y)+13);
   }
 }
-// Extract setup / top / impact frames in parallel using 3 independent video elements.
-// More reliable than a single-element sequential approach — onseeked fires independently
-// on each element, so one slow seek never blocks the others.
-// videoSource: File/Blob OR a URL string (e.g. Supabase signed URL for history replay).
-// ── Frame extraction log buffer ───────────────────────────────────────────────
+// ── Frame extraction log buffer ────────────────────────────────────────────────
 // processSwingVideo writes here so callers can attach logs to the swing entry
-// and display them on-screen (useful when browser devtools aren't available).
+// and display them on-screen (useful on mobile where devtools are unavailable).
 let _frameLogBuf=[];
 const _flog=(...args)=>{
   const msg=args.map(a=>typeof a==="object"?JSON.stringify(a):String(a)).join(" ");
@@ -150,59 +93,138 @@ const _flog=(...args)=>{
   console.log("[frames]",msg);
 };
 
+// ── Production-grade sequential frame extractor ────────────────────────────────
+// WHY one video element + sequential seeks:
+//   The old approach (3 parallel video elements) caused ALL THREE frames to be
+//   IDENTICAL because each element reads from the same shared GPU decode buffer.
+//   The decoder hadn't advanced to the correct timestamp before canvas.drawImage()
+//   fired — so every capture got the same first decoded frame.
+//
+// The fix (matching production sports-video apps):
+//   1. ONE video element — eliminates shared-buffer aliasing.
+//   2. Sequential seeks — each fully completes before the next starts.
+//   3. requestVideoFrameCallback (or 2× RAF fallback) — waits for the GPU to
+//      composit the decoded frame before capture. This is the critical barrier
+//      that guarantees canvas reads the *correct* frame, not the previous one.
+//   4. DOM attachment + play() warm-up — iOS Safari requirements for accurate seeks.
 async function processSwingVideo(videoSource,parsedResult){
-  _frameLogBuf=[];  // reset before each extraction
-  const srcType=videoSource instanceof Blob
-    ? `Blob ${(videoSource.size/1024/1024).toFixed(1)}MB type=${videoSource.type||"(empty)"}`
-    : `URL ${String(videoSource).slice(0,90)}`;
+  _frameLogBuf=[];
+  const isBlob=videoSource instanceof Blob;
+  const srcType=isBlob
+    ?`Blob ${(videoSource.size/1024/1024).toFixed(1)}MB type=${videoSource.type||"(empty)"}`
+    :`URL ${String(videoSource).slice(0,90)}`;
   _flog("▶ started —",srcType);
 
-  const kf=parsedResult?.keyFrames||{};
-  // Reject Gemini keyFrame values that are outside the realistic swing window (0.03–0.97).
-  // Gemini sometimes returns 0, 0.005, 0.01 (near-zero) which causes all 3 frames to be
-  // extracted from the very start of the video.  Fall back to safe empirical defaults.
-  const validFrac=(v,def)=>typeof v==="number"&&v>=0.03&&v<=0.97?v:def;
-  const timings={
-    setup:  validFrac(kf.setup,        0.08),
-    top:    validFrac(kf.backswingTop,  0.35),
-    impact: validFrac(kf.impact,        0.50),
+  const url=isBlob?URL.createObjectURL(videoSource):videoSource;
+
+  // Single DOM-attached video element (iOS Safari requires DOM presence for decoding)
+  const video=document.createElement("video");
+  video.muted=true;video.playsInline=true;video.preload="auto";
+  if(!isBlob)video.crossOrigin="anonymous";
+  video.style.cssText="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;";
+  document.body.appendChild(video);
+
+  const cleanup=()=>{
+    try{document.body.removeChild(video);}catch{}
+    if(isBlob)URL.revokeObjectURL(url);
   };
-  _flog("timings — setup:",timings.setup,"top:",timings.top,"impact:",timings.impact);
 
-  const landmarkerProm=loadPoseLandmarker().catch((e)=>{
-    _flog("MediaPipe FAILED:",e?.message||String(e));
-    return null;
-  });
+  try{
+    video.src=url;
 
-  const [setupR,topR,impactR]=await Promise.all([
-    extractVideoFrame(videoSource,timings.setup).catch((e)=>{_flog("setup extract ERROR:",e?.message);return null;}),
-    extractVideoFrame(videoSource,timings.top).catch((e)=>{_flog("top extract ERROR:",e?.message);return null;}),
-    extractVideoFrame(videoSource,timings.impact).catch((e)=>{_flog("impact extract ERROR:",e?.message);return null;}),
-  ]);
-  _flog("extraction — setup:",!!setupR?.canvas," top:",!!topR?.canvas," impact:",!!impactR?.canvas);
+    // 1 ── Wait for metadata (gives us duration + dimensions)
+    await new Promise((resolve,reject)=>{
+      const t=setTimeout(()=>reject(new Error("loadedmetadata timeout")),15000);
+      video.onloadedmetadata=()=>{clearTimeout(t);resolve();};
+      video.onerror=()=>{clearTimeout(t);reject(new Error("video load error: "+(video.error?.message||"unknown")));};
+    });
+    const dur=video.duration;
+    _flog("duration:",dur.toFixed(2)+"s  size:",video.videoWidth+"×"+video.videoHeight);
 
-  const landmarker=await landmarkerProm;
-  _flog("MediaPipe loaded:",!!landmarker);
+    // 2 ── Warm up the iOS decoder — without play() first, seeks produce blank frames
+    await video.play().catch(()=>{});
+    video.pause();
 
-  const out={};
-  for(const[key,r]of[["setup",setupR],["top",topR],["impact",impactR]]){
-    if(!r?.canvas){_flog(key,"— no canvas, skip");continue;}
-    if(landmarker){
+    // 3 ── Determine timing fractions
+    //   Reject Gemini keyFrames outside 0.03–0.97 (returns 0/0.005/0.01 sometimes).
+    //   Fall back to empirically correct defaults.
+    const kf=parsedResult?.keyFrames||{};
+    const vf=(v,def)=>typeof v==="number"&&v>=0.03&&v<=0.97?v:def;
+    const fracs={setup:vf(kf.setup,0.08),top:vf(kf.backswingTop,0.35),impact:vf(kf.impact,0.50)};
+    _flog("fracs — setup:",fracs.setup,"top:",fracs.top,"impact:",fracs.impact);
+
+    // Pre-warm MediaPipe concurrently while we do sequential seeks
+    const landmarkerProm=loadPoseLandmarker().catch(e=>{_flog("MediaPipe FAILED:",e?.message||e);return null;});
+
+    // 4 ── Seek helper with frame-decode barrier
+    //   requestVideoFrameCallback: tells browser to call back after the *decoded frame*
+    //   has been composited (Chrome 83+, Safari 15.4+, not Firefox yet).
+    //   2× RAF fallback gives 2 animation frames of settling time on older engines.
+    const seekTo=(frac)=>new Promise((resolve,reject)=>{
+      const clampT=Math.min(Math.max(frac*dur,0.05),dur-0.05);
+      const timeout=setTimeout(()=>reject(new Error(`seek timeout frac=${frac}`)),10000);
+      const onSeeked=()=>{
+        video.removeEventListener("seeked",onSeeked);
+        clearTimeout(timeout);
+        if(typeof video.requestVideoFrameCallback==="function"){
+          // Preferred: waits for GPU to present the decoded frame
+          video.requestVideoFrameCallback(()=>resolve());
+        }else{
+          // Fallback: 2 animation frames of settling time
+          requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()));
+        }
+      };
+      video.addEventListener("seeked",onSeeked);
+      video.currentTime=clampT;
+    });
+
+    // 5 ── Capture current frame to canvas
+    const capture=()=>{
+      const cv=document.createElement("canvas");
+      cv.width=video.videoWidth||480;cv.height=video.videoHeight||640;
+      cv.getContext("2d").drawImage(video,0,0,cv.width,cv.height);
+      return cv;
+    };
+
+    // 6 ── SEQUENTIAL seeks (the core fix — wait for each before starting next)
+    const canvases={};
+    for(const[key,frac]of[["setup",fracs.setup],["top",fracs.top],["impact",fracs.impact]]){
       try{
-        const det=landmarker.detect(r.canvas);
-        const lm=det?.landmarks?.[0]||null;
-        _flog(key,"landmarks:",lm?lm.length+" pts":"none");
-        if(lm)drawPoseOnCanvas(r.canvas,lm);
-      }catch(e){_flog(key,"pose draw ERROR:",e?.message);}
+        await seekTo(frac);
+        canvases[key]=capture();
+        _flog(key,"captured at",(frac*dur).toFixed(2)+"s  "+canvases[key].width+"×"+canvases[key].height);
+      }catch(e){_flog(key,"seek/capture ERROR:",e?.message);}
     }
-    try{
-      const dataUrl=r.canvas.toDataURL("image/jpeg",0.82);
-      out[key]=dataUrl;
-      _flog(key,"→ dataURL OK, len:",dataUrl.length);
-    }catch(e){_flog(key,"toDataURL ERROR (tainted?):",e?.message);}
+
+    // 7 ── Pose overlay
+    const landmarker=await landmarkerProm;
+    _flog("MediaPipe loaded:",!!landmarker);
+
+    const out={};
+    for(const[key,canvas]of Object.entries(canvases)){
+      if(landmarker){
+        try{
+          const det=landmarker.detect(canvas);
+          const lm=det?.landmarks?.[0]||null;
+          _flog(key,"landmarks:",lm?lm.length+" pts":"none");
+          if(lm)drawPoseOnCanvas(canvas,lm);
+        }catch(e){_flog(key,"pose ERROR:",e?.message);}
+      }
+      try{
+        const dataUrl=canvas.toDataURL("image/jpeg",0.82);
+        out[key]=dataUrl;
+        _flog(key,"→ dataURL OK, len:",dataUrl.length);
+      }catch(e){_flog(key,"toDataURL ERROR:",e?.message);}
+    }
+    _flog("✓ done — keys:",Object.keys(out).join(",")||"none");
+    return Object.keys(out).length>0?out:{};
+
+  }catch(e){
+    _flog("FATAL:",e?.message);
+    return {};
+  }finally{
+    cleanup();
   }
-  _flog("✓ done — keys:",Object.keys(out).join(",")||"none");
-  return Object.keys(out).length>0?out:{};
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
