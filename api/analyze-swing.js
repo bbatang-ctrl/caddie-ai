@@ -13,10 +13,19 @@ export const config = {
 };
 
 // Read the entire request body into a Buffer.
-function readRawBody(req) {
+// Handles both Vercel pre-buffered bodies (req.body) and raw Node.js streams.
+async function getBody(req) {
+  // Vercel may already have buffered into req.body (even with bodyParser: false)
+  if (req.body !== undefined && req.body !== null) {
+    if (Buffer.isBuffer(req.body)) return req.body;
+    if (typeof req.body === "string") return Buffer.from(req.body, "utf8");
+    // Parsed JSON object (bodyParser config ignored by some Vercel runtimes)
+    if (typeof req.body === "object") return Buffer.from(JSON.stringify(req.body), "utf8");
+  }
+  // Fall back to reading from stream
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on("data", chunk => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    req.on("data", c => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
     req.on("end", () => resolve(Buffer.concat(chunks)));
     req.on("error", reject);
   });
@@ -75,7 +84,7 @@ export default async function handler(req, res) {
   const contentType = (req.headers["content-type"] || "").split(";")[0].trim();
   const isVideo = contentType.startsWith("video/") || contentType === "application/octet-stream";
 
-  const rawBody = await readRawBody(req);
+  const rawBody = await getBody(req);
 
   try {
     // ── VIDEO PATH — raw binary body, metadata in query params ─────────────────
