@@ -158,10 +158,14 @@ async function processSwingVideo(videoSource,parsedResult){
   _flog("▶ started —",srcType);
 
   const kf=parsedResult?.keyFrames||{};
+  // Reject Gemini keyFrame values that are outside the realistic swing window (0.03–0.97).
+  // Gemini sometimes returns 0, 0.005, 0.01 (near-zero) which causes all 3 frames to be
+  // extracted from the very start of the video.  Fall back to safe empirical defaults.
+  const validFrac=(v,def)=>typeof v==="number"&&v>=0.03&&v<=0.97?v:def;
   const timings={
-    setup:  kf.setup        ??0.08,
-    top:    kf.backswingTop ??0.35,
-    impact: kf.impact       ??0.50,
+    setup:  validFrac(kf.setup,        0.08),
+    top:    validFrac(kf.backswingTop,  0.35),
+    impact: validFrac(kf.impact,        0.50),
   };
   _flog("timings — setup:",timings.setup,"top:",timings.top,"impact:",timings.impact);
 
@@ -1269,27 +1273,34 @@ function ObiGolfApp(){
         processSwingVideo(currentFile,parsedResult||{})
           .then(frames=>{
             const f=frames||{};
-            const logs=[..._frameLogBuf]; // snapshot the log buffer immediately after resolve
+            const logs=[..._frameLogBuf];
             setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:f,frameLogs:logs}:e));
-            // Persist frames to DB so they survive logout — use a short delay to
-            // ensure the INSERT above has completed and the entry has its DB id.
+            // Persist frames to DB — wrapped in try/catch so any sync throw can't
+            // escape into the outer .catch() and overwrite the frames we just set.
             if(user&&(f.setup||f.top||f.impact)){
               setTimeout(()=>{
                 setSwingHistory(h=>{
-                  const entry=h.find(e=>e.created_at===entryTime);
-                  if(entry?.id){
-                    supabase.from("swing_analyses").update({
-                      frame_setup:f.setup||null,
-                      frame_top:f.top||null,
-                      frame_impact:f.impact||null,
-                    }).eq("id",entry.id).catch(()=>{});
+                  const ent=h.find(e=>e.created_at===entryTime);
+                  if(ent?.id){
+                    try{
+                      supabase.from("swing_analyses").update({
+                        frame_setup:f.setup||null,
+                        frame_top:f.top||null,
+                        frame_impact:f.impact||null,
+                      }).eq("id",ent.id).catch(()=>{});
+                    }catch(dbErr){console.warn("[frames] db update threw:",dbErr?.message);}
                   }
-                  return h; // no state change needed, just reading id
+                  return h;
                 });
               },2500);
             }
           })
-          .catch(()=>setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:{}}:e)));
+          // GUARD: only mark as failed if frames is still null (loading).
+          // Without this guard the .catch() overwrites {setup,top,impact} with {}
+          // when anything inside .then() throws after setSwingHistory has already run.
+          .catch(()=>setSwingHistory(h=>h.map(e=>
+            e.created_at===entryTime&&e.frames===null?{...e,frames:{}}:e
+          )));
       }
     }catch(e){
       console.error("Swing analysis error:",e);
@@ -1322,16 +1333,25 @@ function ObiGolfApp(){
         const f=frames||{};
         const logs=[..._frameLogBuf];
         setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:f,frameLogs:logs}:e));
-        // Save frames to DB so history always has them after re-extraction
+        // Save to DB — isolated in try/catch so any sync throw can't reach the outer .catch()
+        // and overwrite the frames we just stored in state.
         if(user&&entry.id&&(f.setup||f.top||f.impact)){
-          supabase.from("swing_analyses").update({
-            frame_setup:f.setup||null,
-            frame_top:f.top||null,
-            frame_impact:f.impact||null,
-          }).eq("id",entry.id).catch(()=>{});
+          try{
+            supabase.from("swing_analyses").update({
+              frame_setup:f.setup||null,
+              frame_top:f.top||null,
+              frame_impact:f.impact||null,
+            }).eq("id",entry.id).catch(()=>{});
+          }catch(dbErr){console.warn("[frames] db update threw:",dbErr?.message);}
         }
       })
-      .catch(()=>setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:{}}:e)));
+      // GUARD: only mark as failed if frames is still null (loading).
+      // The .catch() fires when something inside .then() throws synchronously.
+      // Without the guard it overwrites {setup,top,impact} with {} even though
+      // setSwingHistory above already saved the correct frames.
+      .catch(()=>setSwingHistory(h=>h.map(e=>
+        e.created_at===entryTime&&e.frames===null?{...e,frames:{}}:e
+      )));
   },[user]);
 
   useEffect(()=>{
