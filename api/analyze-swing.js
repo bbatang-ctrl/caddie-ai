@@ -141,13 +141,12 @@ export default async function handler(req, res) {
             generationConfig: {
               maxOutputTokens: 1500,
               temperature: 0.7,
-              thinkingConfig: { thinkingBudget: 0 },
             },
           }),
         }
       );
       const result = await analyzeRes.json();
-      if (result.error) return res.status(500).json({ error: result.error.message || "Video analysis failed" });
+      if (result.error) return res.status(500).json({ error: `Gemini error: ${result.error.message || "Video analysis failed"} (status: ${result.error.status || "unknown"})` });
       return res.status(200).json(result);
     }
 
@@ -168,13 +167,12 @@ export default async function handler(req, res) {
           generationConfig: {
             maxOutputTokens: 1000,
             temperature: 0.4,
-            thinkingConfig: { thinkingBudget: 0 },
           },
         }),
       }
     );
     const result = await analyzeRes.json();
-    if (result.error) return res.status(500).json({ error: result.error.message || "Image analysis failed" });
+    if (result.error) return res.status(500).json({ error: `Gemini error: ${result.error.message || "Image analysis failed"} (status: ${result.error.status || "unknown"})` });
     return res.status(200).json(result);
 
   } catch (err) {
