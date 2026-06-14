@@ -214,7 +214,7 @@ export default async function handler(req, res) {
             }],
             // 2500 tokens gives ample room for the full JSON schema without truncation.
             // 1500 was too tight — Gemini would cut off mid-response, producing invalid JSON.
-            generationConfig: { maxOutputTokens: 2500, temperature: 0.7 },
+            generationConfig: { maxOutputTokens: 2500, temperature: 0.1 },
           }),
         }
       );
@@ -250,7 +250,7 @@ export default async function handler(req, res) {
               { text: prompt },
             ],
           }],
-          generationConfig: { maxOutputTokens: 1000, temperature: 0.4 },
+          generationConfig: { maxOutputTokens: 1000, temperature: 0.1 },
         }),
       }
     );
