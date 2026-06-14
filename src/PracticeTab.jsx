@@ -756,16 +756,18 @@ export default function PracticeTab({
                             </span>
                           )}
                           {s.saveError && (
-                            <span
-                              title={"Not saved to your account. Run the Supabase SQL fix. Error: " + s.saveError}
-                              className="display text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-500 shrink-0"
-                            >
+                            <span className="display text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-500 shrink-0">
                               ⚠ Not saved
                             </span>
                           )}
                         </div>
                         <p className="display text-[10px] font-bold text-muted-foreground mt-0.5">{fmtDateShort(s.created_at)}</p>
-                        {!isExp && preview && (
+                        {s.saveError && (
+                          <p className="text-[9px] text-amber-500 mt-0.5 leading-snug break-words">
+                            DB error: {s.saveError}
+                          </p>
+                        )}
+                        {!isExp && !s.saveError && preview && (
                           <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-snug">{preview}</p>
                         )}
                       </div>

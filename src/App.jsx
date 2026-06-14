@@ -49,6 +49,10 @@ async function extractVideoFrame(videoSource,fraction){
   return new Promise((resolve,reject)=>{
     const video=document.createElement("video");
     video.muted=true;video.playsInline=true;video.preload="auto";
+    // iOS Safari won't decode frames from off-screen video elements.
+    // Must be in the DOM — positioned off-screen so it's invisible to the user.
+    video.style.cssText="position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;";
+    document.body.appendChild(video);
     // Accept either a Blob/File or a pre-existing URL string (e.g. Supabase signed URL)
     const isBlob=videoSource instanceof Blob;
     const url=isBlob?URL.createObjectURL(videoSource):videoSource;
@@ -58,13 +62,14 @@ async function extractVideoFrame(videoSource,fraction){
     if(!isBlob)video.crossOrigin="anonymous";
     video.src=url;
     let settled=false;
+    const cleanup=()=>{try{document.body.removeChild(video);}catch{}if(isBlob)URL.revokeObjectURL(url);};
     const done=(cv)=>{
       if(settled)return;settled=true;
-      clearTimeout(globalTimer);if(isBlob)URL.revokeObjectURL(url);resolve({canvas:cv});
+      clearTimeout(globalTimer);cleanup();resolve({canvas:cv});
     };
     const fail=(e)=>{
       if(settled)return;settled=true;
-      clearTimeout(globalTimer);if(isBlob)URL.revokeObjectURL(url);reject(e);
+      clearTimeout(globalTimer);cleanup();reject(e);
     };
     const capture=()=>{
       if(settled)return;
@@ -1235,7 +1240,27 @@ function ObiGolfApp(){
       // Process frames + pose async — runs for ALL videos regardless of JSON parse success
       if(isVideo){
         processSwingVideo(currentFile,parsedResult||{})
-          .then(frames=>setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:frames||{}}:e)))
+          .then(frames=>{
+            const f=frames||{};
+            setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:f}:e));
+            // Persist frames to DB so they survive logout — use a short delay to
+            // ensure the INSERT above has completed and the entry has its DB id.
+            if(user&&(f.setup||f.top||f.impact)){
+              setTimeout(()=>{
+                setSwingHistory(h=>{
+                  const entry=h.find(e=>e.created_at===entryTime);
+                  if(entry?.id){
+                    supabase.from("swing_analyses").update({
+                      frame_setup:f.setup||null,
+                      frame_top:f.top||null,
+                      frame_impact:f.impact||null,
+                    }).eq("id",entry.id).catch(()=>{});
+                  }
+                  return h; // no state change needed, just reading id
+                });
+              },2500);
+            }
+          })
           .catch(()=>setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:{}}:e)));
       }
     }catch(e){
@@ -1265,13 +1290,37 @@ function ObiGolfApp(){
       if(s0!==-1&&e0>s0)parsedResult=JSON.parse(js.slice(s0,e0+1));
     }catch{}
     processSwingVideo(videoUrl,parsedResult||{})
-      .then(frames=>setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:frames||{}}:e)))
+      .then(frames=>{
+        const f=frames||{};
+        setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:f}:e));
+        // Save frames to DB so history always has them after re-extraction
+        if(user&&entry.id&&(f.setup||f.top||f.impact)){
+          supabase.from("swing_analyses").update({
+            frame_setup:f.setup||null,
+            frame_top:f.top||null,
+            frame_impact:f.impact||null,
+          }).eq("id",entry.id).catch(()=>{});
+        }
+      })
       .catch(()=>setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:{}}:e)));
-  },[]);
+  },[user]);
 
   useEffect(()=>{
     if(!user)return;
-    supabase.from("swing_analyses").select("*").eq("user_id",user.id).order("created_at",{ascending:false}).limit(10).then(({data})=>{if(data)setSwingHistory(data);});
+    supabase.from("swing_analyses").select("*").eq("user_id",user.id).order("created_at",{ascending:false}).limit(20).then(({data,error})=>{
+      if(error)console.warn("History load error:",error.message);
+      if(data)setSwingHistory(data.map(s=>({
+        ...s,
+        // Reconstruct in-memory frames object from persisted DB columns.
+        // undefined = never extracted (triggers reExtractFrames on expand).
+        // {} = extracted but nothing captured. {setup,top,impact} = ready to display.
+        frames:(s.frame_setup||s.frame_top||s.frame_impact)?{
+          ...(s.frame_setup?{setup:s.frame_setup}:{}),
+          ...(s.frame_top?{top:s.frame_top}:{}),
+          ...(s.frame_impact?{impact:s.frame_impact}:{}),
+        }:undefined,
+      })));
+    });
     supabase.from("range_shots").select("*").eq("user_id",user.id).order("created_at",{ascending:false}).limit(50).then(({data})=>{if(data){setRangeHistory(data);const stats={};data.forEach(s=>{if(!stats[s.club])stats[s.club]={count:0,shapes:{},totalCarry:0,shapeCount:0,typicalShape:"straight",consistencyStars:3};stats[s.club].count++;if(s.shape)stats[s.club].shapes[s.shape]=(stats[s.club].shapes[s.shape]||0)+1;});Object.keys(stats).forEach(club=>{const sh=stats[club].shapes;const top=Object.entries(sh).sort((a,b)=>b[1]-a[1])[0];if(top){stats[club].typicalShape=top[0];stats[club].shapeCount=top[1];}});setClubStats(stats);}});
   },[user]);
 
