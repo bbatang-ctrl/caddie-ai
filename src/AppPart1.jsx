@@ -145,9 +145,9 @@ async function analyzeSwingVideo(videoFile,notes,bag,hcp){
   const resolvedHcp=typeof bag==="object"?bag?.hcp:(hcp||bag||"unknown");
   const clubUsed=notes||"not specified";
   const mimeType=videoFile.type||"video/mp4";
+  const CHUNK=3*1024*1024; // 3 MB per chunk — under Vercel's 4.5 MB body limit
 
   // Step 1: Server starts a Google resumable upload session (API key stays server-side)
-  // Returns an uploadUrl that contains no API key — safe to use directly from the browser.
   let uploadUrl;
   try{
     const r=await fetch("/api/analyze-swing?action=start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mimeType,fileSize:videoFile.size})});
@@ -157,25 +157,49 @@ async function analyzeSwingVideo(videoFile,notes,bag,hcp){
     if(!uploadUrl)throw new Error("No upload URL returned");
   }catch(e){throw new Error("Could not start upload: "+e.message);}
 
-  // Step 2: Browser uploads video DIRECTLY to Google (bypasses Vercel's ~4.5 MB body limit entirely)
+  // Step 2: Upload video in 3 MB chunks through our server proxy (/api/video-chunk).
+  // This avoids both CORS (browser can't POST directly to Google) and Vercel's body size limit.
   let fileUri,fileName;
   try{
-    const r=await fetch(uploadUrl,{method:"POST",headers:{"X-Goog-Upload-Command":"upload, finalize","X-Goog-Upload-Offset":"0","Content-Type":mimeType},body:videoFile});
-    if(!r.ok)throw new Error("HTTP "+r.status);
-    const d=await r.json();
-    fileUri=d?.file?.uri;
-    fileName=d?.file?.name;
-    if(!fileUri)throw new Error("No file URI from Google");
-  }catch(e){throw new Error("Video upload to Google failed: "+e.message);}
+    let offset=0;
+    while(offset<videoFile.size){
+      const end=Math.min(offset+CHUNK,videoFile.size);
+      const chunk=videoFile.slice(offset,end);
+      const isLast=end>=videoFile.size;
+      const r=await fetch("/api/video-chunk",{
+        method:"POST",
+        headers:{
+          "Content-Type":mimeType,
+          "X-Upload-Url":uploadUrl,
+          "X-Upload-Offset":String(offset),
+          "X-Upload-Last":String(isLast),
+        },
+        body:chunk,
+      });
+      if(!r.ok)throw new Error("HTTP "+r.status);
+      const d=await r.json();
+      if(d.error)throw new Error(d.error);
+      if(isLast){fileUri=d.fileUri;fileName=d.fileName;}
+      offset=end;
+    }
+    if(!fileUri)throw new Error("No file URI returned from Google");
+  }catch(e){throw new Error("Video upload failed: "+e.message);}
 
-  // Step 3: Server polls until Google finishes processing, then calls Gemini (small JSON only)
+  // Step 3: Poll until Google finishes processing, then analyze.
+  // The server checks once per call and returns 202 if not ready yet —
+  // we retry here on the client so we don't hit Vercel's function timeout.
   let data;
-  try{
-    const r=await fetch("/api/analyze-swing?action=complete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fileUri,fileName,mimeType,hcp:String(resolvedHcp),club:clubUsed,notes:notes||""})});
-    data=await r.json();
-  }catch(e){throw new Error("Analysis request failed: "+e.message);}
-  if(data.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
-  return data.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
+  for(let attempt=0;attempt<20;attempt++){
+    if(attempt>0)await new Promise(r=>setTimeout(r,3000));
+    try{
+      const r=await fetch("/api/analyze-swing?action=complete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fileUri,fileName,mimeType,hcp:String(resolvedHcp),club:clubUsed,notes:notes||""})});
+      data=await r.json();
+    }catch(e){throw new Error("Analysis request failed: "+e.message);}
+    if(!data.notReady)break;
+  }
+  if(data?.notReady)throw new Error("Video still processing — please try again in a moment");
+  if(data?.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
 }
 
 
