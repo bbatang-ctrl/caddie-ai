@@ -18,12 +18,21 @@ export const config = {
   },
 };
 
-function buildPrompt(hcp, club, mediaType) {
+function buildPrompt(hcp, club, mediaType, golferLevel) {
   const mediaNote = mediaType === "video"
-    ? "Watch the FULL swing motion carefully."
-    : "Analyze this golf swing image.";
+    ? "Watch the FULL swing motion carefully from start to finish."
+    : "Analyze this golf swing image thoroughly.";
 
-  // IMPORTANT: keep notes SHORT (≤15 words each) — Gemini must not exceed token budget.
+  // golferLevel: "tour" | "competitive" | "club" | "beginner" | "unknown"
+  // Provides context ONLY — the score must still be earned by what Gemini sees.
+  const levelContext =
+    golferLevel === "tour"        ? "Context: This is a professional or Tour-level player's swing." :
+    golferLevel === "competitive" ? "Context: This is a competitive low-handicap amateur (0–8 HCP)." :
+    golferLevel === "club"        ? "Context: This is a recreational club golfer (9–18 HCP)." :
+    golferLevel === "beginner"    ? "Context: This is a beginner or high-handicap player (19+ HCP)." :
+    "";
+
+  // IMPORTANT: keep all text fields SHORT — Gemini must not exceed token budget.
   // The entire JSON response must fit in one completion; truncated JSON cannot be parsed.
   const schema =
     `{"overall":<integer 1-100>,` +
@@ -44,15 +53,41 @@ function buildPrompt(hcp, club, mediaType) {
     `}`;
 
   return (
-    `You are an expert PGA Master Professional with 20+ years teaching experience. ` +
-    `You analyze golf swings using objective biomechanical standards — the same ` +
-    `standards regardless of skill level.\n\n` +
-    `CRITICAL: Score against absolute golf fundamentals. A touring pro should ` +
-    `score 85-95/100. A 15-handicap should score 55-70/100. A complete beginner ` +
-    `should score 25-45/100. Do NOT inflate scores.\n\n` +
-    `Player handicap: ${hcp}. Club: ${club}.\n\n` +
-    `${mediaNote} Return ONLY valid JSON in exactly this format, ` +
-    `no markdown, no explanation:\n\n${schema}`
+    `You are a strict PGA Master Professional with 20+ years of tour-level coaching. ` +
+    `Score golf swings against absolute biomechanical standards — the same standards ` +
+    `used at the highest level of the game.\n\n` +
+
+    `SCORING BANDS — evaluate ONLY what you observe in the ${mediaType}, not the stated handicap:\n` +
+    `• 85–100  Tour professional: Athletic posture, 90°+ shoulder turn, lag maintained ` +
+    `through impact (P6), full weight transfer to lead side, face square at contact, ` +
+    `balanced finish with hips fully rotated. Effortless power and consistency.\n` +
+    `• 70–84   Competitive amateur (low handicap): Sound fundamentals throughout with ` +
+    `only 1–2 minor timing or sequencing flaws a skilled player can self-correct.\n` +
+    `• 50–69   Club-level golfer: Correct intent but 3–4 mechanical flaws causing ` +
+    `inconsistency — e.g. early extension, limited hip turn, slight over-the-top, ` +
+    `or incomplete follow-through. The typical recreational golfer lands here.\n` +
+    `• 25–49   Beginner / high handicap: Multiple fundamental errors across setup, ` +
+    `rotation, and timing that require structured coaching to fix.\n\n` +
+
+    `NON-NEGOTIABLE RULES:\n` +
+    `1. Score from VISIBLE MECHANICS only. If the swing shows Tour-level fundamentals ` +
+    `(full rotation, proper lag, correct sequencing, pure compression) it MUST score 85+. ` +
+    `Deflating a technically excellent swing is a grading error.\n` +
+    `2. If the swing has obvious amateur faults (reverse pivot, casting/scooping, ` +
+    `chicken-wing follow-through, significant over-the-top, early extension) ` +
+    `it MUST score below 70 regardless of who is swinging.\n` +
+    `3. Category scores (1–10) must be consistent with "overall". ` +
+    `If overall ≥ 85: every category ≥ 8. If overall ≤ 50: no category above 6.\n` +
+    `4. Poor video quality, unusual camera angles, or broadcast overlays do NOT lower ` +
+    `the score. If an angle limits your view of a specific category, assign it 7 ` +
+    `(neutral) and note the limitation. Score what you CAN see accurately.\n` +
+    `5. "overall" is your holistic expert judgment — NOT a mathematical average of ` +
+    `category scores. A pro's effortless tempo and sequencing can push overall above ` +
+    `the category average; an amateur's glaring fault can pull it below.\n\n` +
+
+    `${levelContext ? levelContext + "\n" : ""}` +
+    `Club: ${club}. Handicap (coaching language context only — does NOT affect scoring): ${hcp}.\n\n` +
+    `${mediaNote} Return ONLY valid JSON, no markdown, no explanation:\n\n${schema}`
   );
 }
 
@@ -151,7 +186,7 @@ export default async function handler(req, res) {
     // Checks once if Google has finished processing; returns 202 if not ready.
     // The client retries every 3 s so each server invocation stays under Vercel's timeout.
     if (action === "complete") {
-      const { fileUri, fileName, mimeType, hcp, club, notes } = req.body || {};
+      const { fileUri, fileName, mimeType, hcp, club, notes, golferLevel } = req.body || {};
       if (!fileUri || !fileName) return res.status(400).json({ error: "fileUri and fileName required" });
 
       const check = await fetch(
@@ -162,7 +197,7 @@ export default async function handler(req, res) {
         return res.status(202).json({ notReady: true, state: state || "PROCESSING" });
       }
 
-      const prompt = buildPrompt(hcp || "unknown", club || notes || "not specified", "video");
+      const prompt = buildPrompt(hcp || "unknown", club || notes || "not specified", "video", golferLevel || "unknown");
 
       const analyzeRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -196,11 +231,11 @@ export default async function handler(req, res) {
     }
 
     // ── DEFAULT: image ────────────────────────────────────────────────────────
-    const { imageBase64, mimeType, notes, hcp, club } = req.body || {};
+    const { imageBase64, mimeType, notes, hcp, club, golferLevel } = req.body || {};
     if (!mimeType)    return res.status(400).json({ error: "mimeType required" });
     if (!imageBase64) return res.status(400).json({ error: "imageBase64 required" });
 
-    const prompt = buildPrompt(hcp || "unknown", club || notes || "not specified", "image");
+    const prompt = buildPrompt(hcp || "unknown", club || notes || "not specified", "image", golferLevel || "unknown");
 
     const analyzeRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
