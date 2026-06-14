@@ -1211,21 +1211,29 @@ function ObiGolfApp(){
   const renderSwingAnalysis=(text,thumb,noteLabel,isCollapsible,expandedKey,expandedState,setExpandedState,videoUrl,frames)=>{
     if(!text)return null;
 
-    // Try to parse as structured JSON (new format from upgraded prompts)
+    // Try to parse as structured JSON — accepts both new (categories) and old (phases) formats
     let parsed=null;
     try{
       const jsonStr=text.replace(/^```json\n?/,"").replace(/\n?```$/,"").trim();
       parsed=JSON.parse(jsonStr);
-      if(!parsed?.phases)parsed=null;
+      if(!parsed?.categories&&!parsed?.phases)parsed=null;
     }catch(e){}
 
     if(parsed){
-      const phases=[{key:"setup",label:"Setup"},{key:"backswing",label:"Bkswing"},{key:"downswing",label:"Dwnswng"},{key:"impact",label:"Impact"},{key:"followThrough",label:"Follow"}];
+      // Normalise: new format uses "categories", old format used "phases"
+      // New keys: followthrough + tempo; old key: followThrough (no tempo)
+      const cats=parsed.categories||parsed.phases||{};
+      const isNewFormat=!!parsed.categories;
+      const phases=isNewFormat
+        ?[{key:"setup",label:"Setup"},{key:"backswing",label:"Bkswng"},{key:"downswing",label:"Dwnswng"},{key:"impact",label:"Impact"},{key:"followthrough",label:"Follow"},{key:"tempo",label:"Tempo"}]
+        :[{key:"setup",label:"Setup"},{key:"backswing",label:"Bkswng"},{key:"downswing",label:"Dwnswng"},{key:"impact",label:"Impact"},{key:"followThrough",label:"Follow"}];
       const sc=(s)=>s>=8?"text-green-400":s>=6?"text-amber-400":"text-red-400";
       const sb=(s)=>s>=8?"border-green-500/30 bg-green-500/5":s>=6?"border-amber-400/30 bg-amber-400/5":"border-red-400/30 bg-red-400/5";
       const overall=parsed.overall||0;
       const oc=overall>=70?"text-green-400":overall>=50?"text-amber-400":"text-red-400";
-      const readableText=`Overall score ${overall} out of 100. ${parsed.primaryFault||""} ${parsed.beginnerFix?"Remember: "+parsed.beginnerFix+".":""} Your drill: ${(Array.isArray(parsed.drill)?parsed.drill:[]).join(". ")}. Strengths: ${(Array.isArray(parsed.positives)?parsed.positives:[]).join(", ")}.`;
+      // Build readable text for TTS — prefer new "summary" field
+      const drillText=typeof parsed.drill==="string"?parsed.drill:(Array.isArray(parsed.drill)?parsed.drill.join(". "):"");
+      const readableText=parsed.summary||`Overall score ${overall} out of 100. ${parsed.primaryFault||""} ${drillText?"Drill: "+drillText+".":""} Strengths: ${(Array.isArray(parsed.positives)?parsed.positives:[]).join(", ")}.`;
       return(
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           {isCollapsible?(
@@ -1273,14 +1281,14 @@ function ObiGolfApp(){
                     <p className="display text-[11px] font-bold text-muted-foreground">Analyzing movement frames…</p>
                   </div>
                 )}
-                {/* Phase scorecard */}
+                {/* Category scorecard — 6 cols for new format (includes Tempo), 5 for old */}
                 <div className="rounded-xl border border-border bg-secondary/20 p-3">
                   <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Swing Breakdown</p>
-                  <div className="grid grid-cols-5 gap-1 mb-2">
-                    {phases.map(ph=>{const d=parsed.phases?.[ph.key]||{score:5,note:""};return(<div key={ph.key} className={cn("rounded-lg border p-2 text-center",sb(d.score))}><p className={cn("display text-[18px] font-bold leading-none",sc(d.score))}>{d.score}</p><p className="display text-[9px] font-bold uppercase text-muted-foreground mt-1 leading-none">{ph.label}</p></div>);})}
+                  <div className={cn("grid gap-1 mb-2",isNewFormat?"grid-cols-6":"grid-cols-5")}>
+                    {phases.map(ph=>{const d=cats[ph.key]||{score:5,note:""};return(<div key={ph.key} className={cn("rounded-lg border p-1.5 text-center",sb(d.score))}><p className={cn("display text-[17px] font-bold leading-none",sc(d.score))}>{d.score}</p><p className="display text-[8px] font-bold uppercase text-muted-foreground mt-1 leading-none">{ph.label}</p></div>);})}
                   </div>
                   <div className="space-y-1">
-                    {phases.map(ph=>{const d=parsed.phases?.[ph.key];if(!d?.note)return null;return(<div key={ph.key} className="flex gap-2 text-[11px] leading-snug"><span className={cn("display font-bold shrink-0 w-[52px]",sc(d.score))}>{ph.label}</span><span className="text-muted-foreground">{d.note}</span></div>);})}
+                    {phases.map(ph=>{const d=cats[ph.key];if(!d?.note)return null;return(<div key={ph.key} className="flex gap-2 text-[11px] leading-snug"><span className={cn("display font-bold shrink-0 w-[52px]",sc(d.score))}>{ph.label}</span><span className="text-muted-foreground">{d.note}</span></div>);})}
                   </div>
                 </div>
                 {/* Fix This First — prominent card */}
@@ -1288,16 +1296,19 @@ function ObiGolfApp(){
                   <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5">
                     <p className="display text-[10px] font-bold uppercase tracking-wider text-amber-400/80 mb-1.5">Fix This First</p>
                     <p className="text-[14px] font-semibold text-foreground leading-snug">{parsed.primaryFault}</p>
-                    {parsed.beginnerFix&&<p className="text-[12px] text-muted-foreground mt-2 italic">"{parsed.beginnerFix}"</p>}
                   </div>
                 )}
-                {/* Drill — numbered steps */}
-                {Array.isArray(parsed.drill)&&parsed.drill.length>0&&(
+                {/* Drill — string (new) or array (old) */}
+                {parsed.drill&&(
                   <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-3">
                     <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Your Drill</p>
-                    <ol className="space-y-1.5">
-                      {parsed.drill.map((step,i)=>(<li key={i} className="flex gap-2.5 text-[13px] text-foreground leading-snug"><span className="display text-[10px] font-bold bg-blue-500/20 text-blue-400 rounded-full h-4 w-4 flex items-center justify-center shrink-0 mt-0.5">{i+1}</span><span>{step}</span></li>))}
-                    </ol>
+                    {typeof parsed.drill==="string"?(
+                      <p className="text-[13px] text-foreground leading-relaxed">{parsed.drill}</p>
+                    ):(
+                      <ol className="space-y-1.5">
+                        {parsed.drill.map((step,i)=>(<li key={i} className="flex gap-2.5 text-[13px] text-foreground leading-snug"><span className="display text-[10px] font-bold bg-blue-500/20 text-blue-400 rounded-full h-4 w-4 flex items-center justify-center shrink-0 mt-0.5">{i+1}</span><span>{step}</span></li>))}
+                      </ol>
+                    )}
                   </div>
                 )}
                 {/* Strengths */}
@@ -1309,7 +1320,14 @@ function ObiGolfApp(){
                     </ul>
                   </div>
                 )}
-                {/* Club tip */}
+                {/* Coaching summary (new format only) */}
+                {parsed.summary&&(
+                  <div className="rounded-xl border border-border bg-secondary/20 p-3">
+                    <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Obi's Take</p>
+                    <p className="text-[13px] text-foreground leading-relaxed italic">{parsed.summary}</p>
+                  </div>
+                )}
+                {/* Club tip (old format only — keep for backwards compat) */}
                 {parsed.clubNote&&(<div className="rounded-xl border border-border bg-secondary/30 p-3"><p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Club Tip</p><p className="text-[13px] text-foreground leading-snug">{parsed.clubNote}</p></div>)}
               </div>
               <div className="flex gap-2 px-3 pb-3">
@@ -2394,7 +2412,7 @@ function ObiGolfApp(){
             expandedSwing={expandedSwing} setExpandedSwing={setExpandedSwing}
             swingInputRef={swingInputRef}
             handleSwingAnalyze={handleSwingAnalyze}
-            speaking={speaking} speakText={speakText}
+            speaking={speaking} speakText={speakText} stopSpeak={stopSpeak}
             supabase={supabase} fmtDateShort={fmtDateShort}
             renderSwingAnalysis={renderSwingAnalysis}
             profile={profile}
