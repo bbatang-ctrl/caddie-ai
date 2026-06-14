@@ -1,14 +1,17 @@
-// Serverless proxy for swing analysis.
-// ALL API keys stay server-side. Video upload bypasses Vercel body limits via
-// a three-step flow: start (server → Google, returns upload URL) →
-// upload (browser → Google directly) → complete (server polls + analyzes).
+// Serverless proxy for swing analysis. ALL API keys stay server-side.
 //
-// IMAGE: single call with JSON body { imageBase64, mimeType, hcp, club, notes }.
-// VIDEO: two calls — ?action=start then ?action=complete.
+// IMAGE (default, no ?action): { imageBase64, mimeType, hcp, club, notes }
+// VIDEO (?action=video):       { videoBase64, mimeType, hcp, club, notes }
+//
+// Both use Gemini's inline_data — same path, same security model, no CORS, no
+// resumable-upload complexity. Vercel's 4.5 MB body cap means video clips
+// should be ≤ 3 MB raw (base64 adds ~33% overhead).
 
 export const config = {
   api: {
-    bodyParser: { sizeLimit: "4mb" }, // All payloads are small JSON now
+    // 5 MB so our body-parser doesn't block base64 video payloads.
+    // Vercel's platform hard cap is 4.5 MB and enforces before this.
+    bodyParser: { sizeLimit: "5mb" },
   },
 };
 
@@ -61,53 +64,13 @@ export default async function handler(req, res) {
   const action = req.query?.action;
 
   try {
-    // ── ACTION: start ─────────────────────────────────────────────────────────
-    // Server starts a Google resumable upload session using the API key.
-    // Returns only the upload URL — no API key in the URL, safe to send to browser.
-    if (action === "start") {
-      const { mimeType, fileSize } = req.body || {};
-      if (!mimeType) return res.status(400).json({ error: "mimeType required" });
-
-      const startRes = await fetch(
-        `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: {
-            "X-Goog-Upload-Protocol": "resumable",
-            "X-Goog-Upload-Command": "start",
-            "X-Goog-Upload-Header-Content-Length": String(fileSize || 0),
-            "X-Goog-Upload-Header-Content-Type": mimeType,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ file: { display_name: "golf_swing" } }),
-        }
-      );
-      if (!startRes.ok) {
-        const t = await startRes.text().catch(() => "");
-        return res.status(500).json({ error: "Failed to start upload: " + t });
-      }
-      const uploadUrl = startRes.headers.get("x-goog-upload-url");
-      if (!uploadUrl) return res.status(500).json({ error: "No upload URL returned by Google" });
-      return res.status(200).json({ uploadUrl });
-    }
-
-    // ── ACTION: complete ──────────────────────────────────────────────────────
-    // Browser already uploaded the video directly to Google.
-    // Server polls until file is ready, then calls Gemini.
-    if (action === "complete") {
-      const { fileUri, fileName, mimeType, hcp, club, notes } = req.body || {};
-      if (!fileUri || !fileName) return res.status(400).json({ error: "fileUri and fileName required" });
-
-      // Check once if Google has finished processing the video.
-      // If not ready yet, return 202 so the client can retry — this keeps each
-      // invocation well under Vercel's function timeout limit.
-      const check = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`
-      ).then(r => r.json()).catch(() => ({}));
-      const state = check?.state || check?.file?.state;
-      if (state !== "ACTIVE") {
-        return res.status(202).json({ notReady: true, state: state || "PROCESSING" });
-      }
+    // ── ACTION: video ─────────────────────────────────────────────────────────
+    // Identical pattern to images — base64 inline_data in generateContent.
+    // No File API, no resumable upload, no CORS issues, API key stays here.
+    if (action === "video") {
+      const { videoBase64, mimeType, hcp, club, notes } = req.body || {};
+      if (!mimeType)    return res.status(400).json({ error: "mimeType required" });
+      if (!videoBase64) return res.status(400).json({ error: "videoBase64 required" });
 
       const prompt = buildPrompt(hcp || "unknown", club || notes || "not specified", "video");
 
@@ -120,7 +83,7 @@ export default async function handler(req, res) {
             contents: [{
               role: "user",
               parts: [
-                { file_data: { mime_type: mimeType || "video/mp4", file_uri: fileUri } },
+                { inline_data: { mime_type: mimeType, data: videoBase64 } },
                 { text: prompt },
               ],
             }],
