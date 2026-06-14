@@ -140,59 +140,64 @@ function drawPoseOnCanvas(canvas,landmarks){
 // More reliable than a single-element sequential approach — onseeked fires independently
 // on each element, so one slow seek never blocks the others.
 // videoSource: File/Blob OR a URL string (e.g. Supabase signed URL for history replay).
-async function processSwingVideo(videoSource,parsedResult){
-  // ── DIAGNOSTIC LOGGING — helps answer: did this run? did frames extract? did MediaPipe load?
-  const srcType=videoSource instanceof Blob
-    ? `Blob (${(videoSource.size/1024/1024).toFixed(1)} MB, ${videoSource.type||"no-type"})`
-    : `URL (${String(videoSource).slice(0,80)})`;
-  console.log("[frames] ▶ processSwingVideo started —", srcType);
+// ── Frame extraction log buffer ───────────────────────────────────────────────
+// processSwingVideo writes here so callers can attach logs to the swing entry
+// and display them on-screen (useful when browser devtools aren't available).
+let _frameLogBuf=[];
+const _flog=(...args)=>{
+  const msg=args.map(a=>typeof a==="object"?JSON.stringify(a):String(a)).join(" ");
+  _frameLogBuf.push(msg);
+  console.log("[frames]",msg);
+};
 
-  // Derive timing hints: use Gemini keyFrames if available, else safe empirical defaults.
-  // Old default 0.70 for impact was wrong — that's well into follow-through.
+async function processSwingVideo(videoSource,parsedResult){
+  _frameLogBuf=[];  // reset before each extraction
+  const srcType=videoSource instanceof Blob
+    ? `Blob ${(videoSource.size/1024/1024).toFixed(1)}MB type=${videoSource.type||"(empty)"}`
+    : `URL ${String(videoSource).slice(0,90)}`;
+  _flog("▶ started —",srcType);
+
   const kf=parsedResult?.keyFrames||{};
   const timings={
     setup:  kf.setup        ??0.08,
     top:    kf.backswingTop ??0.35,
     impact: kf.impact       ??0.50,
   };
-  console.log("[frames] timings —", JSON.stringify(timings));
+  _flog("timings — setup:",timings.setup,"top:",timings.top,"impact:",timings.impact);
 
-  // Pre-warm MediaPipe while frames are loading
   const landmarkerProm=loadPoseLandmarker().catch((e)=>{
-    console.warn("[frames] MediaPipe load error:",e?.message||e);
+    _flog("MediaPipe FAILED:",e?.message||String(e));
     return null;
   });
 
-  // Extract all 3 frames in parallel — each call creates its own video element
   const [setupR,topR,impactR]=await Promise.all([
-    extractVideoFrame(videoSource,timings.setup).catch((e)=>{console.warn("[frames] setup extract failed:",e?.message);return null;}),
-    extractVideoFrame(videoSource,timings.top).catch((e)=>{console.warn("[frames] top extract failed:",e?.message);return null;}),
-    extractVideoFrame(videoSource,timings.impact).catch((e)=>{console.warn("[frames] impact extract failed:",e?.message);return null;}),
+    extractVideoFrame(videoSource,timings.setup).catch((e)=>{_flog("setup extract ERROR:",e?.message);return null;}),
+    extractVideoFrame(videoSource,timings.top).catch((e)=>{_flog("top extract ERROR:",e?.message);return null;}),
+    extractVideoFrame(videoSource,timings.impact).catch((e)=>{_flog("impact extract ERROR:",e?.message);return null;}),
   ]);
-  console.log("[frames] extraction results — setup:",!!setupR?.canvas,"top:",!!topR?.canvas,"impact:",!!impactR?.canvas);
+  _flog("extraction — setup:",!!setupR?.canvas," top:",!!topR?.canvas," impact:",!!impactR?.canvas);
 
   const landmarker=await landmarkerProm;
-  console.log("[frames] MediaPipe loaded:",!!landmarker);
+  _flog("MediaPipe loaded:",!!landmarker);
 
-  // Draw pose overlay on each canvas that has a valid frame
   const out={};
   for(const[key,r]of[["setup",setupR],["top",topR],["impact",impactR]]){
-    if(!r?.canvas){console.log("[frames] skip",key,"— no canvas");continue;}
+    if(!r?.canvas){_flog(key,"— no canvas, skip");continue;}
     if(landmarker){
       try{
         const det=landmarker.detect(r.canvas);
         const lm=det?.landmarks?.[0]||null;
-        console.log("[frames]",key,"— landmarks detected:",lm?lm.length+" points":"none");
+        _flog(key,"landmarks:",lm?lm.length+" pts":"none");
         if(lm)drawPoseOnCanvas(r.canvas,lm);
-      }catch(e){console.warn("[frames] pose draw error on",key,":",e?.message);}
+      }catch(e){_flog(key,"pose draw ERROR:",e?.message);}
     }
     try{
       const dataUrl=r.canvas.toDataURL("image/jpeg",0.82);
       out[key]=dataUrl;
-      console.log("[frames]",key,"→ dataURL length:",dataUrl.length,"(first 40:",dataUrl.slice(0,40)+")");
-    }catch(e){console.warn("[frames]",key,"toDataURL failed (tainted canvas?):",e?.message);}
+      _flog(key,"→ dataURL OK, len:",dataUrl.length);
+    }catch(e){_flog(key,"toDataURL ERROR (tainted?):",e?.message);}
   }
-  console.log("[frames] ✓ final output keys:",Object.keys(out));
+  _flog("✓ done — keys:",Object.keys(out).join(",")||"none");
   return Object.keys(out).length>0?out:{};
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1264,7 +1269,8 @@ function ObiGolfApp(){
         processSwingVideo(currentFile,parsedResult||{})
           .then(frames=>{
             const f=frames||{};
-            setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:f}:e));
+            const logs=[..._frameLogBuf]; // snapshot the log buffer immediately after resolve
+            setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:f,frameLogs:logs}:e));
             // Persist frames to DB so they survive logout — use a short delay to
             // ensure the INSERT above has completed and the entry has its DB id.
             if(user&&(f.setup||f.top||f.impact)){
@@ -1314,7 +1320,8 @@ function ObiGolfApp(){
     processSwingVideo(videoUrl,parsedResult||{})
       .then(frames=>{
         const f=frames||{};
-        setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:f}:e));
+        const logs=[..._frameLogBuf];
+        setSwingHistory(h=>h.map(e=>e.created_at===entryTime?{...e,frames:f,frameLogs:logs}:e));
         // Save frames to DB so history always has them after re-extraction
         if(user&&entry.id&&(f.setup||f.top||f.impact)){
           supabase.from("swing_analyses").update({

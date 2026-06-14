@@ -306,7 +306,7 @@ function ComparisonTable({ swings }) {
 }
 
 // ─── Full expanded analysis view ────────────────────────────────────────────
-function SwingAnalysisView({ parsed, videoUrl, frames, speaking, speakText, stopSpeak }) {
+function SwingAnalysisView({ parsed, videoUrl, frames, frameLogs, speaking, speakText, stopSpeak }) {
   if (!parsed) return null;
   const overall = parsed.overall || 0;
   const color   = scoreColor(overall);
@@ -354,13 +354,40 @@ function SwingAnalysisView({ parsed, videoUrl, frames, speaking, speakText, stop
             <span style={{ fontSize:11, fontWeight:600, color:FGM, fontFamily:"'Space Grotesk',sans-serif" }}>Analyzing movement frames…</span>
           </div>
         )}
-        {/* frames={} means extraction ran but produced nothing — show a clear message */}
+        {/* frames={} means extraction ran but produced nothing — show a clear message + log */}
         {videoUrl && frames !== null && frames !== undefined && typeof frames === "object" && !frames.setup && !frames.top && !frames.impact && (
-          <div style={{ padding:"10px 12px", borderRadius:10, border:`1px solid ${BORD}`, marginBottom:14, background:SURF }}>
-            <p style={{ fontSize:11, color:FGM, margin:0, fontFamily:"'Space Grotesk',sans-serif" }}>
-              ⚠ Could not extract frame images from this video. Check browser console for [frames] logs.
+          <div style={{ borderRadius:10, border:`1px solid #f59e0b55`, marginBottom:14, background:"#f59e0b08", overflow:"hidden" }}>
+            <p style={{ fontSize:11, color:"#f59e0b", margin:0, padding:"9px 12px", fontFamily:"'Space Grotesk',sans-serif", fontWeight:600 }}>
+              ⚠ Frame extraction ran but produced no images
             </p>
+            {frameLogs && frameLogs.length > 0 && (
+              <div style={{ borderTop:"1px solid #f59e0b30", padding:"8px 12px", background:"#0a0a12" }}>
+                <p style={{ fontSize:9, color:"#f59e0b", fontFamily:"'Space Grotesk',sans-serif", fontWeight:700, letterSpacing:"0.12em", textTransform:"uppercase", margin:"0 0 6px" }}>
+                  Diagnostic Log
+                </p>
+                {frameLogs.map((line, i) => (
+                  <p key={i} style={{ fontSize:10, color: line.includes("ERROR") || line.includes("FAILED") ? "#f87171" : line.includes("✓") ? "#4ade80" : "#8888a4", fontFamily:"monospace", margin:"2px 0", lineHeight:1.4, wordBreak:"break-all" }}>
+                    {line}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
+        )}
+        {/* Show log even when frames DID work — tap to expand debug info */}
+        {videoUrl && frames && (frames.setup || frames.top || frames.impact) && frameLogs && frameLogs.length > 0 && (
+          <details style={{ marginBottom:10 }}>
+            <summary style={{ fontSize:9, color:FGM, fontFamily:"'Space Grotesk',sans-serif", fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", cursor:"pointer", userSelect:"none", listStyle:"none", display:"flex", alignItems:"center", gap:6 }}>
+              <span style={{ fontSize:10 }}>📋</span> Frame debug log
+            </summary>
+            <div style={{ marginTop:6, borderRadius:8, border:`1px solid ${BORD}`, background:"#0a0a12", padding:"8px 10px" }}>
+              {frameLogs.map((line, i) => (
+                <p key={i} style={{ fontSize:10, color: line.includes("ERROR") || line.includes("FAILED") ? "#f87171" : line.includes("✓") ? "#4ade80" : "#8888a4", fontFamily:"monospace", margin:"2px 0", lineHeight:1.4, wordBreak:"break-all" }}>
+                  {line}
+                </p>
+              ))}
+            </div>
+          </details>
         )}
 
         {/* ── Overall score ── */}
@@ -825,6 +852,7 @@ export default function PracticeTab({
                             parsed={parsed}
                             videoUrl={s.videoUrl || s.video_url || null}
                             frames={s.frames ?? undefined}
+                            frameLogs={s.frameLogs ?? null}
                             speaking={speaking}
                             speakText={speakText}
                             stopSpeak={stopSpeak}
