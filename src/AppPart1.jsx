@@ -144,9 +144,10 @@ async function analyzeSwing(file,notes,profile){
 async function analyzeSwingVideo(videoFile,notes,bag,hcp){
   const resolvedHcp=typeof bag==="object"?bag?.hcp:(hcp||bag||"unknown");
   const clubUsed=notes||"not specified";
-  // Convert to base64 and POST to server — API key and all Google calls stay server-side
-  const videoBase64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result.split(",")[1]);r.onerror=reject;r.readAsDataURL(videoFile);});
-  const res=await fetch("/api/analyze-swing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({videoBase64,mimeType:videoFile.type,notes,hcp:resolvedHcp,club:clubUsed})});
+  const mimeType=videoFile.type||"video/mp4";
+  // Send raw binary — avoids base64 encoding and the large-string TypeError on Safari/iOS
+  const params=new URLSearchParams({mimeType,hcp:String(resolvedHcp),club:clubUsed,notes:notes||""});
+  const res=await fetch(`/api/analyze-swing?${params}`,{method:"POST",headers:{"Content-Type":mimeType},body:videoFile});
   const data=await res.json();
   if(data.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
   return data.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
