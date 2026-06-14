@@ -35,7 +35,15 @@ function catColor(s) {
 function parseAnalysis(text) {
   if (!text) return null;
   try {
-    const js = text.replace(/^```json\n?/, "").replace(/\n?```$/, "").trim();
+    // Strip markdown code fences if present
+    let js = text.replace(/^```json\s*/m, "").replace(/\s*```\s*$/m, "").trim();
+    // Gemini sometimes adds preamble prose before the JSON even when told not to.
+    // Robustly extract just the outermost { ... } object.
+    const start = js.indexOf("{");
+    const end   = js.lastIndexOf("}");
+    if (start === -1 || end === -1 || end < start) return null;
+    js = js.slice(start, end + 1);
+
     const p = JSON.parse(js);
     if (!p?.categories && !p?.phases) return null;
     // Normalise legacy "phases" format → "categories"
