@@ -145,16 +145,35 @@ async function analyzeSwingVideo(videoFile,notes,bag,hcp){
   const resolvedHcp=typeof bag==="object"?bag?.hcp:(hcp||bag||"unknown");
   const clubUsed=notes||"not specified";
   const mimeType=videoFile.type||"video/mp4";
-  // Send raw binary body — no base64 encoding, avoids large-string issues on Safari/iOS
-  const params=new URLSearchParams({mimeType,hcp:String(resolvedHcp),club:clubUsed,notes:notes||""});
-  let res;
+
+  // Step 1: Server starts a Google resumable upload session (API key stays server-side)
+  // Returns an uploadUrl that contains no API key — safe to use directly from the browser.
+  let uploadUrl;
   try{
-    res=await fetch(`/api/analyze-swing?${params}`,{method:"POST",headers:{"Content-Type":mimeType},body:videoFile});
-  }catch(e){throw new Error("Network error: "+e.message);}
+    const r=await fetch("/api/analyze-swing?action=start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mimeType,fileSize:videoFile.size})});
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    uploadUrl=d.uploadUrl;
+    if(!uploadUrl)throw new Error("No upload URL returned");
+  }catch(e){throw new Error("Could not start upload: "+e.message);}
+
+  // Step 2: Browser uploads video DIRECTLY to Google (bypasses Vercel's ~4.5 MB body limit entirely)
+  let fileUri,fileName;
+  try{
+    const r=await fetch(uploadUrl,{method:"POST",headers:{"X-Goog-Upload-Command":"upload, finalize","X-Goog-Upload-Offset":"0","Content-Type":mimeType},body:videoFile});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const d=await r.json();
+    fileUri=d?.file?.uri;
+    fileName=d?.file?.name;
+    if(!fileUri)throw new Error("No file URI from Google");
+  }catch(e){throw new Error("Video upload to Google failed: "+e.message);}
+
+  // Step 3: Server polls until Google finishes processing, then calls Gemini (small JSON only)
   let data;
   try{
-    data=await res.json();
-  }catch(e){throw new Error("Server error (HTTP "+res.status+") — is api/analyze-swing.js deployed?");}
+    const r=await fetch("/api/analyze-swing?action=complete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fileUri,fileName,mimeType,hcp:String(resolvedHcp),club:clubUsed,notes:notes||""})});
+    data=await r.json();
+  }catch(e){throw new Error("Analysis request failed: "+e.message);}
   if(data.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
   return data.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
 }
