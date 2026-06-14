@@ -146,60 +146,35 @@ async function analyzeSwingVideo(videoFile,notes,bag,hcp){
   const clubUsed=notes||"not specified";
   const mimeType=videoFile.type||"video/mp4";
 
-  // Step 1: Server opens a Google resumable-upload session (API key stays server-side).
-  // The session URL returned here has no API key — it IS the short-lived auth token.
-  let uploadUrl;
-  try{
-    const r=await fetch("/api/analyze-swing?action=start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mimeType,fileSize:videoFile.size})});
-    const d=await r.json();
-    if(d.error)throw new Error(d.error);
-    uploadUrl=d.uploadUrl;
-    if(!uploadUrl)throw new Error("No upload URL returned");
-  }catch(e){throw new Error("Could not start upload: "+e.message);}
-
-  // Step 2: Upload the ENTIRE file directly from the browser to Google — no Vercel proxy.
-  //
-  // Key insight: the "8 MB granularity" rule only applies to INTERMEDIATE chunks in a
-  // multi-request resumable upload. A single "upload, finalize" command sends the whole
-  // file in one shot and has NO minimum-size requirement. This also completely bypasses
-  // Vercel's 4.5 MB body-size cap because the file never passes through Vercel.
-  //
-  // The session URL is safe to use from the browser — it contains no API key.
-  let fileUri,fileName;
-  try{
-    const r=await fetch(uploadUrl,{
-      method:"POST",
-      headers:{
-        "X-Goog-Upload-Command":"upload, finalize",
-        "X-Goog-Upload-Offset":"0",
-        "Content-Type":mimeType,
-      },
-      body:videoFile,
-    });
-    if(!r.ok){
-      const t=await r.text().catch(()=>"");
-      throw new Error("HTTP "+r.status+(t?": "+t.slice(0,150):""));
-    }
-    const d=await r.json();
-    fileUri=d?.file?.uri;
-    fileName=d?.file?.name;
-    if(!fileUri)throw new Error("No file URI from Google");
-  }catch(e){throw new Error("Video upload failed: "+e.message);}
-
-  // Step 3: Server checks once if Google has finished processing; returns 202 if not.
-  // We retry here on the client to avoid Vercel's per-invocation timeout.
-  let data;
-  for(let attempt=0;attempt<20;attempt++){
-    if(attempt>0)await new Promise(r=>setTimeout(r,3000));
-    try{
-      const r=await fetch("/api/analyze-swing?action=complete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fileUri,fileName,mimeType,hcp:String(resolvedHcp),club:clubUsed,notes:notes||""})});
-      data=await r.json();
-    }catch(e){throw new Error("Analysis request failed: "+e.message);}
-    if(!data.notReady)break;
+  // Vercel's platform body cap is 4.5 MB. Base64 adds ~33% overhead, so the
+  // raw video must be ≤ ~3.2 MB. A 5–10 sec swing clip at 720p is well under this.
+  const MAX_BYTES=3.2*1024*1024;
+  if(videoFile.size>MAX_BYTES){
+    const mb=(videoFile.size/1024/1024).toFixed(1);
+    throw new Error(
+      `Video is ${mb} MB — please trim to the swing itself (5–10 sec) `+
+      `and record at 720p. Aim for under 3 MB.`
+    );
   }
-  if(data?.notReady)throw new Error("Video still processing — please try again in a moment");
-  if(data?.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
+
+  // Convert to base64 — same pattern as analyzeSwing() for images.
+  // This goes browser → our server → Gemini; no direct Google calls from the
+  // browser, so no CORS issues and the API key never leaves the server.
+  const videoBase64=await new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result.split(",")[1]);
+    reader.onerror=reject;
+    reader.readAsDataURL(videoFile);
+  });
+
+  const res=await fetch("/api/analyze-swing?action=video",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({videoBase64,mimeType,notes,hcp:String(resolvedHcp),club:clubUsed}),
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||data.error)throw new Error(data.error||"HTTP "+res.status);
+  return data.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
 }
 
 
