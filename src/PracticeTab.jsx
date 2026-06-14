@@ -485,6 +485,7 @@ export default function PracticeTab({
   swingInputRef,
   handleSwingAnalyze,
   isOwnSwing = true, setIsOwnSwing,
+  golferLevel = "unknown", setGolferLevel,
   speaking, speakText, stopSpeak,
   supabase, fmtDateShort,
   renderSwingAnalysis,   // kept in signature — used by App.jsx elsewhere
@@ -591,6 +592,45 @@ export default function PracticeTab({
                 onChange={e => setSwingNotes(e.target.value)}
                 className="w-full bg-input border border-border rounded-xl px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-foreground/40 transition"
               />
+              {/* Golfer Level selector — tells Gemini what calibration band to use */}
+              {setGolferLevel && (
+                <div>
+                  <p className="display text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground mb-1.5">
+                    Golfer Level
+                  </p>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {[
+                      { key:"tour",        emoji:"🏆", line1:"Tour",    line2:"Pro"       },
+                      { key:"competitive", emoji:"🎯", line1:"Low",     line2:"HCP 0–8"   },
+                      { key:"club",        emoji:"⛳", line1:"Club",    line2:"HCP 9–18"  },
+                      { key:"beginner",    emoji:"🌱", line1:"Beginner",line2:"HCP 19+"   },
+                    ].map(({ key, emoji, line1, line2 }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setGolferLevel(v => v === key ? "unknown" : key)}
+                        className={cn(
+                          "flex flex-col items-center py-2 px-1 rounded-xl border transition text-center",
+                          golferLevel === key
+                            ? "bg-primary/10 border-primary"
+                            : "border-border hover:border-foreground/30"
+                        )}
+                      >
+                        <span style={{ fontSize:16, lineHeight:1.2 }}>{emoji}</span>
+                        <span className={cn(
+                          "display text-[9px] font-bold uppercase tracking-wide mt-1 leading-tight",
+                          golferLevel === key ? "text-primary" : "text-muted-foreground"
+                        )}>{line1}</span>
+                        <span className={cn(
+                          "text-[8px] leading-tight",
+                          golferLevel === key ? "text-primary/70" : "text-muted-foreground/60"
+                        )}>{line2}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* My swing / Guest swing toggle */}
               {setIsOwnSwing && (
                 <div className="flex gap-2">

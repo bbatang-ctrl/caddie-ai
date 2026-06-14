@@ -130,19 +130,19 @@ async function callGemini(sys,msgs){
   return data.candidates?.[0]?.content?.parts?.[0]?.text||"No response from Obi.";
 }
 
-async function analyzeSwing(file,notes,profile){
+async function analyzeSwing(file,notes,profile,golferLevel){
   const hcp=typeof profile==="object"?profile?.hcp:profile;
   const clubUsed=notes||"not specified";
   // Convert to base64 and POST to server — API key stays server-side
   const imageBase64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result.split(",")[1]);r.onerror=reject;r.readAsDataURL(file);});
-  const res=await fetch("/api/analyze-swing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({imageBase64,mimeType:file.type,notes,hcp:hcp||"unknown",club:clubUsed})});
+  const res=await fetch("/api/analyze-swing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({imageBase64,mimeType:file.type,notes,hcp:hcp||"unknown",club:clubUsed,golferLevel:golferLevel||"unknown"})});
   const data=await res.json();
   if(data.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
   return data.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
 }
 
-async function analyzeSwingVideo(videoFile,notes,bag,hcp){
-  const resolvedHcp=typeof bag==="object"?bag?.hcp:(hcp||bag||"unknown");
+async function analyzeSwingVideo(videoFile,notes,bag,golferLevel){
+  const resolvedHcp=typeof bag==="object"?bag?.hcp:(bag||"unknown");
   const clubUsed=notes||"not specified";
   const mimeType=videoFile.type||"video/mp4";
 
@@ -198,7 +198,7 @@ async function analyzeSwingVideo(videoFile,notes,bag,hcp){
       const r=await fetch("/api/analyze-swing?action=complete",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({fileUri,fileName,mimeType,hcp:String(resolvedHcp),club:clubUsed,notes:notes||""}),
+        body:JSON.stringify({fileUri,fileName,mimeType,hcp:String(resolvedHcp),club:clubUsed,notes:notes||"",golferLevel:golferLevel||"unknown"}),
       });
       data=await r.json();
     }catch(e){throw new Error("Analysis request failed: "+e.message);}

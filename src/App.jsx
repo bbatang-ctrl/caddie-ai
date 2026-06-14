@@ -547,6 +547,7 @@ function ObiGolfApp(){
   const [swingLoading,setSwingLoading]=useState(false);
   const [swingHistory,setSwingHistory]=useState([]);
   const [isOwnSwing,setIsOwnSwing]=useState(true); // true = my swing; false = guest/demo swing
+  const [golferLevel,setGolferLevel]=useState("unknown"); // tour|competitive|club|beginner|unknown
   const [rangeClub,setRangeClub]=useState("7-iron");
   const [rangeResult,setRangeResult]=useState(null);
   const [rangeShotResult,setRangeShotResult]=useState(null);
@@ -1254,14 +1255,15 @@ function ObiGolfApp(){
     const isVideo=currentFile.type.startsWith("video/");
     const localBlobUrl=isVideo?URL.createObjectURL(currentFile):null;
     const ownSwing=isOwnSwing; // capture current value before async work
+    const capturedLevel=golferLevel; // capture before async
     try{
       // analyzeSwingVideo returns { text, videoUrl }; analyzeSwing returns a plain string
       let analysisText,persistedVideoUrl=null;
       if(isVideo){
-        const r=await analyzeSwingVideo(currentFile,currentNotes,profile);
+        const r=await analyzeSwingVideo(currentFile,currentNotes,profile,capturedLevel);
         if(r&&typeof r==="object"){analysisText=r.text;persistedVideoUrl=r.videoUrl||null;}
         else{analysisText=r;}
-      }else{analysisText=await analyzeSwing(currentFile,currentNotes,profile);}
+      }else{analysisText=await analyzeSwing(currentFile,currentNotes,profile,capturedLevel);}
       const result=analysisText;
       const videoBlobUrl=persistedVideoUrl||localBlobUrl; // prefer persisted URL
       setSwingAnalysis(result);
@@ -1279,6 +1281,7 @@ function ObiGolfApp(){
         videoUrl:videoBlobUrl,
         video_url:persistedVideoUrl||null,
         is_own_swing:ownSwing,
+        golfer_level:capturedLevel,
         frames:null,  // null = loading; {} = done (even if failed); object = ready
         created_at:entryTime,
       };
@@ -1291,6 +1294,7 @@ function ObiGolfApp(){
           club_used:currentNotes||"unknown",thumbnail:currentThumb||null,
           video_url:persistedVideoUrl||null,
           is_own_swing:ownSwing,
+          golfer_level:capturedLevel,
           created_at:entryTime,
         }).select("id").single().then(({data,error})=>{
           if(error){console.warn("DB save:",error.message);return;}
@@ -1309,7 +1313,8 @@ function ObiGolfApp(){
     }
     setSwingFile(null);setSwingThumb(null);
     if(swingInputRef.current)swingInputRef.current.value="";
-    setIsOwnSwing(true); // reset to "My swing" for next upload
+    setIsOwnSwing(true);      // reset to "My swing" for next upload
+    setGolferLevel("unknown"); // reset level for next upload
     setSwingLoading(false);
   };
 
@@ -2538,6 +2543,7 @@ function ObiGolfApp(){
             swingInputRef={swingInputRef}
             handleSwingAnalyze={handleSwingAnalyze}
             isOwnSwing={isOwnSwing} setIsOwnSwing={setIsOwnSwing}
+            golferLevel={golferLevel} setGolferLevel={setGolferLevel}
             speaking={speaking} speakText={speakText} stopSpeak={stopSpeak}
             supabase={supabase} fmtDateShort={fmtDateShort}
             renderSwingAnalysis={renderSwingAnalysis}
