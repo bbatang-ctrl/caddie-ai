@@ -133,101 +133,23 @@ async function callGemini(sys,msgs){
 async function analyzeSwing(file,notes,profile){
   const hcp=typeof profile==="object"?profile?.hcp:profile;
   const clubUsed=notes||"not specified";
-  // Convert File to base64 (fixes bug where File object was sent as data)
-  const b64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result.split(",")[1]);r.onerror=reject;r.readAsDataURL(file);});
-  const mime=file.type;
-  const prompt=`You are an expert PGA teaching professional. Player handicap: ${hcp||"unknown"}. Club used: ${clubUsed}.\nAnalyze this golf swing image. Return ONLY a valid JSON object — no markdown, no code blocks, just raw JSON:\n{"overall":<0-100 score>,"phases":{"setup":{"score":<1-10>,"note":"<1 honest sentence>"},"backswing":{"score":<1-10>,"note":"<1 honest sentence>"},"downswing":{"score":<1-10>,"note":"<1 honest sentence>"},"impact":{"score":<1-10>,"note":"<1 honest sentence>"},"followThrough":{"score":<1-10>,"note":"<1 honest sentence>"}},"primaryFault":"<the single most important thing to fix — plain English, 1 sentence>","beginnerFix":"<a simple visual cue a beginner can remember on the course>","drill":["<step 1>","<step 2>","<step 3>"],"positives":["<something they do well>"],"clubNote":"<club-specific tip, or empty string>"}\nScore guide: 9-10=tour quality, 7-8=solid amateur, 5-6=needs work, 3-4=significant fault, 1-2=major issue. Be honest but encouraging. Plain language only.`;
-  const contents=[{role:"user",parts:[{inline_data:{mime_type:mime,data:b64}},{text:prompt}]}];
-  const res=await fetch("/api/swing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents})});
+  // Convert to base64 and POST to server — API key stays server-side
+  const imageBase64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result.split(",")[1]);r.onerror=reject;r.readAsDataURL(file);});
+  const res=await fetch("/api/analyze-swing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({imageBase64,mimeType:file.type,notes,hcp:hcp||"unknown",club:clubUsed})});
   const data=await res.json();
   if(data.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
   return data.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
 }
 
-async function analyzeSwingVideo(videoFile, notes, bag, hcp) {
-  const D = DARK_THEME; // fallback theme for this standalone function
-  // bag may be passed as the profile object from handleSwingAnalyze
-  const resolvedHcp = typeof bag === "object" ? bag?.hcp : (hcp || bag || "unknown");
-  const clubUsed = notes || "not specified";
-  const apiKey = await fetch("/api/gemini-key").then(r=>r.json()).then(d=>d.key).catch(()=>null);
-  if (!apiKey) throw new Error("Could not get API key");
-
-  const promptText = `You are an expert PGA teaching professional analyzing a full golf swing video. Player handicap: ${resolvedHcp||"unknown"}. Club used: ${clubUsed}.\nWatch the FULL swing motion carefully. Return ONLY a valid JSON object — no markdown, no code blocks, just raw JSON:\n{"overall":<0-100 score>,"phases":{"setup":{"score":<1-10>,"note":"<1 honest sentence>"},"backswing":{"score":<1-10>,"note":"<1 honest sentence>"},"downswing":{"score":<1-10>,"note":"<1 honest sentence>"},"impact":{"score":<1-10>,"note":"<1 honest sentence>"},"followThrough":{"score":<1-10>,"note":"<1 honest sentence>"}},"primaryFault":"<the single most important thing to fix — plain English, 1 sentence>","beginnerFix":"<a simple visual cue a beginner can remember on the course>","drill":["<step 1>","<step 2>","<step 3>"],"positives":["<something they do well>"],"clubNote":"<club-specific tip, or empty string>","keyFrames":{"setup":<0.0-1.0 fraction through video where player is at address>,"backswingTop":<fraction at top of backswing>,"impact":<fraction at moment of impact>}}\nScore guide: 9-10=tour quality, 7-8=solid amateur, 5-6=needs work, 3-4=significant fault, 1-2=major issue. Be encouraging, specific about timing and sequencing. Plain language only.`;
-
-  // Step 1 - Upload video to Google File API directly from browser
-  const uploadRes = await fetch(
-    `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: {
-        "X-Goog-Upload-Protocol": "resumable",
-        "X-Goog-Upload-Command": "start",
-        "X-Goog-Upload-Header-Content-Length": videoFile.size,
-        "X-Goog-Upload-Header-Content-Type": videoFile.type,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ file: { display_name: "golf_swing" } }),
-    }
-  );
-
-  const uploadUrl = uploadRes.headers.get("x-goog-upload-url");
-  if (!uploadUrl) throw new Error("Could not start video upload");
-
-  // Step 2 - Upload video bytes
-  const finalRes = await fetch(uploadUrl, {
-    method: "POST",
-    headers: {
-      "X-Goog-Upload-Command": "upload, finalize",
-      "X-Goog-Upload-Offset": "0",
-      "Content-Type": videoFile.type,
-    },
-    body: videoFile,
-  });
-
-  const fileData = await finalRes.json();
-  const fileUri = fileData?.file?.uri;
-  const fileName = fileData?.file?.name;
-  if (!fileUri) throw new Error("Video upload failed - try a shorter clip");
-
-  // Step 3 - Wait for processing
-  let ready = false;
-  let attempts = 0;
-  while (!ready && attempts < 15) {
-    await new Promise(r => setTimeout(r, 2000));
-    const check = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`
-    ).then(r => r.json());
-    if (check?.state === "ACTIVE" || check?.file?.state === "ACTIVE") ready = true;
-    attempts++;
-  }
-  if (!ready) throw new Error("Video processing timed out - try a clip under 30 seconds");
-
-  // Step 4 - Analyze with Gemini
-  const analyzeRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          role: "user",
-          parts: [
-            { file_data: { mime_type: videoFile.type, file_uri: fileUri } },
-            { text: promptText }
-          ]
-        }],
-        generationConfig: {
-          maxOutputTokens: 1500,
-          temperature: 0.7,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      }),
-    }
-  );
-
-  const result = await analyzeRes.json();
-  if (result.error) throw new Error(result.error.message || "Analysis failed");
-  return result.candidates?.[0]?.content?.parts?.[0]?.text || "Could not analyze swing.";
+async function analyzeSwingVideo(videoFile,notes,bag,hcp){
+  const resolvedHcp=typeof bag==="object"?bag?.hcp:(hcp||bag||"unknown");
+  const clubUsed=notes||"not specified";
+  // Convert to base64 and POST to server — API key and all Google calls stay server-side
+  const videoBase64=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result.split(",")[1]);r.onerror=reject;r.readAsDataURL(videoFile);});
+  const res=await fetch("/api/analyze-swing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({videoBase64,mimeType:videoFile.type,notes,hcp:resolvedHcp,club:clubUsed})});
+  const data=await res.json();
+  if(data.error)throw new Error(typeof data.error==="string"?data.error:data.error.message||"Analysis failed");
+  return data.candidates?.[0]?.content?.parts?.[0]?.text||"Could not analyze swing.";
 }
 
 
