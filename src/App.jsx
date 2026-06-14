@@ -506,45 +506,47 @@ function ObiGolfApp(){
     if(dbHole){setYardage(String(dbHole.yards));setHolePars(prev=>{const n=[...prev];n[holeNum-1]=dbHole.par;return n;});}
     let osmData=null;
     let osmCourseCenter=null;
+    let apiHole=null;
 
-    // ── Step 1: Nominatim geocoding (free OSM geocoder) ───────────────────────
-    // Gets a reliable course center lat/lng for ANY golf course worldwide.
-    // Much more reliable than name-matching in Overpass.
+    // ── Step 1: GolfCourseAPI — course location + hole metadata ───────────────
+    // This is now the PRIMARY location source. It reliably returns the course's
+    // verified address lat/lng and per-hole par/yardage/handicap.
+    // The old hardcoded COURSE_ANCHORS had wrong coordinates (e.g. Serrano was
+    // 300 miles off). GolfCourseAPI is always more accurate.
     try{
-      const staticAnchorFirst=getCourseAnchor(courseName);
-      if(staticAnchorFirst){
-        osmCourseCenter=staticAnchorFirst; // already have it for hardcoded courses
-      } else {
+      const cr=await fetch("/api/course?name="+encodeURIComponent(courseName)+"&hole="+holeNum);
+      if(cr.ok){
+        const cd=await cr.json();
+        if(cd.found){
+          apiHole=cd.hole;
+          if(cd.location?.lat&&cd.location?.lng)osmCourseCenter=cd.location;
+        }
+      }
+    }catch(e){console.warn("GolfCourseAPI failed",e);}
+
+    // ── Step 2: Nominatim — backup location if GolfCourseAPI didn't find it ───
+    if(!osmCourseCenter){
+      try{
         const geoQuery=encodeURIComponent(courseName+" golf course");
         const geoResp=await fetch("https://nominatim.openstreetmap.org/search?q="+geoQuery+"&format=json&limit=1&featuretype=leisure",{headers:{"User-Agent":"CaddieAI/1.0 (golf app)"}});
         if(geoResp.ok){
           const geoData=await geoResp.json();
-          if(geoData[0]){osmCourseCenter={lat:parseFloat(geoData[0].lat),lng:parseFloat(geoData[0].lon)};}
+          if(geoData[0])osmCourseCenter={lat:parseFloat(geoData[0].lat),lng:parseFloat(geoData[0].lon)};
         }
-      }
-    }catch(e){console.warn("Nominatim failed",e);}
+      }catch(e){console.warn("Nominatim failed",e);}
+    }
 
-    // ── Step 2: Overpass — search by LOCATION (not name) ──────────────────────
-    // Searching within 1.2km of the geocoded center is far more reliable than
-    // regex name matching, which breaks on "The Olympic Club" vs "olympic club lake course".
+    // ── Step 3: Overpass/OSM — hole shape overlays (bonus, when available) ────
+    // Searches within 1.2 km of the verified course center for hole features.
     try{
-      let q;
       if(osmCourseCenter){
-        // Location-based search: find all golf features near the course center
         const{lat,lng}=osmCourseCenter;
-        q="[out:json][timeout:30];(way[\"golf\"](around:1200,"+lat+","+lng+");node[\"golf\"](around:1200,"+lat+","+lng+");way[\"leisure\"=\"golf_course\"](around:1200,"+lat+","+lng+"););out body;>;out skel qt;";
-      } else {
-        // Fallback: name-based search (less reliable, used when geocoding fails)
-        const courseSafe=courseName.replace(/"/g,"");
-        const courseKey=courseSafe.split(" ").filter(w=>!/^(golf|course|links|the|cc)$/i.test(w)).slice(0,2).join(" ");
-        q="[out:json][timeout:30];(area[\"name\"~\""+courseSafe+"\",i][\"leisure\"=\"golf_course\"]->.a;area[\"name\"~\""+courseKey+"\",i][\"leisure\"=\"golf_course\"]->.b;);(way[\"golf\"](area.a);way[\"golf\"](area.b);node[\"golf\"](area.a);way[\"leisure\"=\"golf_course\"](area.a);way[\"leisure\"=\"golf_course\"](area.b););out body;>;out skel qt;";
-      }
-      const resp=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}});
-      if(resp.ok){
-        const d=await resp.json();
-        osmData=parseOSMHole(d,holeNum);
-        // Refine course center from OSM boundary if we got one
-        if(!getCourseAnchor(courseName)){
+        const q="[out:json][timeout:30];(way[\"golf\"](around:1200,"+lat+","+lng+");node[\"golf\"](around:1200,"+lat+","+lng+");way[\"leisure\"=\"golf_course\"](around:1200,"+lat+","+lng+"););out body;>;out skel qt;";
+        const resp=await fetch("https://overpass-api.de/api/interpreter",{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}});
+        if(resp.ok){
+          const d=await resp.json();
+          osmData=parseOSMHole(d,holeNum);
+          // Refine center from actual course boundary nodes if available
           const nodeMap={};
           d.elements.filter(e=>e.type==="node").forEach(n=>{nodeMap[n.id]={lat:n.lat,lng:n.lon};});
           const boundaryWays=d.elements.filter(e=>e.type==="way"&&e.tags?.leisure==="golf_course");
@@ -552,29 +554,9 @@ function ObiGolfApp(){
             const pts=boundaryWays.flatMap(w=>(w.nodes||[]).map(id=>nodeMap[id]).filter(Boolean));
             if(pts.length>0)osmCourseCenter={lat:pts.reduce((s,p)=>s+p.lat,0)/pts.length,lng:pts.reduce((s,p)=>s+p.lng,0)/pts.length};
           }
-          if(!osmCourseCenter&&osmData?.bounds)osmCourseCenter={lat:(osmData.bounds.minLat+osmData.bounds.maxLat)/2,lng:(osmData.bounds.minLng+osmData.bounds.maxLng)/2};
         }
       }
     }catch(e){console.warn("Overpass failed",e);}
-
-    // ── Step 3: GolfCourseAPI — reliable tee/green GPS per hole ───────────────
-    // Only called when OSM has no hole-specific feature data (osmData is null).
-    // 300 free requests/day; results cached in state so navigating holes reuses data.
-    let apiHole=null;
-    if(!osmData){
-      try{
-        const locParam=osmCourseCenter?`&lat=${osmCourseCenter.lat}&lng=${osmCourseCenter.lng}`:"";
-        const cr=await fetch("/api/course?name="+encodeURIComponent(courseName)+"&hole="+holeNum+locParam);
-        if(cr.ok){
-          const cd=await cr.json();
-          if(cd.found){
-            apiHole=cd.hole;
-            // If we didn't get a course center from Nominatim/OSM, use the API's location
-            if(!osmCourseCenter&&cd.location?.lat)osmCourseCenter=cd.location;
-          }
-        }
-      }catch(e){console.warn("GolfCourseAPI failed",e);}
-    }
 
     // ── Step 4: AI for text data only (description, tips, hazards) ────────────
     // Never used for GPS — AI cannot reliably generate coordinates.
@@ -1104,6 +1086,92 @@ function ObiGolfApp(){
 
   const renderSwingAnalysis=(text,thumb,noteLabel,isCollapsible,expandedKey,expandedState,setExpandedState)=>{
     if(!text)return null;
+
+    // Try to parse as structured JSON (new format from upgraded prompts)
+    let parsed=null;
+    try{
+      const jsonStr=text.replace(/^```json\n?/,"").replace(/\n?```$/,"").trim();
+      parsed=JSON.parse(jsonStr);
+      if(!parsed?.phases)parsed=null;
+    }catch(e){}
+
+    if(parsed){
+      const phases=[{key:"setup",label:"Setup"},{key:"backswing",label:"Bkswing"},{key:"downswing",label:"Dwnswng"},{key:"impact",label:"Impact"},{key:"followThrough",label:"Follow"}];
+      const sc=(s)=>s>=8?"text-green-400":s>=6?"text-amber-400":"text-red-400";
+      const sb=(s)=>s>=8?"border-green-500/30 bg-green-500/5":s>=6?"border-amber-400/30 bg-amber-400/5":"border-red-400/30 bg-red-400/5";
+      const overall=parsed.overall||0;
+      const oc=overall>=70?"text-green-400":overall>=50?"text-amber-400":"text-red-400";
+      const readableText=`Overall score ${overall} out of 100. ${parsed.primaryFault||""} ${parsed.beginnerFix?"Remember: "+parsed.beginnerFix+".":""} Your drill: ${(Array.isArray(parsed.drill)?parsed.drill:[]).join(". ")}. Strengths: ${(Array.isArray(parsed.positives)?parsed.positives:[]).join(", ")}.`;
+      return(
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          {isCollapsible?(
+            <button onClick={()=>setExpandedState(e=>!e)} className="w-full flex items-center gap-2 px-4 py-3 border-b border-border bg-foreground text-background hover:opacity-90 transition">
+              {thumb&&<img src={thumb} alt="" className="h-8 w-12 object-cover rounded shrink-0"/>}
+              <p className="display text-[13px] font-bold flex-1 text-left">Obi Analysis</p>
+              <span className="display text-[10px] font-bold opacity-50 mr-2">{noteLabel||"Swing"}</span>
+              <span className={cn("display text-[16px] font-bold",oc)}>{overall}</span>
+              <ChevronDown className={cn("h-4 w-4 transition-transform shrink-0 ml-1",expandedState&&"rotate-180")} strokeWidth={2.5}/>
+            </button>
+          ):(
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-foreground text-background">
+              <p className="display text-[13px] font-bold flex-1">Obi Analysis</p>
+              <span className={cn("display text-[18px] font-bold",oc)}>{overall}</span>
+              <span className="display text-[10px] font-bold opacity-50 ml-1">/100</span>
+            </div>
+          )}
+          {(!isCollapsible||expandedState)&&(
+            <React.Fragment>
+              <div className="p-3 space-y-2">
+                {/* Phase scorecard */}
+                <div className="rounded-xl border border-border bg-secondary/20 p-3">
+                  <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Swing Breakdown</p>
+                  <div className="grid grid-cols-5 gap-1 mb-2">
+                    {phases.map(ph=>{const d=parsed.phases?.[ph.key]||{score:5,note:""};return(<div key={ph.key} className={cn("rounded-lg border p-2 text-center",sb(d.score))}><p className={cn("display text-[18px] font-bold leading-none",sc(d.score))}>{d.score}</p><p className="display text-[9px] font-bold uppercase text-muted-foreground mt-1 leading-none">{ph.label}</p></div>);})}
+                  </div>
+                  <div className="space-y-1">
+                    {phases.map(ph=>{const d=parsed.phases?.[ph.key];if(!d?.note)return null;return(<div key={ph.key} className="flex gap-2 text-[11px] leading-snug"><span className={cn("display font-bold shrink-0 w-[52px]",sc(d.score))}>{ph.label}</span><span className="text-muted-foreground">{d.note}</span></div>);})}
+                  </div>
+                </div>
+                {/* Fix This First — prominent card */}
+                {parsed.primaryFault&&(
+                  <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5">
+                    <p className="display text-[10px] font-bold uppercase tracking-wider text-amber-400/80 mb-1.5">Fix This First</p>
+                    <p className="text-[14px] font-semibold text-foreground leading-snug">{parsed.primaryFault}</p>
+                    {parsed.beginnerFix&&<p className="text-[12px] text-muted-foreground mt-2 italic">"{parsed.beginnerFix}"</p>}
+                  </div>
+                )}
+                {/* Drill — numbered steps */}
+                {Array.isArray(parsed.drill)&&parsed.drill.length>0&&(
+                  <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-3">
+                    <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Your Drill</p>
+                    <ol className="space-y-1.5">
+                      {parsed.drill.map((step,i)=>(<li key={i} className="flex gap-2.5 text-[13px] text-foreground leading-snug"><span className="display text-[10px] font-bold bg-blue-500/20 text-blue-400 rounded-full h-4 w-4 flex items-center justify-center shrink-0 mt-0.5">{i+1}</span><span>{step}</span></li>))}
+                    </ol>
+                  </div>
+                )}
+                {/* Strengths */}
+                {Array.isArray(parsed.positives)&&parsed.positives.length>0&&(
+                  <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-3">
+                    <p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Strengths</p>
+                    <ul className="space-y-1.5">
+                      {parsed.positives.map((p,i)=>(<li key={i} className="flex gap-2 text-[13px] text-foreground leading-snug"><span className="text-green-400 shrink-0">✓</span><span>{p}</span></li>))}
+                    </ul>
+                  </div>
+                )}
+                {/* Club tip */}
+                {parsed.clubNote&&(<div className="rounded-xl border border-border bg-secondary/30 p-3"><p className="display text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Club Tip</p><p className="text-[13px] text-foreground leading-snug">{parsed.clubNote}</p></div>)}
+              </div>
+              <div className="flex gap-2 px-3 pb-3">
+                <button onClick={()=>speakText(readableText)} className={cn("display text-[10px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 border transition",speaking?"bg-primary/20 border-primary/40 text-primary":"border-border text-muted-foreground hover:text-foreground")}>{speaking?"Stop":"Read"}</button>
+                {isCollapsible&&(<button onClick={()=>{setSwingAnalysis("");setSwingFile(null);setSwingNotes("");setSwingThumb(null);}} className="display text-[10px] font-bold uppercase tracking-wider border border-border rounded-lg px-2.5 py-1.5 text-muted-foreground hover:text-foreground ml-auto">+ New swing</button>)}
+              </div>
+            </React.Fragment>
+          )}
+        </div>
+      );
+    }
+
+    // Fallback: plain text renderer for older history entries
     const sentences=(text.match(new RegExp("[^.!?]+[.!?]+","g"))||[text]).map(s2=>s2.trim()).filter(Boolean);
     const g={summary:[],strengths:[],fixes:[],drills:[],other:[]};
     sentences.forEach(s2=>{if(new RegExp("overall|summary|assessment|your swing|shows|demonstrates","i").test(s2))g.summary.push(s2);else if(new RegExp("good|well done|strength|positive|excellent|nice|solid|great job","i").test(s2))g.strengths.push(s2);else if(new RegExp("drill|practice|try|work on|focus on|exercise|repeat","i").test(s2))g.drills.push(s2);else if(new RegExp("need|should|must|improve|fix|adjust|lack|issue|problem|fault|tend to|too much|too little","i").test(s2))g.fixes.push(s2);else g.other.push(s2);});
