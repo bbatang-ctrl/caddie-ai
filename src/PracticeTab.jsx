@@ -326,26 +326,28 @@ function SwingAnalysisView({ parsed, videoUrl, frames, speaking, speakText, stop
 
       <div style={{ padding:"14px 14px 8px" }}>
 
-        {/* Key frames filmstrip */}
-        {videoUrl && frames && frames.setup && (
-          <div style={{ borderRadius:12, border:`1px solid ${BORD}`, overflow:"hidden", marginBottom:14 }}>
-            <p style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:8, fontWeight:700, letterSpacing:"0.16em", textTransform:"uppercase", color:FGM, padding:"8px 12px 6px", margin:0 }}>
-              Key Frames · Pose Analysis
-            </p>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", borderTop:`1px solid ${BORD}` }}>
-              {[{key:"setup",label:"Setup"},{key:"top",label:"Top"},{key:"impact",label:"Impact"}].map(({key,label}) =>
-                frames[key] ? (
-                  <div key={key} style={{ borderRight:`1px solid ${BORD}` }}>
+        {/* Key frames filmstrip — show if ANY frame was captured */}
+        {videoUrl && frames && (frames.setup || frames.top || frames.impact) && (() => {
+          const FRAME_DEFS = [{key:"setup",label:"Setup"},{key:"top",label:"Top of Backswing"},{key:"impact",label:"Impact"}];
+          const available = FRAME_DEFS.filter(({key}) => frames[key]);
+          return (
+            <div style={{ borderRadius:12, border:`1px solid ${BORD}`, overflow:"hidden", marginBottom:14 }}>
+              <p style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:8, fontWeight:700, letterSpacing:"0.16em", textTransform:"uppercase", color:FGM, padding:"8px 12px 6px", margin:0 }}>
+                Key Frames · Pose Analysis
+              </p>
+              <div style={{ display:"grid", gridTemplateColumns:`repeat(${available.length},1fr)`, borderTop:`1px solid ${BORD}` }}>
+                {available.map(({key,label},i) => (
+                  <div key={key} style={{ borderRight: i < available.length - 1 ? `1px solid ${BORD}` : "none" }}>
                     <img src={frames[key]} alt={label} style={{ width:"100%", aspectRatio:"9/16", objectFit:"cover", display:"block" }}/>
-                    <p style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:8, fontWeight:700, textAlign:"center", color:FGM, padding:"5px 0", textTransform:"uppercase", letterSpacing:"0.1em", margin:0 }}>
+                    <p style={{ fontFamily:"'Space Grotesk',sans-serif", fontSize:8, fontWeight:700, textAlign:"center", color:FGM, padding:"5px 4px", textTransform:"uppercase", letterSpacing:"0.08em", margin:0, lineHeight:1.2 }}>
                       {label}
                     </p>
                   </div>
-                ) : null
-              )}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
         {videoUrl && frames === null && (
           <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", borderRadius:10, border:`1px solid ${BORD}`, marginBottom:14, background:SURF }}>
             <div style={{ width:14, height:14, borderRadius:"50%", border:"2px solid #4ade80", borderTopColor:"transparent", animation:"spin 0.8s linear infinite", flexShrink:0 }}/>

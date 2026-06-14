@@ -121,22 +121,129 @@ function drawPoseOnCanvas(canvas,landmarks){
     ctx.fillStyle="#ff7878";ctx.font="bold 10px sans-serif";ctx.fillText("Hip "+hipDeg+"°",Math.min(lh.x,rh.x),Math.max(lh.y,rh.y)+13);
   }
 }
-async function processSwingVideo(videoFile,parsedResult){
-  const kf=parsedResult?.keyFrames||{};
-  const stamps=[{key:"setup",t:kf.setup??0.15},{key:"top",t:kf.backswingTop??0.45},{key:"impact",t:kf.impact??0.70}];
-  // Pre-warm MediaPipe while first frame loads
-  let landmarker=null;
-  loadPoseLandmarker().then(l=>{landmarker=l;}).catch(()=>{});
-  const out={};
-  for(const{key,t}of stamps){
-    try{
-      const{canvas}=await extractVideoFrame(videoFile,t);
+// Extracts N frames from a video in a single video-element pass (much faster than
+// creating N separate video elements). Returns array of {canvas, frac} or null.
+async function extractMultipleFrames(videoFile,fractions){
+  return new Promise(resolve=>{
+    const video=document.createElement("video");
+    video.muted=true;video.playsInline=true;video.preload="auto";
+    const url=URL.createObjectURL(videoFile);
+    video.src=url;
+    const N=fractions.length;
+    const results=new Array(N).fill(null);
+    let idx=0,done=false,frameTimer=null;
+    const totalTimer=setTimeout(()=>{clearTimeout(frameTimer);finish();},N*4000+8000);
+    const finish=()=>{
+      if(done)return;done=true;
+      clearTimeout(totalTimer);clearTimeout(frameTimer);
+      URL.revokeObjectURL(url);resolve(results);
+    };
+    const advance=(snap)=>{
+      if(done||idx!==snap)return;
+      clearTimeout(frameTimer);
       try{
-        if(!landmarker)landmarker=await loadPoseLandmarker();
-        if(landmarker){const res=landmarker.detect(canvas);if(res?.landmarks?.[0])drawPoseOnCanvas(canvas,res.landmarks[0]);}
-      }catch(e){console.warn("Pose on",key,":",e);}
-      out[key]=canvas.toDataURL("image/jpeg",0.82);
-    }catch(e){console.warn("Frame",key,"failed:",e);}
+        const cv=document.createElement("canvas");
+        cv.width=video.videoWidth||480;cv.height=video.videoHeight||640;
+        cv.getContext("2d").drawImage(video,0,0,cv.width,cv.height);
+        results[snap]={canvas:cv,frac:fractions[snap]};
+      }catch{}
+      idx++;
+      seekNext();
+    };
+    const seekNext=()=>{
+      if(done||idx>=N){finish();return;}
+      const snap=idx;
+      const t=video.duration*Math.max(0.005,Math.min(0.995,fractions[snap]));
+      video.onseeked=()=>advance(snap);
+      video.onloadeddata=()=>setTimeout(()=>advance(snap),60);
+      video.currentTime=t;
+      frameTimer=setTimeout(()=>{if(video.readyState>=2)advance(snap);},3000);
+    };
+    video.onloadedmetadata=()=>seekNext();
+    video.onerror=finish;
+  });
+}
+
+async function processSwingVideo(videoFile,parsedResult){
+  // Pre-warm MediaPipe in parallel with frame extraction
+  const landmarkerProm=loadPoseLandmarker().catch(()=>null);
+
+  // Sample 18 frames across 3%–93% using a single video element (fast batch extraction)
+  const N=18;
+  const fracs=Array.from({length:N},(_,i)=>0.03+(i/(N-1))*0.90);
+  const rawFrames=await extractMultipleFrames(videoFile,fracs);
+  const landmarker=await landmarkerProm;
+
+  // Run pose detection on every extracted frame
+  const scannedFrames=rawFrames.map(f=>{
+    if(!f)return null;
+    let landmarks=null;
+    if(landmarker){
+      try{const r=landmarker.detect(f.canvas);landmarks=r?.landmarks?.[0]||null;}catch{}
+    }
+    return{frac:f.frac,canvas:f.canvas,landmarks,poseDrawn:false};
+  }).filter(Boolean);
+
+  if(scannedFrames.length===0)return{};
+
+  // ── Detect actual swing moments from wrist trajectory ────────────────────
+  // In normalized MediaPipe coords: Y=0 is TOP of frame, Y=1 is BOTTOM.
+  // Top of backswing = wrist is physically highest → smallest Y value.
+  // Impact = wrists return to approximately the same height as setup.
+  const posed=scannedFrames.filter(f=>f.landmarks);
+  let timings=null;
+
+  if(posed.length>=4){
+    // SETUP: earliest detected frame in the first 25% of the video
+    const early=posed.filter(f=>f.frac<=0.25);
+    const setupF=early.length>0?early[0]:posed[0];
+    const setupWristY=((setupF.landmarks[15]?.y??0.65)+(setupF.landmarks[16]?.y??0.65))/2;
+
+    // TOP OF BACKSWING: frame where the HIGHER wrist reaches its peak elevation
+    let topF=posed[0];
+    for(const f of posed){
+      const fh=Math.min(f.landmarks[15]?.y??1,f.landmarks[16]?.y??1);
+      const th=Math.min(topF.landmarks[15]?.y??1,topF.landmarks[16]?.y??1);
+      if(fh<th)topF=f;
+    }
+
+    // IMPACT: first frame after the top where avg wrist Y returns to ≈ setup height
+    // (both wrists drop back to ball height after the backswing)
+    const afterTop=posed.filter(f=>f.frac>topF.frac);
+    let impactF=afterTop.length>=2?afterTop[1]:afterTop[0]||null;
+    for(const f of afterTop){
+      const avgY=((f.landmarks[15]?.y??0.5)+(f.landmarks[16]?.y??0.5))/2;
+      if(avgY>=setupWristY-0.10){impactF=f;break;}
+    }
+
+    timings={
+      setup:setupF.frac,
+      top:topF.frac,
+      impact:impactF?.frac??Math.min(topF.frac+0.15,0.88),
+    };
+  }
+
+  // Fallback: Gemini keyFrames → empirical defaults (NOT the old 0.45/0.70)
+  if(!timings){
+    const kf=parsedResult?.keyFrames||{};
+    timings={
+      setup:  kf.setup        ??0.08,
+      top:    kf.backswingTop ??0.35,
+      impact: kf.impact       ??0.50,
+    };
+  }
+
+  // ── Select nearest scanned frame for each moment, draw pose overlay ───────
+  const nearest=(target)=>scannedFrames.reduce((best,f)=>
+    Math.abs(f.frac-target)<Math.abs(best.frac-target)?f:best
+  ,scannedFrames[0]);
+
+  const out={};
+  for(const[key,frac]of[["setup",timings.setup],["top",timings.top],["impact",timings.impact]]){
+    const f=nearest(frac);
+    if(!f?.canvas)continue;
+    if(f.landmarks&&!f.poseDrawn){drawPoseOnCanvas(f.canvas,f.landmarks);f.poseDrawn=true;}
+    out[key]=f.canvas.toDataURL("image/jpeg",0.82);
   }
   return Object.keys(out).length>0?out:{};
 }
