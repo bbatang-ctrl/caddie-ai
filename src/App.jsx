@@ -152,211 +152,36 @@ async function processSwingVideo(videoSource,parsedResult){
     video.pause();
     _flog("decoder warmed up");
 
-    // 3 ── Load MediaPipe (needed NOW for physics-based phase detection)
+    // 3 ── Load MediaPipe (for pose overlay on captured frames — not phase detection)
     const landmarker=await loadPoseLandmarker().catch(e=>{_flog("MediaPipe FAILED:",e?.message||e);return null;});
     _flog("MediaPipe loaded:",!!landmarker);
 
-    // 4 ── Physics-based swing phase detection
+    // 4 ── Frame fractions
     //
-    // REPLACES Gemini fraction guesses. Gemini consistently confuses impact with
-    // finish (returns 0.85–0.95). Fraction range clamping caused phase collapse.
+    // MediaPipe-based phase detection removed: sparse video seeks + wristY noise
+    // from MediaPipe Lite are too unreliable for consistent phase detection on mobile.
+    // Every iteration drifted differently (hip signal, zero-crossing, energy window).
     //
-    // Algorithm:
-    //   • Sample 12 frames from 3%–79% of the video using fast single-rVFC seeks.
-    //   • Run MediaPipe on each to extract wrist Y (screen space: 0=top, 1=bottom).
-    //   • Compute velocity and acceleration across the pose timeline.
-    //   • Setup  = lowest-motion window in first 25% of samples (stable address).
-    //   • Top    = minimum wristY (hands highest in frame) in middle 65% of clip.
-    //   • Impact = maximum downward velocity AFTER top (hands moving fastest = ball contact).
-    //   Falls back to Gemini fractions if MediaPipe fails or returns < 5 valid poses.
-
-    // Fast pose-sample seek: single rVFC is fine (pose accuracy > pixel accuracy)
-    const sampleFrame=async(t)=>{
-      const clampT=Math.min(Math.max(t,0.03),dur-0.03);
-      await new Promise((res,rej)=>{
-        const timer=setTimeout(()=>rej(new Error("sample seek timeout")),8000);
-        const onS=()=>{video.removeEventListener("seeked",onS);clearTimeout(timer);res();};
-        video.addEventListener("seeked",onS);
-        video.currentTime=clampT;
-      });
-      const pe=await video.play().then(()=>null).catch(e=>e);
-      if(!pe){
-        await new Promise(resolve=>{
-          let s=false;const done=()=>{if(!s){s=true;resolve();}};
-          if(typeof video.requestVideoFrameCallback==="function"){video.requestVideoFrameCallback(done);}
-          else{requestAnimationFrame(()=>requestAnimationFrame(done));}
-          setTimeout(done,400);
-        });
-        video.pause();
-        await new Promise(r=>requestAnimationFrame(r));
-      }else{
-        // play() blocked — 3 RAFs
-        await new Promise(r=>{let n=0;const f=()=>{if(++n>=3)r();else requestAnimationFrame(f);};requestAnimationFrame(f);});
-      }
-      const W=Math.min(video.videoWidth||320,320),H=Math.min(video.videoHeight||240,240);
-      const cv=document.createElement("canvas");cv.width=W;cv.height=H;
-      cv.getContext("2d").drawImage(video,0,0,W,H);
-      return cv;
-    };
-
-    // ── TWO-PASS ADAPTIVE SWING PHASE DETECTOR ────────────────────────────────
+    // Approach: Gemini fractions for setup and top (both are generally accurate),
+    // physics-derived absolute offset for impact (Gemini always returns finish zone).
     //
-    // ROOT CAUSE OF ALL PREVIOUS FAILURES (now understood):
-    //   We sampled 3%–79% of the clip with 16 uniform points.
-    //   If the golfer stands at address for 5–8 seconds before swinging (common),
-    //   the actual swing lives in the LAST 20–30% of the clip.
-    //   With uniform sampling to 79%, only 2–4 samples land in the swing;
-    //   the rest are all setup. Phase detection on 2–4 noisy samples always fails.
-    //   "top = mid-takeaway, impact = 3/4 backswing" — both before the true top —
-    //   is exactly what you get when the detector never sees the real top or impact.
+    //   SETUP  : Gemini kf.setup   — reliable (address is static, easy for Gemini)
+    //   TOP    : Gemini kf.backswingTop — usually within 10-20% of correct frame
+    //   IMPACT : topFrac + 300ms/dur — downswing takes ~300ms regardless of video length
+    //            e.g. 8s clip → topFrac+0.038   12s clip → topFrac+0.025
+    //            Always > topFrac+5%  and  always ≤ 0.75 (never follow-through)
     //
-    // FIX: Two-pass adaptive sampling.
-    //
-    //   PASS 1 (8 coarse samples, 5%–92%):
-    //     Scan full clip to find where swing motion actually begins.
-    //     Runs MediaPipe on each; detects sustained wristY energy > 0.05 threshold.
-    //
-    //   PASS 2 (18 dense samples, swingStart–92%):
-    //     Concentrates all phase-detection samples inside the detected swing window.
-    //     If setup is 70% of clip and swing is 30%, this gives 18 samples in 30%
-    //     vs the old approach's ~4 samples in 30%. That's ~4.5× better resolution.
-    //
-    //   PHASE DETECTION (on dense timeline only):
-    //     Setup  = swingStartT (last-still coarse frame).
-    //     Bottom = argmax(wristY) = hands physically lowest = ball-contact zone.
-    //              Hard upper bound — impact CANNOT drift past this point.
-    //     Top    = first v zero-crossing (−→+). wristY in screen coords:
-    //              v<0 = wristY decreasing = hands rising (backswing).
-    //              v>0 = wristY increasing = hands falling (downswing).
-    //              First −→+ transition = backswing apex. Linear interpolation.
-    //     Impact = argmax(v) in [topT, bottomT] = fastest downward velocity.
-    //
-    //   FALLBACK: if phase ordering fails → Gemini fractions.
-    //   No hip signal (MediaPipe Lite unreliable at 320×240).
-    //   No smoothing (sparse samples — smoothing destroys structure).
-    let phaseTimes=null;
-    if(landmarker){
-      // Helper: sample one frame and return wristY (or null if no wrist detected)
-      const getPose=async(t)=>{
-        const clamp=Math.min(Math.max(t,0.03),dur-0.03);
-        try{
-          const cv=await sampleFrame(clamp);
-          const lm=landmarker.detect(cv)?.landmarks?.[0]||null;
-          const ly=lm?.[15]?.visibility>0.30?lm[15].y:null;
-          const ry=lm?.[16]?.visibility>0.30?lm[16].y:null;
-          return(ly!==null&&ry!==null)?(ly+ry)/2:(ly??ry??null);
-        }catch{return null;}
-      };
-
-      // ── PASS 1: Coarse scan — find where swing motion begins ───────────────
-      // 8 samples from 5% to 92% of clip covers the full video including late swings.
-      const C=8;
-      const coarse=[];
-      for(let i=0;i<C;i++){
-        const t=dur*(0.05+0.87*i/(C-1)); // 5% → 92%
-        const wristY=await getPose(t);
-        if(wristY!==null){coarse.push({t,wristY});_flog("c",t.toFixed(2)+"s wY="+wristY.toFixed(3));}
-        else{_flog("c",t.toFixed(2)+"s — no wrist");}
-      }
-
-      // Swing start = last-still frame before first sustained motion burst
-      // Energy threshold 0.05 over two consecutive coarse intervals.
-      let swingStartT=dur*0.05; // default: start of scan
-      for(let i=2;i<coarse.length-1;i++){
-        const e1=Math.abs(coarse[i].wristY-coarse[i-1].wristY);
-        const e2=Math.abs(coarse[i+1].wristY-coarse[i].wristY);
-        if(e1+e2>0.05){
-          swingStartT=coarse[Math.max(0,i-1)].t;
-          _flog("swing start detected at coarse["+i+"] →",swingStartT.toFixed(2)+"s");
-          break;
-        }
-      }
-      _flog("swing window:",swingStartT.toFixed(2)+"s → "+(dur*0.92).toFixed(2)+"s");
-
-      // ── PASS 2: Dense scan inside swing window ─────────────────────────────
-      // 18 samples from swingStartT to 92% of clip.
-      // All phase detection runs only on this dense timeline.
-      const D=18;
-      const timeline=[];
-      const denseSpan=dur*0.92-swingStartT;
-      for(let i=0;i<D;i++){
-        const t=swingStartT+denseSpan*(i/(D-1));
-        const wristY=await getPose(t);
-        if(wristY!==null){timeline.push({t,wristY});_flog("d",t.toFixed(2)+"s wY="+wristY.toFixed(3));}
-        else{_flog("d",t.toFixed(2)+"s — no wrist");}
-      }
-      _flog("dense points:",timeline.length);
-
-      if(timeline.length>=5){
-        // Raw velocity (no smoothing — sparse samples, smoothing destroys structure)
-        const tl=timeline.map((f,i)=>{
-          const prev=timeline[i-1]||f;
-          const dt=Math.max(f.t-prev.t,0.01);
-          return{...f,v:i===0?0:(f.wristY-prev.wristY)/dt};
-        });
-
-        const setupT=swingStartT; // clean address = last-still coarse frame
-
-        // Bottom = argmax(wristY) = hands at their lowest physical point (ball zone)
-        const bottomFrame=tl.reduce((b,f)=>f.wristY>b.wristY?f:b,tl[0]);
-        const bottomT=bottomFrame.t;
-        _flog("bottom →",bottomT.toFixed(2)+"s wY="+bottomFrame.wristY.toFixed(3));
-
-        // Top = first v zero-crossing (−→+) in first 70% of dense window
-        const topSearch=tl.slice(0,Math.max(2,Math.floor(tl.length*0.70)));
-        let topT=null;
-        for(let i=1;i<topSearch.length;i++){
-          const a=topSearch[i-1],b=topSearch[i];
-          if(a.v<0&&b.v>=0){
-            const span=b.t-a.t;
-            topT=(a.v===b.v)?a.t:a.t+(-a.v/(b.v-a.v))*span;
-            _flog("top xing",a.t.toFixed(2)+"s(v="+a.v.toFixed(3)+")→",b.t.toFixed(2)+"s(v="+b.v.toFixed(3)+") topT="+topT.toFixed(3)+"s");
-            break;
-          }
-        }
-        if(topT===null){
-          // Fallback: argmin wristY = highest physical hands in search window
-          const topFrame=topSearch.reduce((b,f)=>f.wristY<b.wristY?f:b,topSearch[0]||tl[0]);
-          topT=topFrame.t;
-          _flog("top fallback (argmin wristY) →",topT.toFixed(2)+"s");
-        }
-
-        // Impact = argmax(v) in [topT, bottomT] — fastest downward velocity
-        const downswing=tl.filter(f=>f.t>topT&&f.t<=bottomT);
-        let impactT=null;
-        if(downswing.length>=1){
-          const maxVF=downswing.reduce((b,f)=>f.v>b.v?f:b,downswing[0]);
-          impactT=maxVF.t;
-          _flog("impact →",impactT.toFixed(2)+"s v="+maxVF.v.toFixed(3));
-        }
-        if(!impactT)impactT=Math.min(topT+dur*0.15,bottomT||dur*0.75);
-
-        // Sanity: phase ordering must hold (setup < top < impact ≤ bottom)
-        if(topT>bottomT||topT<=setupT||impactT<=topT){
-          _flog("⚠ ordering failed (setup="+setupT.toFixed(2)+" top="+topT.toFixed(2)+" impact="+impactT.toFixed(2)+" bottom="+bottomT.toFixed(2)+") → Gemini fallback");
-          phaseTimes=null;
-        }else{
-          phaseTimes={setupT,topT,impactT};
-          _flog("✓ setup:"+setupT.toFixed(2)+"s top:"+topT.toFixed(2)+"s impact:"+impactT.toFixed(2)+"s bottom:"+bottomT.toFixed(2)+"s");
-        }
-      }
-    }
-
-    // 5 ── Final fracs: physics-first, Gemini-fallback, hard defaults last
-    let fracs;
-    if(phaseTimes){
-      fracs={setup:phaseTimes.setupT/dur,top:phaseTimes.topT/dur,impact:phaseTimes.impactT/dur};
-      _flog("fracs source: PHYSICS");
-    }else{
-      const kf=parsedResult?.keyFrames||{};
-      const inR=(v,lo,hi)=>typeof v==="number"&&v>=lo&&v<=hi;
-      const topFrac=inR(kf.backswingTop,0.12,0.65)?kf.backswingTop:0.35;
-      const rawImpact=typeof kf.impact==="number"?kf.impact:0;
-      const relImpact=rawImpact-topFrac;
-      const impactFrac=(relImpact>=0.08&&relImpact<=0.35)?rawImpact:Math.min(Math.max(topFrac+0.18,0.42),0.70);
-      fracs={setup:inR(kf.setup,0.02,0.28)?kf.setup:0.08,top:topFrac,impact:impactFrac};
-      _flog("fracs source: Gemini fallback — setup:",fracs.setup,"top:",fracs.top,"impact:",fracs.impact,"| raw Gemini impact:",kf.impact);
-    }
+    // MediaPipe is still loaded below for the POSE OVERLAY on captured frames only.
+    const kf=parsedResult?.keyFrames||{};
+    const inR=(v,lo,hi)=>typeof v==="number"&&v>=lo&&v<=hi;
+    const setupFrac=inR(kf.setup,0.02,0.25)?kf.setup:0.08;
+    const topFrac=Math.min(inR(kf.backswingTop,0.12,0.65)?kf.backswingTop:0.35,0.65);
+    // Impact: absolute 300ms offset keeps the gap physically correct across all clip lengths.
+    // Minimum 5% gap from top (ensures visually distinct frame even on very long clips).
+    const impactFrac=Math.min(Math.max(topFrac+0.30/dur,topFrac+0.05),0.75);
+    const fracs={setup:setupFrac,top:topFrac,impact:impactFrac};
+    _flog("dur="+dur.toFixed(1)+"s | Gemini raw: setup="+kf.setup+" top="+kf.backswingTop+" impact="+kf.impact);
+    _flog("fracs → setup:"+setupFrac.toFixed(3)+" top:"+topFrac.toFixed(3)+" impact:"+impactFrac.toFixed(3)+" (impact=top+0.30s/dur)");
 
     // 4 ── seekAndCapture: seek → play → rVFC → pause → RAF → drawImage
     //
