@@ -152,44 +152,132 @@ async function processSwingVideo(videoSource,parsedResult){
     video.pause();
     _flog("decoder warmed up");
 
-    // 3 ── Determine timing fractions
-    //   Strategy: RELATIVE positioning, not hard absolute ranges.
-    //   Hard absolute caps caused phase collapse (top→takeaway, impact→top) because
-    //   the fallback positions ended up colliding with each other.
+    // 3 ── Load MediaPipe (needed NOW for physics-based phase detection)
+    const landmarker=await loadPoseLandmarker().catch(e=>{_flog("MediaPipe FAILED:",e?.message||e);return null;});
+    _flog("MediaPipe loaded:",!!landmarker);
+
+    // 4 ── Physics-based swing phase detection
     //
-    //   Instead:
-    //   • setup and top use generous absolute guards (only reject near-zero junk).
-    //   • impact is validated RELATIVE to top: contact must be 8–35% of total
-    //     video duration after the top.  This handles all video speeds and lengths.
+    // REPLACES Gemini fraction guesses. Gemini consistently confuses impact with
+    // finish (returns 0.85–0.95). Fraction range clamping caused phase collapse.
     //
-    //   Why 8–35%?
-    //     Downswing from top → ball contact is one of the fastest motions in sport.
-    //     In a typical swing video the gap is 10–25% of total clip length.
-    //     Gemini often returns impact≈0.85–0.95 (which is the finish / deceleration
-    //     peak).  That would be >0.50 after a top at 0.35 — well outside the window.
-    const kf=parsedResult?.keyFrames||{};
-    const inRange=(v,lo,hi)=>typeof v==="number"&&v>=lo&&v<=hi;
+    // Algorithm:
+    //   • Sample 12 frames from 3%–79% of the video using fast single-rVFC seeks.
+    //   • Run MediaPipe on each to extract wrist Y (screen space: 0=top, 1=bottom).
+    //   • Compute velocity and acceleration across the pose timeline.
+    //   • Setup  = lowest-motion window in first 25% of samples (stable address).
+    //   • Top    = minimum wristY (hands highest in frame) in middle 65% of clip.
+    //   • Impact = maximum downward velocity AFTER top (hands moving fastest = ball contact).
+    //   Falls back to Gemini fractions if MediaPipe fails or returns < 5 valid poses.
 
-    // Setup: generous guard — reject only near-zero hallucinations
-    const setupFrac = inRange(kf.setup,0.02,0.28) ? kf.setup : 0.08;
-    // Top: generous guard — wide range to handle slow-motion or early-cut videos
-    const topFrac   = inRange(kf.backswingTop,0.12,0.65) ? kf.backswingTop : 0.35;
+    // Fast pose-sample seek: single rVFC is fine (pose accuracy > pixel accuracy)
+    const sampleFrame=async(t)=>{
+      const clampT=Math.min(Math.max(t,0.03),dur-0.03);
+      await new Promise((res,rej)=>{
+        const timer=setTimeout(()=>rej(new Error("sample seek timeout")),8000);
+        const onS=()=>{video.removeEventListener("seeked",onS);clearTimeout(timer);res();};
+        video.addEventListener("seeked",onS);
+        video.currentTime=clampT;
+      });
+      const pe=await video.play().then(()=>null).catch(e=>e);
+      if(!pe){
+        await new Promise(resolve=>{
+          let s=false;const done=()=>{if(!s){s=true;resolve();}};
+          if(typeof video.requestVideoFrameCallback==="function"){video.requestVideoFrameCallback(done);}
+          else{requestAnimationFrame(()=>requestAnimationFrame(done));}
+          setTimeout(done,400);
+        });
+        video.pause();
+        await new Promise(r=>requestAnimationFrame(r));
+      }else{
+        // play() blocked — 3 RAFs
+        await new Promise(r=>{let n=0;const f=()=>{if(++n>=3)r();else requestAnimationFrame(f);};requestAnimationFrame(f);});
+      }
+      const W=Math.min(video.videoWidth||320,320),H=Math.min(video.videoHeight||240,240);
+      const cv=document.createElement("canvas");cv.width=W;cv.height=H;
+      cv.getContext("2d").drawImage(video,0,0,W,H);
+      return cv;
+    };
 
-    // Impact: must be 8–35% of duration AFTER the top (relative constraint).
-    // Rejects finish (too far after top) and near-top misclassifications (too close).
-    const rawImpact = typeof kf.impact==="number" ? kf.impact : 0;
-    const afterTop  = rawImpact - topFrac;
-    const impactFrac = (afterTop>=0.08 && afterTop<=0.35)
-      ? rawImpact
-      : Math.min(Math.max(topFrac+0.18, 0.42), 0.70); // fallback: 18% after top
+    // Sample 12 frames and build wrist-motion timeline
+    let phaseTimes=null;
+    if(landmarker){
+      const N=12;
+      const timeline=[];
+      for(let i=0;i<N;i++){
+        const t=dur*(0.03+(0.76*i/(N-1))); // 3% → 79% of clip
+        try{
+          const cv=await sampleFrame(t);
+          const lm=landmarker.detect(cv)?.landmarks?.[0]||null;
+          // Average left (15) + right (16) wrist Y. Screen space: 0=top, 1=bottom.
+          const ly=lm?.[15]?.visibility>0.35?lm[15].y:null;
+          const ry=lm?.[16]?.visibility>0.35?lm[16].y:null;
+          const wristY=(ly!==null&&ry!==null)?(ly+ry)/2:(ly??ry??null);
+          if(wristY!==null){timeline.push({t,wristY});_flog("sample",t.toFixed(2)+"s wY="+wristY.toFixed(3));}
+          else{_flog("sample",t.toFixed(2)+"s — no wrist");}
+        }catch(e){_flog("sample",t.toFixed(2)+"s ERR:",e?.message);}
+      }
+      _flog("timeline points:",timeline.length);
 
-    const fracs={setup:setupFrac, top:topFrac, impact:impactFrac};
-    _flog("fracs — setup:",setupFrac,"top:",topFrac,"impact:",impactFrac,
-          "| raw Gemini: setup",kf.setup,"top",kf.backswingTop,"impact",kf.impact,
-          "| afterTop:",afterTop.toFixed(3));
+      if(timeline.length>=5){
+        // Annotate with velocity (dy/dt) and acceleration
+        const tl=timeline.map((f,i)=>{
+          const prev=timeline[i-1]||f;
+          const dt=Math.max(f.t-prev.t,0.02);
+          const v=i===0?0:(f.wristY-prev.wristY)/dt;
+          const pp=timeline[i-2]||prev;
+          const pdt=Math.max(prev.t-pp.t,0.02);
+          const pv=i<2?0:(prev.wristY-pp.wristY)/pdt;
+          return{...f,v,a:(v-pv)/dt};
+        });
 
-    // Pre-warm MediaPipe concurrently while we do sequential seeks
-    const landmarkerProm=loadPoseLandmarker().catch(e=>{_flog("MediaPipe FAILED:",e?.message||e);return null;});
+        // Setup: lowest total |velocity| in first 25% of samples
+        const setupEnd=Math.max(2,Math.ceil(tl.length*0.25));
+        let setupT=tl[0].t,minMot=Infinity;
+        for(let i=0;i<setupEnd;i++){
+          const mot=Math.abs(tl[i].v)+Math.abs(tl[Math.min(i+1,tl.length-1)].v);
+          if(mot<minMot){minMot=mot;setupT=tl[i].t;}
+        }
+
+        // Top: minimum wristY (highest hands) in 8%–72% of samples
+        const topSlice=tl.slice(Math.floor(tl.length*0.08),Math.floor(tl.length*0.72));
+        const topFrame=(topSlice.length>0?topSlice:tl).reduce((b,f)=>f.wristY<b.wristY?f:b);
+        const topT=topFrame.t;
+
+        // Impact: maximum downward velocity (positive v = hands falling) AFTER top
+        const afterTop=tl.filter(f=>f.t>topT);
+        let impactT=null;
+        if(afterTop.length>=1){
+          const maxVF=afterTop.reduce((b,f)=>f.v>b.v?f:b,afterTop[0]);
+          impactT=maxVF.t;
+          // Don't allow impact in last 20% — that's finish territory
+          if(impactT>dur*0.80){
+            impactT=topT+Math.max((dur-topT)*0.35,dur*0.10);
+            _flog("impact clamped from finish →",impactT.toFixed(2)+"s");
+          }
+        }
+        if(!impactT)impactT=Math.min(topT+dur*0.18,dur*0.70);
+
+        phaseTimes={setupT,topT,impactT};
+        _flog("✓ physics phases — setup:",setupT.toFixed(2)+"s  top:",topT.toFixed(2)+"s  impact:",impactT.toFixed(2)+"s");
+      }
+    }
+
+    // 5 ── Final fracs: physics-first, Gemini-fallback, hard defaults last
+    let fracs;
+    if(phaseTimes){
+      fracs={setup:phaseTimes.setupT/dur,top:phaseTimes.topT/dur,impact:phaseTimes.impactT/dur};
+      _flog("fracs source: PHYSICS");
+    }else{
+      const kf=parsedResult?.keyFrames||{};
+      const inR=(v,lo,hi)=>typeof v==="number"&&v>=lo&&v<=hi;
+      const topFrac=inR(kf.backswingTop,0.12,0.65)?kf.backswingTop:0.35;
+      const rawImpact=typeof kf.impact==="number"?kf.impact:0;
+      const relImpact=rawImpact-topFrac;
+      const impactFrac=(relImpact>=0.08&&relImpact<=0.35)?rawImpact:Math.min(Math.max(topFrac+0.18,0.42),0.70);
+      fracs={setup:inR(kf.setup,0.02,0.28)?kf.setup:0.08,top:topFrac,impact:impactFrac};
+      _flog("fracs source: Gemini fallback — setup:",fracs.setup,"top:",fracs.top,"impact:",fracs.impact,"| raw Gemini impact:",kf.impact);
+    }
 
     // 4 ── seekAndCapture: seek → play → rVFC → pause → RAF → drawImage
     //
@@ -293,10 +381,7 @@ async function processSwingVideo(videoSource,parsedResult){
       }catch(e){_flog(key,"ERROR:",e?.message);}
     }
 
-    // 7 ── Pose overlay
-    const landmarker=await landmarkerProm;
-    _flog("MediaPipe loaded:",!!landmarker);
-
+    // 7 ── Pose overlay (landmarker already loaded in step 3)
     const out={};
     for(const[key,canvas]of Object.entries(canvases)){
       if(landmarker){
