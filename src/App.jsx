@@ -199,127 +199,145 @@ async function processSwingVideo(videoSource,parsedResult){
       return cv;
     };
 
-    // ── PRODUCTION SWING PHASE DETECTOR ───────────────────────────────────────
+    // ── TWO-PASS ADAPTIVE SWING PHASE DETECTOR ────────────────────────────────
     //
-    // All previous failures traced to one root cause: running phase detection on
-    // the entire clip including address/waggle stillness. Detectors always
-    // collapsed to the earliest stable frames = setup region.
+    // ROOT CAUSE OF ALL PREVIOUS FAILURES (now understood):
+    //   We sampled 3%–79% of the clip with 16 uniform points.
+    //   If the golfer stands at address for 5–8 seconds before swinging (common),
+    //   the actual swing lives in the LAST 20–30% of the clip.
+    //   With uniform sampling to 79%, only 2–4 samples land in the swing;
+    //   the rest are all setup. Phase detection on 2–4 noisy samples always fails.
+    //   "top = mid-takeaway, impact = 3/4 backswing" — both before the true top —
+    //   is exactly what you get when the detector never sees the real top or impact.
     //
-    // Coach-grade hip signal (hipY−wristY) also failed: MediaPipe Lite cannot
-    // reliably detect hip landmarks from 320×240 crops — causing complete collapse.
+    // FIX: Two-pass adaptive sampling.
     //
-    // This version fixes it with two stages:
+    //   PASS 1 (8 coarse samples, 5%–92%):
+    //     Scan full clip to find where swing motion actually begins.
+    //     Runs MediaPipe on each; detects sustained wristY energy > 0.05 threshold.
     //
-    //   STAGE 1 — Swing window detection
-    //     Scan raw wristY for where sustained motion begins (|ΔwristY| jumps across
-    //     two consecutive intervals, e1+e2 > 0.05). Skip everything before that point.
-    //     The last-still frame becomes the setup frame (clean address position).
+    //   PASS 2 (18 dense samples, swingStart–92%):
+    //     Concentrates all phase-detection samples inside the detected swing window.
+    //     If setup is 70% of clip and swing is 30%, this gives 18 samples in 30%
+    //     vs the old approach's ~4 samples in 30%. That's ~4.5× better resolution.
     //
-    //   STAGE 2 — Physics events INSIDE the swing window only
-    //     BOTTOM : argmax(wristY) = hands physically lowest (ball-contact zone).
-    //              Global maximum — robust, cannot be confused with top or setup.
-    //              Acts as hard upper bound: impact CANNOT be after bottomT.
-    //     TOP    : first velocity zero-crossing (v: − → +) inside swing window.
-    //              Raw wristY in screen coords: v<0 = wristY decreasing = hands rising.
-    //              v>0 = wristY increasing = hands falling. First −→+ = backswing apex.
-    //              Linear interpolation → sub-sample precision.
-    //     IMPACT : argmax(v) in [topT, bottomT] — fastest downward wrist velocity.
-    //              Constrained to [topT, bottomT] = CANNOT be finish/follow-through.
+    //   PHASE DETECTION (on dense timeline only):
+    //     Setup  = swingStartT (last-still coarse frame).
+    //     Bottom = argmax(wristY) = hands physically lowest = ball-contact zone.
+    //              Hard upper bound — impact CANNOT drift past this point.
+    //     Top    = first v zero-crossing (−→+). wristY in screen coords:
+    //              v<0 = wristY decreasing = hands rising (backswing).
+    //              v>0 = wristY increasing = hands falling (downswing).
+    //              First −→+ transition = backswing apex. Linear interpolation.
+    //     Impact = argmax(v) in [topT, bottomT] = fastest downward velocity.
     //
-    //   FALLBACK: if phase ordering fails (top≥bottom, etc.) → Gemini fractions.
-    //   No hip signal. No smoothing (16 sparse samples — smoothing destroys structure).
+    //   FALLBACK: if phase ordering fails → Gemini fractions.
+    //   No hip signal (MediaPipe Lite unreliable at 320×240).
+    //   No smoothing (sparse samples — smoothing destroys structure).
     let phaseTimes=null;
     if(landmarker){
-      const N=16;
-      const timeline=[];
-      for(let i=0;i<N;i++){
-        const t=dur*(0.03+(0.76*i/(N-1))); // 3% → 79% of clip
+      // Helper: sample one frame and return wristY (or null if no wrist detected)
+      const getPose=async(t)=>{
+        const clamp=Math.min(Math.max(t,0.03),dur-0.03);
         try{
-          const cv=await sampleFrame(t);
+          const cv=await sampleFrame(clamp);
           const lm=landmarker.detect(cv)?.landmarks?.[0]||null;
           const ly=lm?.[15]?.visibility>0.30?lm[15].y:null;
           const ry=lm?.[16]?.visibility>0.30?lm[16].y:null;
-          const wristY=(ly!==null&&ry!==null)?(ly+ry)/2:(ly??ry??null);
-          if(wristY!==null){
-            timeline.push({t,wristY});
-            _flog("sample",t.toFixed(2)+"s wY="+wristY.toFixed(3));
-          }else{_flog("sample",t.toFixed(2)+"s — no wrist");}
-        }catch(e){_flog("sample",t.toFixed(2)+"s ERR:",e?.message);}
+          return(ly!==null&&ry!==null)?(ly+ry)/2:(ly??ry??null);
+        }catch{return null;}
+      };
+
+      // ── PASS 1: Coarse scan — find where swing motion begins ───────────────
+      // 8 samples from 5% to 92% of clip covers the full video including late swings.
+      const C=8;
+      const coarse=[];
+      for(let i=0;i<C;i++){
+        const t=dur*(0.05+0.87*i/(C-1)); // 5% → 92%
+        const wristY=await getPose(t);
+        if(wristY!==null){coarse.push({t,wristY});_flog("c",t.toFixed(2)+"s wY="+wristY.toFixed(3));}
+        else{_flog("c",t.toFixed(2)+"s — no wrist");}
       }
-      _flog("timeline points:",timeline.length);
+
+      // Swing start = last-still frame before first sustained motion burst
+      // Energy threshold 0.05 over two consecutive coarse intervals.
+      let swingStartT=dur*0.05; // default: start of scan
+      for(let i=2;i<coarse.length-1;i++){
+        const e1=Math.abs(coarse[i].wristY-coarse[i-1].wristY);
+        const e2=Math.abs(coarse[i+1].wristY-coarse[i].wristY);
+        if(e1+e2>0.05){
+          swingStartT=coarse[Math.max(0,i-1)].t;
+          _flog("swing start detected at coarse["+i+"] →",swingStartT.toFixed(2)+"s");
+          break;
+        }
+      }
+      _flog("swing window:",swingStartT.toFixed(2)+"s → "+(dur*0.92).toFixed(2)+"s");
+
+      // ── PASS 2: Dense scan inside swing window ─────────────────────────────
+      // 18 samples from swingStartT to 92% of clip.
+      // All phase detection runs only on this dense timeline.
+      const D=18;
+      const timeline=[];
+      const denseSpan=dur*0.92-swingStartT;
+      for(let i=0;i<D;i++){
+        const t=swingStartT+denseSpan*(i/(D-1));
+        const wristY=await getPose(t);
+        if(wristY!==null){timeline.push({t,wristY});_flog("d",t.toFixed(2)+"s wY="+wristY.toFixed(3));}
+        else{_flog("d",t.toFixed(2)+"s — no wrist");}
+      }
+      _flog("dense points:",timeline.length);
 
       if(timeline.length>=5){
-        // Velocities (raw, no smoothing — sparse data, smoothing destroys structure)
+        // Raw velocity (no smoothing — sparse samples, smoothing destroys structure)
         const tl=timeline.map((f,i)=>{
           const prev=timeline[i-1]||f;
-          const dt=Math.max(f.t-prev.t,0.02);
+          const dt=Math.max(f.t-prev.t,0.01);
           return{...f,v:i===0?0:(f.wristY-prev.wristY)/dt};
         });
 
-        // ── STAGE 1: Swing window detection ────────────────────────────────────
-        // Energy = |ΔwristY| between adjacent samples.
-        // Address/waggle: energy ≈ 0.01–0.02 (MediaPipe noise floor).
-        // Takeaway/swing: energy > 0.04 sustained over 2 consecutive intervals.
-        // swingStartIdx = last "still" frame → clean address position.
-        let swingStartIdx=0;
-        for(let i=2;i<tl.length-1;i++){
-          const e1=Math.abs(tl[i].wristY-tl[i-1].wristY);
-          const e2=Math.abs(tl[i+1].wristY-tl[i].wristY);
-          if(e1+e2>0.05){ // sustained motion = swing began
-            swingStartIdx=Math.max(0,i-1); // one frame before motion = last still
-            break;
-          }
-        }
-        const setupT=tl[swingStartIdx].t;
-        _flog("swing start idx:",swingStartIdx,"setupT="+setupT.toFixed(2)+"s");
+        const setupT=swingStartT; // clean address = last-still coarse frame
 
-        const sw=tl.slice(swingStartIdx); // swing window only
-
-        // ── STAGE 2: Bottom anchor (argmax wristY = hands physically lowest) ──
-        const bottomFrame=sw.reduce((b,f)=>f.wristY>b.wristY?f:b,sw[0]);
+        // Bottom = argmax(wristY) = hands at their lowest physical point (ball zone)
+        const bottomFrame=tl.reduce((b,f)=>f.wristY>b.wristY?f:b,tl[0]);
         const bottomT=bottomFrame.t;
-        _flog("bottom anchor →",bottomT.toFixed(2)+"s  wY="+bottomFrame.wristY.toFixed(3));
+        _flog("bottom →",bottomT.toFixed(2)+"s wY="+bottomFrame.wristY.toFixed(3));
 
-        // ── STAGE 2: Top — first v zero-crossing (−→+) inside swing window ────
-        // v<0: wristY falling = hands rising (backswing). v>0: downswing.
-        // First − → + transition = backswing apex. Search in first 65% of window.
-        const topSearch=sw.slice(0,Math.max(2,Math.floor(sw.length*0.65)));
+        // Top = first v zero-crossing (−→+) in first 70% of dense window
+        const topSearch=tl.slice(0,Math.max(2,Math.floor(tl.length*0.70)));
         let topT=null;
         for(let i=1;i<topSearch.length;i++){
           const a=topSearch[i-1],b=topSearch[i];
           if(a.v<0&&b.v>=0){
             const span=b.t-a.t;
-            topT=(a.v===b.v)?a.t:a.t+(-a.v/(b.v-a.v))*span; // linear interp to v=0
-            _flog("top zero-crossing",a.t.toFixed(2)+"s(v="+a.v.toFixed(3)+")→",b.t.toFixed(2)+"s(v="+b.v.toFixed(3)+") topT="+topT.toFixed(3)+"s");
+            topT=(a.v===b.v)?a.t:a.t+(-a.v/(b.v-a.v))*span;
+            _flog("top xing",a.t.toFixed(2)+"s(v="+a.v.toFixed(3)+")→",b.t.toFixed(2)+"s(v="+b.v.toFixed(3)+") topT="+topT.toFixed(3)+"s");
             break;
           }
         }
         if(topT===null){
-          // Fallback: argmin wristY = highest hands in swing window
-          const topFrame=topSearch.reduce((b,f)=>f.wristY<b.wristY?f:b,topSearch[0]||sw[0]);
+          // Fallback: argmin wristY = highest physical hands in search window
+          const topFrame=topSearch.reduce((b,f)=>f.wristY<b.wristY?f:b,topSearch[0]||tl[0]);
           topT=topFrame.t;
           _flog("top fallback (argmin wristY) →",topT.toFixed(2)+"s");
         }
 
-        // ── STAGE 2: Impact — argmax(v) between top and bottom ─────────────────
-        // Fastest downward velocity in [topT, bottomT] = ball contact.
-        // Hard-bounded by bottomT — physically CANNOT be follow-through.
-        const downswing=sw.filter(f=>f.t>topT&&f.t<=bottomT);
+        // Impact = argmax(v) in [topT, bottomT] — fastest downward velocity
+        const downswing=tl.filter(f=>f.t>topT&&f.t<=bottomT);
         let impactT=null;
         if(downswing.length>=1){
           const maxVF=downswing.reduce((b,f)=>f.v>b.v?f:b,downswing[0]);
           impactT=maxVF.t;
-          _flog("impact argmax(v) in [top,bottom] →",impactT.toFixed(2)+"s  v="+maxVF.v.toFixed(3));
+          _flog("impact →",impactT.toFixed(2)+"s v="+maxVF.v.toFixed(3));
         }
-        if(!impactT)impactT=Math.min(topT+dur*0.18,bottomT||dur*0.70);
+        if(!impactT)impactT=Math.min(topT+dur*0.15,bottomT||dur*0.75);
 
-        // Sanity: reject if phase ordering is wrong
+        // Sanity: phase ordering must hold (setup < top < impact ≤ bottom)
         if(topT>bottomT||topT<=setupT||impactT<=topT){
-          _flog("⚠ phase ordering failed → Gemini fallback");
+          _flog("⚠ ordering failed (setup="+setupT.toFixed(2)+" top="+topT.toFixed(2)+" impact="+impactT.toFixed(2)+" bottom="+bottomT.toFixed(2)+") → Gemini fallback");
           phaseTimes=null;
         }else{
           phaseTimes={setupT,topT,impactT};
-          _flog("✓ phases — setup:",setupT.toFixed(2)+"s  top:",topT.toFixed(2)+"s  impact:",impactT.toFixed(2)+"s  bottom:",bottomT.toFixed(2)+"s");
+          _flog("✓ setup:"+setupT.toFixed(2)+"s top:"+topT.toFixed(2)+"s impact:"+impactT.toFixed(2)+"s bottom:"+bottomT.toFixed(2)+"s");
         }
       }
     }
