@@ -199,22 +199,35 @@ async function processSwingVideo(videoSource,parsedResult){
       return cv;
     };
 
-    // ── COACH-GRADE SWING PHASE ENGINE ─────────────────────────────────────────
-    // Previous approach: detect top/impact directly from raw wristY → kept drifting
-    //   because golf swing peaks are broad, MediaPipe adds noise, and extremum
-    //   detection always catches a leading or trailing edge instead of the true event.
+    // ── PRODUCTION SWING PHASE DETECTOR ───────────────────────────────────────
     //
-    // This approach (matching professional swing-analysis tools):
-    //   SIGNAL  : hipY − wristY  = hand height relative to hips (stable, normalised).
-    //             Cancels camera-angle drift. Rising = backswing, falling = downswing.
-    //   SMOOTH  : 5-point moving average before derivative computation.
-    //   BOTTOM  : global argmin(signal) = ball-contact zone anchor (very robust).
-    //   TOP     : first velocity zero-crossing from + → − after early motion onset
-    //             (signal was rising during backswing, first reversal = apex).
-    //             Linear interpolation between bracketing samples → sub-sample precision.
-    //   IMPACT  : argmin(velocity) between topT and bottomT
-    //             = fastest downward motion in the ball-contact window.
-    //             Constrained by bottomT so it can NEVER drift into follow-through.
+    // All previous failures traced to one root cause: running phase detection on
+    // the entire clip including address/waggle stillness. Detectors always
+    // collapsed to the earliest stable frames = setup region.
+    //
+    // Coach-grade hip signal (hipY−wristY) also failed: MediaPipe Lite cannot
+    // reliably detect hip landmarks from 320×240 crops — causing complete collapse.
+    //
+    // This version fixes it with two stages:
+    //
+    //   STAGE 1 — Swing window detection
+    //     Scan raw wristY for where sustained motion begins (|ΔwristY| jumps across
+    //     two consecutive intervals, e1+e2 > 0.05). Skip everything before that point.
+    //     The last-still frame becomes the setup frame (clean address position).
+    //
+    //   STAGE 2 — Physics events INSIDE the swing window only
+    //     BOTTOM : argmax(wristY) = hands physically lowest (ball-contact zone).
+    //              Global maximum — robust, cannot be confused with top or setup.
+    //              Acts as hard upper bound: impact CANNOT be after bottomT.
+    //     TOP    : first velocity zero-crossing (v: − → +) inside swing window.
+    //              Raw wristY in screen coords: v<0 = wristY decreasing = hands rising.
+    //              v>0 = wristY increasing = hands falling. First −→+ = backswing apex.
+    //              Linear interpolation → sub-sample precision.
+    //     IMPACT : argmax(v) in [topT, bottomT] — fastest downward wrist velocity.
+    //              Constrained to [topT, bottomT] = CANNOT be finish/follow-through.
+    //
+    //   FALLBACK: if phase ordering fails (top≥bottom, etc.) → Gemini fractions.
+    //   No hip signal. No smoothing (16 sparse samples — smoothing destroys structure).
     let phaseTimes=null;
     if(landmarker){
       const N=16;
@@ -224,92 +237,90 @@ async function processSwingVideo(videoSource,parsedResult){
         try{
           const cv=await sampleFrame(t);
           const lm=landmarker.detect(cv)?.landmarks?.[0]||null;
-          // Wrist landmarks: 15 = left, 16 = right
           const ly=lm?.[15]?.visibility>0.30?lm[15].y:null;
           const ry=lm?.[16]?.visibility>0.30?lm[16].y:null;
           const wristY=(ly!==null&&ry!==null)?(ly+ry)/2:(ly??ry??null);
-          // Hip landmarks: 23 = left, 24 = right (stable body reference)
-          const lh=lm?.[23]?.visibility>0.30?lm[23].y:null;
-          const rh=lm?.[24]?.visibility>0.30?lm[24].y:null;
-          const hipY=(lh!==null&&rh!==null)?(lh+rh)/2:(lh??rh??null);
           if(wristY!==null){
-            // signal = hand height relative to hips (+ = hands above hips).
-            // If hips not detected, fall back to −wristY so signal still rises
-            // during backswing (wristY decreases as hands go up → −wristY increases).
-            const signal=hipY!==null?(hipY-wristY):(-wristY);
-            timeline.push({t,signal,wristY,hipY:hipY??null});
-            _flog("sample",t.toFixed(2)+"s sig="+signal.toFixed(3)+(hipY!==null?" hip✓":" hip✗"));
+            timeline.push({t,wristY});
+            _flog("sample",t.toFixed(2)+"s wY="+wristY.toFixed(3));
           }else{_flog("sample",t.toFixed(2)+"s — no wrist");}
         }catch(e){_flog("sample",t.toFixed(2)+"s ERR:",e?.message);}
       }
       _flog("timeline points:",timeline.length);
 
       if(timeline.length>=5){
-        // 5-point moving-average smooth (reduces MediaPipe jitter without phase drift)
-        const smooth=timeline.map((_,i)=>{
-          const w=timeline.slice(Math.max(0,i-2),Math.min(timeline.length,i+3));
-          return{...timeline[i],s:w.reduce((a,f)=>a+f.signal,0)/w.length};
-        });
-        // Velocity of smoothed signal (d/dt)
-        const tl=smooth.map((f,i)=>{
-          const prev=smooth[i-1]||f;
+        // Velocities (raw, no smoothing — sparse data, smoothing destroys structure)
+        const tl=timeline.map((f,i)=>{
+          const prev=timeline[i-1]||f;
           const dt=Math.max(f.t-prev.t,0.02);
-          return{...f,v:i===0?0:(f.s-prev.s)/dt};
+          return{...f,v:i===0?0:(f.wristY-prev.wristY)/dt};
         });
 
-        // SETUP: lowest |velocity| pair in first 25% — golfer standing still at address
-        const setupEnd=Math.max(3,Math.ceil(tl.length*0.25));
-        let setupT=tl[0].t,minMot=Infinity;
-        for(let i=0;i<setupEnd-1;i++){
-          const mot=Math.abs(tl[i].v)+Math.abs(tl[i+1].v);
-          if(mot<minMot){minMot=mot;setupT=(tl[i].t+tl[i+1].t)/2;}
+        // ── STAGE 1: Swing window detection ────────────────────────────────────
+        // Energy = |ΔwristY| between adjacent samples.
+        // Address/waggle: energy ≈ 0.01–0.02 (MediaPipe noise floor).
+        // Takeaway/swing: energy > 0.04 sustained over 2 consecutive intervals.
+        // swingStartIdx = last "still" frame → clean address position.
+        let swingStartIdx=0;
+        for(let i=2;i<tl.length-1;i++){
+          const e1=Math.abs(tl[i].wristY-tl[i-1].wristY);
+          const e2=Math.abs(tl[i+1].wristY-tl[i].wristY);
+          if(e1+e2>0.05){ // sustained motion = swing began
+            swingStartIdx=Math.max(0,i-1); // one frame before motion = last still
+            break;
+          }
         }
+        const setupT=tl[swingStartIdx].t;
+        _flog("swing start idx:",swingStartIdx,"setupT="+setupT.toFixed(2)+"s");
 
-        // BOTTOM: global argmin(signal) = hands at their lowest point (ball-contact zone)
-        // This is a stable anchor — it's the most extreme point of the downswing and
-        // cannot be confused with top or setup because it is the global minimum.
-        const bottomFrame=tl.reduce((b,f)=>f.s<b.s?f:b,tl[0]);
+        const sw=tl.slice(swingStartIdx); // swing window only
+
+        // ── STAGE 2: Bottom anchor (argmax wristY = hands physically lowest) ──
+        const bottomFrame=sw.reduce((b,f)=>f.wristY>b.wristY?f:b,sw[0]);
         const bottomT=bottomFrame.t;
-        _flog("bottom anchor →",bottomT.toFixed(2)+"s  sig="+bottomFrame.s.toFixed(3));
+        _flog("bottom anchor →",bottomT.toFixed(2)+"s  wY="+bottomFrame.wristY.toFixed(3));
 
-        // TOP: first velocity zero-crossing from + → − in search range
-        // In (hipY−wristY) signal: v>0 = hands rising (backswing), v<0 = hands falling.
-        // The FIRST time v transitions from + to − is the backswing apex.
-        // We skip the first 10% of samples to avoid catching minor address wiggles.
-        // Linear interpolation gives sub-sample precision.
-        const topSearchEnd=Math.floor(tl.length*0.72); // don't look past 72%
-        const topSearch=tl.slice(Math.floor(tl.length*0.10),topSearchEnd);
+        // ── STAGE 2: Top — first v zero-crossing (−→+) inside swing window ────
+        // v<0: wristY falling = hands rising (backswing). v>0: downswing.
+        // First − → + transition = backswing apex. Search in first 65% of window.
+        const topSearch=sw.slice(0,Math.max(2,Math.floor(sw.length*0.65)));
         let topT=null;
         for(let i=1;i<topSearch.length;i++){
           const a=topSearch[i-1],b=topSearch[i];
-          if(a.v>0&&b.v<=0){
+          if(a.v<0&&b.v>=0){
             const span=b.t-a.t;
-            topT=(a.v===b.v)?a.t:a.t+(a.v/(a.v-b.v))*span; // lerp to v=0
-            _flog("top v zero-crossing",a.t.toFixed(2)+"s(v="+a.v.toFixed(3)+")→",b.t.toFixed(2)+"s(v="+b.v.toFixed(3)+") topT="+topT.toFixed(3)+"s");
+            topT=(a.v===b.v)?a.t:a.t+(-a.v/(b.v-a.v))*span; // linear interp to v=0
+            _flog("top zero-crossing",a.t.toFixed(2)+"s(v="+a.v.toFixed(3)+")→",b.t.toFixed(2)+"s(v="+b.v.toFixed(3)+") topT="+topT.toFixed(3)+"s");
             break;
           }
         }
         if(topT===null){
-          // Fallback: argmax signal = highest hands (no clean zero-crossing)
-          const topFrame=topSearch.reduce((b,f)=>f.s>b.s?f:b,topSearch[0]||tl[0]);
+          // Fallback: argmin wristY = highest hands in swing window
+          const topFrame=topSearch.reduce((b,f)=>f.wristY<b.wristY?f:b,topSearch[0]||sw[0]);
           topT=topFrame.t;
-          _flog("top fallback (argmax signal) →",topT.toFixed(2)+"s");
+          _flog("top fallback (argmin wristY) →",topT.toFixed(2)+"s");
         }
 
-        // IMPACT: argmin(velocity) between topT and bottomT
-        // Fastest downward motion inside the downswing window = ball contact.
-        // Constrained to [topT, bottomT] — cannot drift into follow-through.
-        const downswing=tl.filter(f=>f.t>topT&&f.t<=bottomT);
+        // ── STAGE 2: Impact — argmax(v) between top and bottom ─────────────────
+        // Fastest downward velocity in [topT, bottomT] = ball contact.
+        // Hard-bounded by bottomT — physically CANNOT be follow-through.
+        const downswing=sw.filter(f=>f.t>topT&&f.t<=bottomT);
         let impactT=null;
         if(downswing.length>=1){
-          const minVF=downswing.reduce((b,f)=>f.v<b.v?f:b,downswing[0]);
-          impactT=minVF.t;
-          _flog("impact argmin(v) in downswing →",impactT.toFixed(2)+"s  v="+minVF.v.toFixed(3));
+          const maxVF=downswing.reduce((b,f)=>f.v>b.v?f:b,downswing[0]);
+          impactT=maxVF.t;
+          _flog("impact argmax(v) in [top,bottom] →",impactT.toFixed(2)+"s  v="+maxVF.v.toFixed(3));
         }
         if(!impactT)impactT=Math.min(topT+dur*0.18,bottomT||dur*0.70);
 
-        phaseTimes={setupT,topT,impactT};
-        _flog("✓ phases — setup:",setupT.toFixed(2)+"s  top:",topT.toFixed(2)+"s  impact:",impactT.toFixed(2)+"s  bottom:",bottomT.toFixed(2)+"s");
+        // Sanity: reject if phase ordering is wrong
+        if(topT>bottomT||topT<=setupT||impactT<=topT){
+          _flog("⚠ phase ordering failed → Gemini fallback");
+          phaseTimes=null;
+        }else{
+          phaseTimes={setupT,topT,impactT};
+          _flog("✓ phases — setup:",setupT.toFixed(2)+"s  top:",topT.toFixed(2)+"s  impact:",impactT.toFixed(2)+"s  bottom:",bottomT.toFixed(2)+"s");
+        }
       }
     }
 
