@@ -163,66 +163,77 @@ async function processSwingVideo(videoSource,parsedResult){
     // Pre-warm MediaPipe concurrently while we do sequential seeks
     const landmarkerProm=loadPoseLandmarker().catch(e=>{_flog("MediaPipe FAILED:",e?.message||e);return null;});
 
-    // 4 ── Seek helper: seeked → rVFC → RAF → capture
+    // 4 ── seekAndCapture: seek → play → rVFC → pause → RAF → drawImage
     //
-    // THREE-STAGE BARRIER (each stage is necessary):
-    //   Stage 1 — seeked:  video position metadata confirmed updated.
-    //             Does NOT mean the decoded frame is ready yet.
-    //   Stage 2 — rVFC:    GPU has a new decoded frame ready to present.
-    //             Fires when the compositor has the frame — still not safe to drawImage.
-    //   Stage 3 — RAF:     compositor has flushed the frame to the GPU buffer.
-    //             NOW drawImage() reads the correct pixels.
+    // WHY play() IS REQUIRED between seeks on iOS:
+    //   On a paused iOS video, AVPlayer's display pipeline is idle.
+    //   After a seek, `seeked` fires (position metadata updated) but the GPU pixel
+    //   buffer still holds the PREVIOUS frame — drawImage() reads stale pixels.
+    //   This produces the classic 1-frame lag cascade: top=setup, impact=top.
     //
-    // Without Stage 3 (the extra RAF), canvas.drawImage reads the PREVIOUS frame's
-    // buffer — producing the 1-frame lag cascade: top=setup, impact=top, etc.
+    //   Calling play() activates the AVPlayer compositor, which pushes the newly
+    //   decoded frame into the GPU buffer.  rVFC then fires on that fresh frame.
+    //   pause() freezes it there.  One final RAF lets the GPU finish compositing.
+    //   drawImage() now reads the correct pixels.
     //
-    // Safety fallbacks:
-    //   - rVFC may not fire on paused iOS (compositor is idle). 500 ms timeout covers that.
-    //   - If the 500 ms fires first, we still do one RAF before capture to let the
-    //     decoder settle as much as possible before drawing.
-    const seekTo=(frac)=>new Promise((resolve,reject)=>{
+    // This is the same technique used by professional sports video platforms
+    // (Hudl, Coach's Eye, etc.) for reliable frame extraction on mobile Safari.
+    const seekAndCapture=async(frac,label)=>{
       const clampT=Math.min(Math.max(frac*dur,0.05),dur-0.05);
-      const outerTimeout=setTimeout(()=>reject(new Error(`seek timeout frac=${frac}`)),10000);
-      const onSeeked=()=>{
-        video.removeEventListener("seeked",onSeeked);
-        clearTimeout(outerTimeout);
-        _flog("seeked at",clampT.toFixed(2)+"s");
-        // One-shot resolve guard
-        let settled=false;
-        const done=()=>{ if(!settled){settled=true;resolve();} };
-        if(typeof video.requestVideoFrameCallback==="function"){
-          // Stage 2+3: rVFC fires when decoded frame is ready, then one RAF to flush
-          video.requestVideoFrameCallback(()=>requestAnimationFrame(done));
-          // Safety: if rVFC never fires (paused iOS), wait 500 ms then do one RAF
-          setTimeout(()=>requestAnimationFrame(done),500);
-        }else{
-          // No rVFC (Firefox, old browsers): double RAF as settling time
-          requestAnimationFrame(()=>requestAnimationFrame(done));
-        }
-      };
-      video.addEventListener("seeked",onSeeked);
-      video.currentTime=clampT;
-    });
 
-    // 5 ── Capture current frame to canvas
-    // Log currentTime at capture — if this shows the wrong time, the seek failed.
-    // If it shows the right time but the image is wrong, it's a GPU buffer lag.
-    const capture=(label)=>{
+      // Step 1: seek to target position
+      await new Promise((resolve,reject)=>{
+        const t=setTimeout(()=>reject(new Error(`seek timeout ${label}`)),10000);
+        const onSeeked=()=>{
+          video.removeEventListener("seeked",onSeeked);
+          clearTimeout(t);
+          _flog(label,"seeked at",clampT.toFixed(3)+"s");
+          resolve();
+        };
+        video.addEventListener("seeked",onSeeked);
+        video.currentTime=clampT;
+      });
+
+      // Step 2: play() — activates iOS compositor, pushes decoded frame to GPU buffer
+      const playErr=await video.play().then(()=>null).catch(e=>e);
+      if(playErr){
+        // play() blocked (rare — autoplay policy). Fall back to 4 RAFs.
+        _flog(label,"play() blocked:",playErr.message,"— using RAF fallback");
+        await new Promise(r=>{ let n=0; const t=()=>{ if(++n>=4)r(); else requestAnimationFrame(t); }; requestAnimationFrame(t); });
+      } else {
+        // Step 3: wait for rVFC (guaranteed to fire since video is now playing)
+        await new Promise(resolve=>{
+          let s=false; const done=()=>{ if(!s){s=true;resolve();} };
+          if(typeof video.requestVideoFrameCallback==="function"){
+            video.requestVideoFrameCallback(done);
+          }else{
+            requestAnimationFrame(()=>requestAnimationFrame(done));
+          }
+          setTimeout(done,500); // safety: don't hang if rVFC misfires
+        });
+
+        // Step 4: pause — freeze on the frame that rVFC just presented
+        video.pause();
+
+        // Step 5: one RAF — lets GPU finish compositing the paused frame
+        await new Promise(r=>requestAnimationFrame(r));
+      }
+
+      // Step 6: capture
       _flog(label,"currentTime at capture:",video.currentTime.toFixed(3)+"s");
       const cv=document.createElement("canvas");
-      cv.width=video.videoWidth||480;cv.height=video.videoHeight||640;
+      cv.width=video.videoWidth||480; cv.height=video.videoHeight||640;
       cv.getContext("2d").drawImage(video,0,0,cv.width,cv.height);
+      _flog(label,"canvas:",cv.width+"×"+cv.height);
       return cv;
     };
 
-    // 6 ── SEQUENTIAL seeks (the core fix — wait for each before starting next)
+    // 6 ── SEQUENTIAL seek+capture for each frame
     const canvases={};
     for(const[key,frac]of[["setup",fracs.setup],["top",fracs.top],["impact",fracs.impact]]){
       try{
-        await seekTo(frac);
-        canvases[key]=capture(key);
-        _flog(key,"canvas size:",canvases[key].width+"×"+canvases[key].height);
-      }catch(e){_flog(key,"seek/capture ERROR:",e?.message);}
+        canvases[key]=await seekAndCapture(frac,key);
+      }catch(e){_flog(key,"ERROR:",e?.message);}
     }
 
     // 7 ── Pose overlay
