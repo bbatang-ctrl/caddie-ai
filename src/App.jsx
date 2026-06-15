@@ -201,18 +201,47 @@ async function processSwingVideo(videoSource,parsedResult){
         _flog(label,"play() blocked:",playErr.message,"— using RAF fallback");
         await new Promise(r=>{ let n=0; const t=()=>{ if(++n>=4)r(); else requestAnimationFrame(t); }; requestAnimationFrame(t); });
       } else {
-        // Step 3: wait for rVFC (guaranteed to fire since video is now playing)
+        // Step 3: wait for rVFC to fire TWICE.
+        //
+        // WHY TWICE is required on iOS:
+        //   After play() the AVPlayer compositor wakes and immediately presents
+        //   whatever frame is already in its pixel buffer — usually the PREVIOUS
+        //   capture's frame.  That causes the classic 1-frame-behind pattern:
+        //     top  shows setup frame   (setup's buffer not yet cleared)
+        //     impact shows top frame   (top's buffer not yet cleared)
+        //
+        //   First  rVFC fire = pipeline draining the stale buffer (wrong frame).
+        //   Second rVFC fire = decoder has produced and composited the actual new
+        //                      frame we seeked to.  Safe to capture.
+        //
+        //   Each fire's currentTime is logged so the on-screen diagnostic shows
+        //   exactly what the pipeline was presenting.
         await new Promise(resolve=>{
-          let s=false; const done=()=>{ if(!s){s=true;resolve();} };
+          let count=0,settled=false;
+          const done=()=>{ if(!settled){settled=true;resolve();} };
+
+          const onFrame=()=>{
+            count++;
+            _flog(label,"rVFC#"+count,"at",video.currentTime.toFixed(3)+"s");
+            if(count>=2){ done(); return; }
+            // Register for a second rVFC (or fall back to RAF if unsupported)
+            if(typeof video.requestVideoFrameCallback==="function"){
+              video.requestVideoFrameCallback(onFrame);
+            }else{
+              requestAnimationFrame(()=>requestAnimationFrame(done));
+            }
+          };
+
           if(typeof video.requestVideoFrameCallback==="function"){
-            video.requestVideoFrameCallback(done);
+            video.requestVideoFrameCallback(onFrame);
           }else{
-            requestAnimationFrame(()=>requestAnimationFrame(done));
+            // No rVFC — triple RAF approximates two presentation cycles
+            requestAnimationFrame(()=>requestAnimationFrame(()=>requestAnimationFrame(done)));
           }
-          setTimeout(done,500); // safety: don't hang if rVFC misfires
+          setTimeout(done,1000); // safety: don't hang if rVFC misfires on iOS
         });
 
-        // Step 4: pause — freeze on the frame that rVFC just presented
+        // Step 4: pause — freeze on the frame second rVFC just presented
         video.pause();
 
         // Step 5: one RAF — lets GPU finish compositing the paused frame
