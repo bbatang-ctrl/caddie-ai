@@ -199,8 +199,22 @@ async function processSwingVideo(videoSource,parsedResult){
       return cv;
     };
 
-    // Sample 16 frames and build wrist-motion timeline
-    // (16 vs 12 gives ~33% denser coverage in the 0.3–0.5s downswing window)
+    // ── COACH-GRADE SWING PHASE ENGINE ─────────────────────────────────────────
+    // Previous approach: detect top/impact directly from raw wristY → kept drifting
+    //   because golf swing peaks are broad, MediaPipe adds noise, and extremum
+    //   detection always catches a leading or trailing edge instead of the true event.
+    //
+    // This approach (matching professional swing-analysis tools):
+    //   SIGNAL  : hipY − wristY  = hand height relative to hips (stable, normalised).
+    //             Cancels camera-angle drift. Rising = backswing, falling = downswing.
+    //   SMOOTH  : 5-point moving average before derivative computation.
+    //   BOTTOM  : global argmin(signal) = ball-contact zone anchor (very robust).
+    //   TOP     : first velocity zero-crossing from + → − after early motion onset
+    //             (signal was rising during backswing, first reversal = apex).
+    //             Linear interpolation between bracketing samples → sub-sample precision.
+    //   IMPACT  : argmin(velocity) between topT and bottomT
+    //             = fastest downward motion in the ball-contact window.
+    //             Constrained by bottomT so it can NEVER drift into follow-through.
     let phaseTimes=null;
     if(landmarker){
       const N=16;
@@ -210,29 +224,40 @@ async function processSwingVideo(videoSource,parsedResult){
         try{
           const cv=await sampleFrame(t);
           const lm=landmarker.detect(cv)?.landmarks?.[0]||null;
-          // Average left (15) + right (16) wrist Y. Screen space: 0=top, 1=bottom.
-          const ly=lm?.[15]?.visibility>0.35?lm[15].y:null;
-          const ry=lm?.[16]?.visibility>0.35?lm[16].y:null;
+          // Wrist landmarks: 15 = left, 16 = right
+          const ly=lm?.[15]?.visibility>0.30?lm[15].y:null;
+          const ry=lm?.[16]?.visibility>0.30?lm[16].y:null;
           const wristY=(ly!==null&&ry!==null)?(ly+ry)/2:(ly??ry??null);
-          if(wristY!==null){timeline.push({t,wristY});_flog("sample",t.toFixed(2)+"s wY="+wristY.toFixed(3));}
-          else{_flog("sample",t.toFixed(2)+"s — no wrist");}
+          // Hip landmarks: 23 = left, 24 = right (stable body reference)
+          const lh=lm?.[23]?.visibility>0.30?lm[23].y:null;
+          const rh=lm?.[24]?.visibility>0.30?lm[24].y:null;
+          const hipY=(lh!==null&&rh!==null)?(lh+rh)/2:(lh??rh??null);
+          if(wristY!==null){
+            // signal = hand height relative to hips (+ = hands above hips).
+            // If hips not detected, fall back to −wristY so signal still rises
+            // during backswing (wristY decreases as hands go up → −wristY increases).
+            const signal=hipY!==null?(hipY-wristY):(-wristY);
+            timeline.push({t,signal,wristY,hipY:hipY??null});
+            _flog("sample",t.toFixed(2)+"s sig="+signal.toFixed(3)+(hipY!==null?" hip✓":" hip✗"));
+          }else{_flog("sample",t.toFixed(2)+"s — no wrist");}
         }catch(e){_flog("sample",t.toFixed(2)+"s ERR:",e?.message);}
       }
       _flog("timeline points:",timeline.length);
 
       if(timeline.length>=5){
-        // Annotate with velocity (dy/dt) and acceleration
-        const tl=timeline.map((f,i)=>{
-          const prev=timeline[i-1]||f;
+        // 5-point moving-average smooth (reduces MediaPipe jitter without phase drift)
+        const smooth=timeline.map((_,i)=>{
+          const w=timeline.slice(Math.max(0,i-2),Math.min(timeline.length,i+3));
+          return{...timeline[i],s:w.reduce((a,f)=>a+f.signal,0)/w.length};
+        });
+        // Velocity of smoothed signal (d/dt)
+        const tl=smooth.map((f,i)=>{
+          const prev=smooth[i-1]||f;
           const dt=Math.max(f.t-prev.t,0.02);
-          const v=i===0?0:(f.wristY-prev.wristY)/dt;
-          const pp=timeline[i-2]||prev;
-          const pdt=Math.max(prev.t-pp.t,0.02);
-          const pv=i<2?0:(prev.wristY-pp.wristY)/pdt;
-          return{...f,v,a:(v-pv)/dt};
+          return{...f,v:i===0?0:(f.s-prev.s)/dt};
         });
 
-        // Setup: lowest total |velocity| window in first 25% of samples
+        // SETUP: lowest |velocity| pair in first 25% — golfer standing still at address
         const setupEnd=Math.max(3,Math.ceil(tl.length*0.25));
         let setupT=tl[0].t,minMot=Infinity;
         for(let i=0;i<setupEnd-1;i++){
@@ -240,57 +265,51 @@ async function processSwingVideo(videoSource,parsedResult){
           if(mot<minMot){minMot=mot;setupT=(tl[i].t+tl[i+1].t)/2;}
         }
 
-        // TOP — velocity zero-crossing with linear interpolation
-        //
-        // Physics: in screen coords wristY decreases during backswing (hands rising,
-        // v < 0) and increases during downswing (hands falling, v > 0).
-        // The exact top is where v crosses zero — a physics invariant that is
-        // unaffected by smoothing windows or signal amplitude.
-        //
-        // We interpolate between the last negative-v sample and the first positive-v
-        // sample to get sub-sample temporal precision without any averaging drift.
-        // Fallback: argmin(wristY) if no clean zero-crossing exists.
-        const topSlice=tl.slice(Math.floor(tl.length*0.05),Math.floor(tl.length*0.75));
+        // BOTTOM: global argmin(signal) = hands at their lowest point (ball-contact zone)
+        // This is a stable anchor — it's the most extreme point of the downswing and
+        // cannot be confused with top or setup because it is the global minimum.
+        const bottomFrame=tl.reduce((b,f)=>f.s<b.s?f:b,tl[0]);
+        const bottomT=bottomFrame.t;
+        _flog("bottom anchor →",bottomT.toFixed(2)+"s  sig="+bottomFrame.s.toFixed(3));
+
+        // TOP: first velocity zero-crossing from + → − in search range
+        // In (hipY−wristY) signal: v>0 = hands rising (backswing), v<0 = hands falling.
+        // The FIRST time v transitions from + to − is the backswing apex.
+        // We skip the first 10% of samples to avoid catching minor address wiggles.
+        // Linear interpolation gives sub-sample precision.
+        const topSearchEnd=Math.floor(tl.length*0.72); // don't look past 72%
+        const topSearch=tl.slice(Math.floor(tl.length*0.10),topSearchEnd);
         let topT=null;
-        for(let i=1;i<topSlice.length;i++){
-          const a=topSlice[i-1],b=topSlice[i];
-          if(a.v<0&&b.v>=0){
-            // Linear interpolation to find exact zero-crossing time
+        for(let i=1;i<topSearch.length;i++){
+          const a=topSearch[i-1],b=topSearch[i];
+          if(a.v>0&&b.v<=0){
             const span=b.t-a.t;
-            topT=a.v===b.v?a.t:a.t+(-a.v/(b.v-a.v))*span;
-            _flog("top zero-crossing between",a.t.toFixed(2)+"s (v="+a.v.toFixed(3)+") and",b.t.toFixed(2)+"s (v="+b.v.toFixed(3)+") → topT="+topT.toFixed(3)+"s");
+            topT=(a.v===b.v)?a.t:a.t+(a.v/(a.v-b.v))*span; // lerp to v=0
+            _flog("top v zero-crossing",a.t.toFixed(2)+"s(v="+a.v.toFixed(3)+")→",b.t.toFixed(2)+"s(v="+b.v.toFixed(3)+") topT="+topT.toFixed(3)+"s");
             break;
           }
         }
         if(topT===null){
-          // Fallback: argmin wristY (lowest Y in screen = highest physical hands)
-          const topFrame=topSlice.reduce((b,f)=>f.wristY<b.wristY?f:b,topSlice[0]);
+          // Fallback: argmax signal = highest hands (no clean zero-crossing)
+          const topFrame=topSearch.reduce((b,f)=>f.s>b.s?f:b,topSearch[0]||tl[0]);
           topT=topFrame.t;
-          _flog("top fallback (argmin wristY) →",topT.toFixed(2)+"s");
+          _flog("top fallback (argmax signal) →",topT.toFixed(2)+"s");
         }
 
-        // IMPACT — argmax of downward velocity after top
-        //
-        // Hands move fastest just at/before ball contact.  argmax(v) consistently
-        // gives "just before impact" — a frame the eye reads as the impact position.
-        // We previously tried windowed centroid (drifted late) and plain argmin
-        // acceleration (too noisy at 16-point density).  argmax(v) is the most
-        // stable and readable proxy at our sampling resolution.
-        const afterTopArr=tl.filter(f=>f.t>topT);
+        // IMPACT: argmin(velocity) between topT and bottomT
+        // Fastest downward motion inside the downswing window = ball contact.
+        // Constrained to [topT, bottomT] — cannot drift into follow-through.
+        const downswing=tl.filter(f=>f.t>topT&&f.t<=bottomT);
         let impactT=null;
-        if(afterTopArr.length>=1){
-          const maxVF=afterTopArr.reduce((b,f)=>f.v>b.v?f:b,afterTopArr[0]);
-          impactT=maxVF.t;
-          // Don't allow impact in last 20% — that's finish territory
-          if(impactT>dur*0.80){
-            impactT=topT+Math.max((dur-topT)*0.35,dur*0.10);
-            _flog("impact clamped from finish →",impactT.toFixed(2)+"s");
-          }
+        if(downswing.length>=1){
+          const minVF=downswing.reduce((b,f)=>f.v<b.v?f:b,downswing[0]);
+          impactT=minVF.t;
+          _flog("impact argmin(v) in downswing →",impactT.toFixed(2)+"s  v="+minVF.v.toFixed(3));
         }
-        if(!impactT)impactT=Math.min(topT+dur*0.18,dur*0.70);
+        if(!impactT)impactT=Math.min(topT+dur*0.18,bottomT||dur*0.70);
 
         phaseTimes={setupT,topT,impactT};
-        _flog("✓ physics phases — setup:",setupT.toFixed(2)+"s  top:",topT.toFixed(2)+"s  impact:",impactT.toFixed(2)+"s");
+        _flog("✓ phases — setup:",setupT.toFixed(2)+"s  top:",topT.toFixed(2)+"s  impact:",impactT.toFixed(2)+"s  bottom:",bottomT.toFixed(2)+"s");
       }
     }
 
