@@ -48,7 +48,7 @@ function buildPrompt(hcp, club, mediaType, golferLevel) {
     `"positives":["<strength 1, max 12 words>","<strength 2, max 12 words>"],` +
     `"summary":"<EXACTLY 2 sentences, warm encouraging tone, speak directly to the player>"` +
     (mediaType === "video"
-      ? `,"keyFrames":{"setup":<0.0-1.0>,"backswingTop":<0.0-1.0>,"impact":<0.0-1.0>}`
+      ? `,"keyFrames":{"setup":<fraction 0.02–0.15 — address position, early video>,"backswingTop":<fraction 0.18–0.58 — highest hand position at top of backswing>,"impact":<fraction 0.45–0.68 — moment of club-ball contact, NOT follow-through or finish>}`
       : "") +
     `}`;
 
