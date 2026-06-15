@@ -153,12 +153,28 @@ async function processSwingVideo(videoSource,parsedResult){
     _flog("decoder warmed up");
 
     // 3 ── Determine timing fractions
-    //   Reject Gemini keyFrames outside 0.03–0.97 (returns 0/0.005/0.01 sometimes).
-    //   Fall back to empirically correct defaults.
+    //   Gemini sometimes returns wrong values — near-zero (0/0.005/0.01) or
+    //   too-late impact (0.85–0.95, which is actually the finish phase).
+    //   Each phase has biomechanically valid ranges; we reject anything outside.
+    //
+    //   Golf video phase map (normalized 0.0–1.0):
+    //     0.00–0.15  setup / address
+    //     0.15–0.50  backswing
+    //     0.40–0.60  top of backswing
+    //     0.45–0.68  downswing → impact
+    //     0.68–1.00  follow-through / finish
+    //
+    //   "impact shows finish" root cause: Gemini returns impact≈0.85–0.95 which
+    //   is actually the deceleration peak of the finish.  We cap impact at 0.68.
     const kf=parsedResult?.keyFrames||{};
-    const vf=(v,def)=>typeof v==="number"&&v>=0.03&&v<=0.97?v:def;
-    const fracs={setup:vf(kf.setup,0.08),top:vf(kf.backswingTop,0.35),impact:vf(kf.impact,0.50)};
-    _flog("fracs — setup:",fracs.setup,"top:",fracs.top,"impact:",fracs.impact);
+    const vf=(v,lo,hi,def)=>typeof v==="number"&&v>=lo&&v<=hi?v:def;
+    const topFrac=vf(kf.backswingTop,0.18,0.58,0.35);
+    // Impact MUST be after the top AND before 0.68 (finish zone starts ~0.68).
+    // If Gemini gives us a value outside that window, place it 14% after top.
+    const rawImpact=typeof kf.impact==="number"?kf.impact:0;
+    const impactFrac=(rawImpact>topFrac+0.04&&rawImpact<=0.68)?rawImpact:Math.min(topFrac+0.14,0.65);
+    const fracs={setup:vf(kf.setup,0.02,0.18,0.08),top:topFrac,impact:impactFrac};
+    _flog("fracs — setup:",fracs.setup,"top:",fracs.top,"impact:",fracs.impact,"(raw gemini impact:",kf.impact+")");
 
     // Pre-warm MediaPipe concurrently while we do sequential seeks
     const landmarkerProm=loadPoseLandmarker().catch(e=>{_flog("MediaPipe FAILED:",e?.message||e);return null;});
