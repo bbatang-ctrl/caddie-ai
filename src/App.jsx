@@ -199,10 +199,11 @@ async function processSwingVideo(videoSource,parsedResult){
       return cv;
     };
 
-    // Sample 12 frames and build wrist-motion timeline
+    // Sample 16 frames and build wrist-motion timeline
+    // (16 vs 12 gives ~33% denser coverage in the 0.3–0.5s downswing window)
     let phaseTimes=null;
     if(landmarker){
-      const N=12;
+      const N=16;
       const timeline=[];
       for(let i=0;i<N;i++){
         const t=dur*(0.03+(0.76*i/(N-1))); // 3% → 79% of clip
@@ -231,25 +232,61 @@ async function processSwingVideo(videoSource,parsedResult){
           return{...f,v,a:(v-pv)/dt};
         });
 
-        // Setup: lowest total |velocity| in first 25% of samples
-        const setupEnd=Math.max(2,Math.ceil(tl.length*0.25));
+        // Setup: lowest total |velocity| window in first 25% of samples
+        const setupEnd=Math.max(3,Math.ceil(tl.length*0.25));
         let setupT=tl[0].t,minMot=Infinity;
-        for(let i=0;i<setupEnd;i++){
-          const mot=Math.abs(tl[i].v)+Math.abs(tl[Math.min(i+1,tl.length-1)].v);
-          if(mot<minMot){minMot=mot;setupT=tl[i].t;}
+        for(let i=0;i<setupEnd-1;i++){
+          const mot=Math.abs(tl[i].v)+Math.abs(tl[i+1].v);
+          if(mot<minMot){minMot=mot;setupT=(tl[i].t+tl[i+1].t)/2;}
         }
 
-        // Top: minimum wristY (highest hands) in 8%–72% of samples
+        // TOP — windowed plateau detection (avoids first-derivative peak bias)
+        //
+        // Naive argmin of wristY picks the FIRST low point (leading edge of apex).
+        // A sliding window of 3 finds the plateau where hands are consistently high
+        // AND velocity is near-zero (true turnaround).
+        // Temporal centroid weighted by (1−wristY) pins the time to the lowest Y
+        // frames inside that window rather than the first frame of it.
         const topSlice=tl.slice(Math.floor(tl.length*0.08),Math.floor(tl.length*0.72));
-        const topFrame=(topSlice.length>0?topSlice:tl).reduce((b,f)=>f.wristY<b.wristY?f:b);
-        const topT=topFrame.t;
+        const WIN_T=Math.min(3,Math.max(1,topSlice.length-1));
+        let bestTopScore=Infinity,bestTopWinIdx=0;
+        for(let i=0;i<=topSlice.length-WIN_T;i++){
+          const w=topSlice.slice(i,i+WIN_T);
+          const avgY=w.reduce((s,f)=>s+f.wristY,0)/WIN_T;
+          const velPen=w.reduce((s,f)=>s+Math.abs(f.v),0)/WIN_T;
+          const score=avgY+velPen*0.5; // minimise: lowest hands + least motion
+          if(score<bestTopScore){bestTopScore=score;bestTopWinIdx=i;}
+        }
+        const topWin=topSlice.slice(bestTopWinIdx,bestTopWinIdx+WIN_T);
+        // Temporal centroid: frames with highest hands (lowest Y) contribute most
+        const topWt=topWin.reduce((s,f)=>s+(1.0-f.wristY),0);
+        const topT=topWt>0
+          ?topWin.reduce((s,f)=>s+f.t*(1.0-f.wristY),0)/topWt
+          :topWin[Math.floor(WIN_T/2)].t;
 
-        // Impact: maximum downward velocity (positive v = hands falling) AFTER top
-        const afterTop=tl.filter(f=>f.t>topT);
+        // IMPACT — windowed velocity-plateau detection (avoids leading-edge bias)
+        //
+        // Naive argmax of velocity picks the FIRST high-velocity frame (leading edge
+        // of the impulse).  The true ball-contact moment is at the CENTER of the
+        // peak-velocity plateau (hands moving fastest over a 2–4 frame window).
+        // Temporal centroid weighted by velocity places the detected time squarely
+        // in the middle of the high-speed burst, not at its onset.
+        const afterTopArr=tl.filter(f=>f.t>topT);
         let impactT=null;
-        if(afterTop.length>=1){
-          const maxVF=afterTop.reduce((b,f)=>f.v>b.v?f:b,afterTop[0]);
-          impactT=maxVF.t;
+        if(afterTopArr.length>=2){
+          const WIN_I=Math.min(3,afterTopArr.length);
+          let bestImpScore=-Infinity,bestImpWinIdx=0;
+          for(let i=0;i<=afterTopArr.length-WIN_I;i++){
+            const w=afterTopArr.slice(i,i+WIN_I);
+            const avgV=w.reduce((s,f)=>s+f.v,0)/WIN_I;
+            if(avgV>bestImpScore){bestImpScore=avgV;bestImpWinIdx=i;}
+          }
+          const impWin=afterTopArr.slice(bestImpWinIdx,bestImpWinIdx+WIN_I);
+          // Temporal centroid weighted by velocity (faster frame = closer to true impact)
+          const impWt=impWin.reduce((s,f)=>s+Math.max(f.v,0),0);
+          impactT=impWt>0
+            ?impWin.reduce((s,f)=>s+f.t*Math.max(f.v,0),0)/impWt
+            :impWin[Math.floor(WIN_I/2)].t;
           // Don't allow impact in last 20% — that's finish territory
           if(impactT>dur*0.80){
             impactT=topT+Math.max((dur-topT)*0.35,dur*0.10);
