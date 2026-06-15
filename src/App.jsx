@@ -153,28 +153,40 @@ async function processSwingVideo(videoSource,parsedResult){
     _flog("decoder warmed up");
 
     // 3 ── Determine timing fractions
-    //   Gemini sometimes returns wrong values — near-zero (0/0.005/0.01) or
-    //   too-late impact (0.85–0.95, which is actually the finish phase).
-    //   Each phase has biomechanically valid ranges; we reject anything outside.
+    //   Strategy: RELATIVE positioning, not hard absolute ranges.
+    //   Hard absolute caps caused phase collapse (top→takeaway, impact→top) because
+    //   the fallback positions ended up colliding with each other.
     //
-    //   Golf video phase map (normalized 0.0–1.0):
-    //     0.00–0.15  setup / address
-    //     0.15–0.50  backswing
-    //     0.40–0.60  top of backswing
-    //     0.45–0.68  downswing → impact
-    //     0.68–1.00  follow-through / finish
+    //   Instead:
+    //   • setup and top use generous absolute guards (only reject near-zero junk).
+    //   • impact is validated RELATIVE to top: contact must be 8–35% of total
+    //     video duration after the top.  This handles all video speeds and lengths.
     //
-    //   "impact shows finish" root cause: Gemini returns impact≈0.85–0.95 which
-    //   is actually the deceleration peak of the finish.  We cap impact at 0.68.
+    //   Why 8–35%?
+    //     Downswing from top → ball contact is one of the fastest motions in sport.
+    //     In a typical swing video the gap is 10–25% of total clip length.
+    //     Gemini often returns impact≈0.85–0.95 (which is the finish / deceleration
+    //     peak).  That would be >0.50 after a top at 0.35 — well outside the window.
     const kf=parsedResult?.keyFrames||{};
-    const vf=(v,lo,hi,def)=>typeof v==="number"&&v>=lo&&v<=hi?v:def;
-    const topFrac=vf(kf.backswingTop,0.18,0.58,0.35);
-    // Impact MUST be after the top AND before 0.68 (finish zone starts ~0.68).
-    // If Gemini gives us a value outside that window, place it 14% after top.
-    const rawImpact=typeof kf.impact==="number"?kf.impact:0;
-    const impactFrac=(rawImpact>topFrac+0.04&&rawImpact<=0.68)?rawImpact:Math.min(topFrac+0.14,0.65);
-    const fracs={setup:vf(kf.setup,0.02,0.18,0.08),top:topFrac,impact:impactFrac};
-    _flog("fracs — setup:",fracs.setup,"top:",fracs.top,"impact:",fracs.impact,"(raw gemini impact:",kf.impact+")");
+    const inRange=(v,lo,hi)=>typeof v==="number"&&v>=lo&&v<=hi;
+
+    // Setup: generous guard — reject only near-zero hallucinations
+    const setupFrac = inRange(kf.setup,0.02,0.28) ? kf.setup : 0.08;
+    // Top: generous guard — wide range to handle slow-motion or early-cut videos
+    const topFrac   = inRange(kf.backswingTop,0.12,0.65) ? kf.backswingTop : 0.35;
+
+    // Impact: must be 8–35% of duration AFTER the top (relative constraint).
+    // Rejects finish (too far after top) and near-top misclassifications (too close).
+    const rawImpact = typeof kf.impact==="number" ? kf.impact : 0;
+    const afterTop  = rawImpact - topFrac;
+    const impactFrac = (afterTop>=0.08 && afterTop<=0.35)
+      ? rawImpact
+      : Math.min(Math.max(topFrac+0.18, 0.42), 0.70); // fallback: 18% after top
+
+    const fracs={setup:setupFrac, top:topFrac, impact:impactFrac};
+    _flog("fracs — setup:",setupFrac,"top:",topFrac,"impact:",impactFrac,
+          "| raw Gemini: setup",kf.setup,"top",kf.backswingTop,"impact",kf.impact,
+          "| afterTop:",afterTop.toFixed(3));
 
     // Pre-warm MediaPipe concurrently while we do sequential seeks
     const landmarkerProm=loadPoseLandmarker().catch(e=>{_flog("MediaPipe FAILED:",e?.message||e);return null;});
