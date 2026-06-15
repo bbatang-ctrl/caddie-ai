@@ -557,7 +557,7 @@ export default function PracticeTab({
         <h1 className="display text-[24px] font-bold tracking-tight leading-tight mt-0.5">Swing Lab.</h1>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-8 min-h-0 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 min-h-0 space-y-4" style={{paddingBottom:"calc(5rem + env(safe-area-inset-bottom))"}}>  {/* clears nav + home indicator */}
 
         {/* ── Progress summary (shown when 2+ parsed swings exist) ── */}
         {parsedSwings.length >= 2 && !swingLoading && (
@@ -589,16 +589,27 @@ export default function PracticeTab({
             if (!f) return;
             setSwingFile(f); setSwingThumb(null);
             if (f.type.startsWith("image/")) {
-              setSwingThumb(URL.createObjectURL(f));
-            } else if (f.type.startsWith("video/")) {
+              // For images: read as data URL so it persists after blob URL expires
+              const reader = new FileReader();
+              reader.onload = e => setSwingThumb(e.target.result);
+              reader.readAsDataURL(f);
+            } else {
+              // For videos: seek to 1s then capture frame on 'seeked' (more reliable on iOS)
+              const blobUrl = URL.createObjectURL(f);
               const vid = document.createElement("video");
-              vid.src = URL.createObjectURL(f); vid.currentTime = 0.5;
-              vid.onloadeddata = function () {
-                const cv = document.createElement("canvas");
-                cv.width = 120; cv.height = 90;
-                cv.getContext("2d").drawImage(vid, 0, 0, 120, 90);
-                setSwingThumb(cv.toDataURL("image/jpeg", 0.7));
-              };
+              vid.muted = true; vid.playsInline = true; vid.preload = "metadata";
+              vid.src = blobUrl;
+              vid.load();
+              vid.addEventListener("loadedmetadata", () => { vid.currentTime = 1.0; }, { once: true });
+              vid.addEventListener("seeked", () => {
+                try {
+                  const cv = document.createElement("canvas");
+                  cv.width = 120; cv.height = 90;
+                  cv.getContext("2d").drawImage(vid, 0, 0, 120, 90);
+                  setSwingThumb(cv.toDataURL("image/jpeg", 0.75));
+                } catch(e) {}
+                URL.revokeObjectURL(blobUrl);
+              }, { once: true });
             }
           }}
         />
@@ -746,7 +757,8 @@ export default function PracticeTab({
               {swingHistory.map((s, i) => {
                 const key     = s.id || ("idx-" + i);
                 const isExp   = expanded === key;
-                const thumb   = s.thumbnail || null;
+                const thumb   = s.thumbnail || s.frames?.setup || null;
+                const vidSrc  = !thumb ? (s.video_url || s.videoUrl || null) : null;
                 const label   = s.club_used && s.club_used !== "unknown"
                   ? s.club_used
                   : "Swing " + (swingHistory.length - i);
@@ -776,6 +788,8 @@ export default function PracticeTab({
                       <div className="shrink-0">
                         {thumb
                           ? <img src={thumb} alt="" className="h-14 w-[72px] object-cover rounded-lg"/>
+                          : vidSrc
+                          ? <video src={vidSrc} className="h-14 w-[72px] object-cover rounded-lg" muted playsInline preload="metadata" crossOrigin="anonymous"/>
                           : <div className="h-14 w-[72px] rounded-lg bg-secondary flex items-center justify-center">
                               <Video className="h-5 w-5 text-muted-foreground" strokeWidth={1.75}/>
                             </div>

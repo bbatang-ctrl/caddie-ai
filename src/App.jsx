@@ -25,7 +25,7 @@ let CapGeo=null,CapHaptics=null,CapSpeech=null,CapKeyboard=null,CapStatusBar=nul
     }
   }catch(e){console.log('Capacitor plugins not available (web mode)');}}
 )();
-import { Home,MessageCircle,Target,Users,Sun,Moon,Settings,Cloud,ChevronRight,ChevronDown,MapPin,ArrowUp,Video,Sparkles,LogOut,Briefcase,BarChart3,X,TrendingDown,TrendingUp,Trophy } from "lucide-react";
+import { Home,MessageCircle,Target,Users,Sun,Moon,Settings,Cloud,ChevronRight,ChevronDown,MapPin,ArrowUp,Video,Sparkles,LogOut,Briefcase,BarChart3,X,TrendingDown,TrendingUp,Trophy,BookOpen,Heart,Flag } from "lucide-react";
 function cn(...c){return c.filter(Boolean).join(" ");}
 
 // ─── Swing video analysis helpers ────────────────────────────────────────────
@@ -584,6 +584,9 @@ function ObiGolfApp(){
   const [rulesQuery,setRulesQuery]=useState("");
   const [rulesAnswer,setRulesAnswer]=useState("");
   const [rulesLoading,setRulesLoading]=useState(false);
+  const [showEtiquetteModal,setShowEtiquetteModal]=useState(false);
+  const [etiquetteTip,setEtiquetteTip]=useState("");
+  const [etiquetteLoading,setEtiquetteLoading]=useState(false);
   const [postRoundRecap,setPostRoundRecap]=useState(null);
   const [shareCard,setShareCard]=useState(null); // {total,diff,course,insight,persona,name,fwy,putts}
   const [shareGenerating,setShareGenerating]=useState(false);
@@ -1964,13 +1967,58 @@ function ObiGolfApp(){
         </div>
       )}
 
+      {/* ── ETIQUETTE MODAL ─────────────────────────────────────── */}
+      {showEtiquetteModal&&(
+        <div className="fixed inset-0 z-[58] flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={()=>{setShowEtiquetteModal(false);setEtiquetteTip("");}}>
+          <div className="bg-card border border-border rounded-t-2xl w-full p-5 shadow-2xl" style={{maxWidth:"480px",paddingBottom:"calc(1.5rem + env(safe-area-inset-bottom))"}} onClick={e=>e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-xl bg-pink-500/15 flex items-center justify-center shrink-0"><Heart className="h-4 w-4 text-pink-500" strokeWidth={2}/></div>
+                <p className="display text-[15px] font-bold">Golf Etiquette</p>
+              </div>
+              <button onClick={()=>{setShowEtiquetteModal(false);setEtiquetteTip("");}} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4"/></button>
+            </div>
+            <p className="text-[12px] text-muted-foreground mb-4">The unwritten rules that make golf great. Tap a topic for a quick tip from Obi.</p>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {[["Pace of play","🕐"],["On the green","⛳"],["Bunker play","🏖️"],["Tee box","🏌️"],["Lost ball","🔍"],["Cart etiquette","🚗"],["Course care","🌿"],["Scoring","📝"]].map(([topic,emoji])=>(
+                <button key={topic} onClick={async()=>{
+                  setEtiquetteTip("");setEtiquetteLoading(true);
+                  try{
+                    const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:"Give me one specific, practical golf etiquette tip about: "+topic+". Keep it under 3 sentences. Be direct and useful, not generic."}],system:"You are Obi, a friendly golf caddie. Give one specific, practical golf etiquette tip. Be direct and useful. No markdown, no bullets. Maximum 3 sentences."})});
+                    const d=await r.json();
+                    setEtiquetteTip(d?.content?.[0]?.text||d?.candidates?.[0]?.content?.parts?.[0]?.text||"");
+                  }catch{setEtiquetteTip("Ask Obi in the Caddie tab for a personalised etiquette tip!");}
+                  finally{setEtiquetteLoading(false);}
+                }} className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-secondary/30 px-3 py-2 display text-[11px] font-bold hover:bg-secondary/60 active:scale-95 transition">
+                  <span>{emoji}</span>{topic}
+                </button>
+              ))}
+            </div>
+            {etiquetteLoading&&<div className="flex items-center gap-2 py-2"><div className="h-4 w-4 rounded-full border-2 border-pink-500 border-t-transparent" style={{animation:"spin 0.8s linear infinite"}}/><p className="text-[13px] text-muted-foreground">Getting your tip...</p></div>}
+            {etiquetteTip&&!etiquetteLoading&&(
+              <div className="rounded-xl bg-pink-500/8 border border-pink-500/20 p-3.5">
+                <div className="flex items-center gap-1.5 mb-1.5"><Heart className="h-3 w-3 text-pink-500" strokeWidth={2.5}/><p className="display text-[9px] font-bold uppercase tracking-wider text-pink-500">Obi&apos;s Tip</p></div>
+                <p className="text-[14px] text-foreground leading-relaxed">{etiquetteTip}</p>
+              </div>
+            )}
+            {!etiquetteTip&&!etiquetteLoading&&(
+              <div className="rounded-xl bg-secondary/30 border border-border p-3.5 space-y-2">
+                {[["🔇","Silence during swings","Stay still and quiet whenever someone is addressing the ball or mid-swing."],["🐾","Never step in a putting line","Walk around the line between any ball and the hole — it's sacred."],["⚡","Play ready golf","If you're ready and it's safe, hit. Don't wait for honours — keep the pace up."],["🪣","Rake every bunker","Smooth the sand after you play from it, always."]].map(([e,t,d])=>(
+                  <div key={t} className="flex gap-2.5"><span className="shrink-0 mt-0.5">{e}</span><div><p className="display text-[12px] font-bold">{t}</p><p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{d}</p></div></div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── RULES MODAL ───────────────────────────────────────── */}
       {showRulesModal&&(
         <div className="fixed inset-0 z-[58] flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={()=>{setShowRulesModal(false);setRulesAnswer("");setRulesQuery("");}}>
-          <div className="bg-card border border-border rounded-t-2xl w-full p-5 pb-8 shadow-2xl" style={{maxWidth:"480px"}} onClick={e=>e.stopPropagation()}>
+          <div className="bg-card border border-border rounded-t-2xl w-full p-5 shadow-2xl" style={{maxWidth:"480px",paddingBottom:"calc(1.5rem + env(safe-area-inset-bottom))"}} onClick={e=>e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">📖</span>
+              <div className="flex items-center gap-2.5">
+                <div className="h-8 w-8 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0"><BookOpen className="h-4 w-4 text-amber-500" strokeWidth={2}/></div>
                 <p className="display text-[15px] font-bold">Rules Assistant</p>
               </div>
               <button onClick={()=>{setShowRulesModal(false);setRulesAnswer("");setRulesQuery("");}} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4"/></button>
@@ -2069,9 +2117,9 @@ function ObiGolfApp(){
         </div>
       </header>
 
-      <div className={cn("flex-1 min-h-0",tab==="caddie"?"overflow-hidden":"overflow-y-auto")} style={{WebkitOverflowScrolling:"touch"}}>
+      <div className={cn("flex-1 min-h-0",tab==="caddie"?"overflow-hidden":"overflow-y-auto")} style={{WebkitOverflowScrolling:"touch",overscrollBehavior:"none"}}>
         {tab==="home"&&(
-          <div className="overflow-y-auto pb-8">
+          <div style={{paddingBottom:"calc(5rem + env(safe-area-inset-bottom))"}}>  {/* clears nav + iPhone home indicator */}
             <section className="px-4 pt-5 pb-1">
               <div className="flex items-center justify-between">
                 <div>
@@ -2109,25 +2157,33 @@ function ObiGolfApp(){
             <section className="px-4 pt-3">
               <div className="grid grid-cols-2 gap-2">
                 <button onClick={()=>setShowRulesModal(true)}
-                  className="rounded-xl border border-border bg-card p-3.5 flex items-center gap-2.5 hover:bg-secondary/40 transition text-left">
-                  <span className="text-2xl shrink-0">📖</span>
+                  className="rounded-xl border border-border bg-card p-3.5 flex items-center gap-2.5 hover:bg-secondary/40 active:scale-[0.97] transition text-left">
+                  <div className="h-9 w-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                    <BookOpen className="h-[18px] w-[18px] text-amber-500" strokeWidth={2}/>
+                  </div>
                   <div><p className="display text-[12px] font-bold">Rules Help</p><p className="text-[10px] text-muted-foreground mt-0.5">Ask any ruling</p></div>
                 </button>
-                <button onClick={()=>{setTab("caddie");setTimeout(()=>sendMessage("Give me a quick etiquette tip for today's round"),200);}}
-                  className="rounded-xl border border-border bg-card p-3.5 flex items-center gap-2.5 hover:bg-secondary/40 transition text-left">
-                  <span className="text-2xl shrink-0">🤝</span>
-                  <div><p className="display text-[12px] font-bold">Etiquette Tip</p><p className="text-[10px] text-muted-foreground mt-0.5">From Obi</p></div>
+                <button onClick={()=>setShowEtiquetteModal(true)}
+                  className="rounded-xl border border-border bg-card p-3.5 flex items-center gap-2.5 hover:bg-secondary/40 active:scale-[0.97] transition text-left">
+                  <div className="h-9 w-9 rounded-xl bg-pink-500/15 flex items-center justify-center shrink-0">
+                    <Heart className="h-[18px] w-[18px] text-pink-500" strokeWidth={2}/>
+                  </div>
+                  <div><p className="display text-[12px] font-bold">Etiquette Tip</p><p className="text-[10px] text-muted-foreground mt-0.5">Golf manners</p></div>
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-2 mt-2">
-                <button onClick={()=>{setTab("caddie");if(!groupRoundCode)startGroupRound();else setShowGroupModal(true);}}
-                  className="rounded-xl border border-border bg-card p-3.5 flex items-center gap-2.5 hover:bg-secondary/40 transition text-left">
-                  <span className="text-2xl shrink-0">👥</span>
+                <button onClick={()=>{if(!groupRoundCode)startGroupRound();else setShowGroupModal(true);}}
+                  className="rounded-xl border border-border bg-card p-3.5 flex items-center gap-2.5 hover:bg-secondary/40 active:scale-[0.97] transition text-left">
+                  <div className="h-9 w-9 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                    <Users className="h-[18px] w-[18px] text-primary" strokeWidth={2}/>
+                  </div>
                   <div><p className="display text-[12px] font-bold">Group Round</p><p className="text-[10px] text-muted-foreground mt-0.5">Play with friends</p></div>
                 </button>
                 {shareCard&&<button onClick={()=>setShareCard(shareCard)}
-                  className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 flex items-center gap-2.5 hover:bg-primary/10 transition text-left">
-                  <span className="text-2xl shrink-0">📊</span>
+                  className="rounded-xl border border-primary/30 bg-primary/5 p-3.5 flex items-center gap-2.5 hover:bg-primary/10 active:scale-[0.97] transition text-left">
+                  <div className="h-9 w-9 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                    <BarChart3 className="h-[18px] w-[18px] text-primary" strokeWidth={2}/>
+                  </div>
                   <div><p className="display text-[12px] font-bold text-primary">Share Round</p><p className="text-[10px] text-muted-foreground mt-0.5">Show your score</p></div>
                 </button>}
               </div>
@@ -2442,8 +2498,8 @@ function ObiGolfApp(){
                   </div>
                 )}
 
-                {/* TOP OVERLAY */}
-                <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
+                {/* TOP OVERLAY — safe-area-inset-top keeps it below status bar */}
+                <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none" style={{paddingTop:"env(safe-area-inset-top)"}}>
                   <div className="flex items-start justify-between px-3 pt-2 gap-2">
                     <div className="bg-black/70 backdrop-blur-md rounded-xl px-3 py-2 pointer-events-auto">
                       <div className="flex items-center gap-2 mb-0.5">
@@ -2710,7 +2766,7 @@ function ObiGolfApp(){
         )}
 
         {tab==="social"&&(
-          <div className="pb-8">
+          <div style={{paddingBottom:"calc(5rem + env(safe-area-inset-bottom))"}}>  {/* clears nav */}
             <section className="px-4 pt-5"><p className="display text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Social</p><h1 className="display text-[26px] font-bold tracking-tight leading-tight mt-0.5">Your crew.</h1></section>
             <section className="px-4 pt-3"><div className="flex gap-1 bg-secondary rounded-xl p-1">{[["feed","Feed"],["rounds","My Rounds"],["friends","Friends"+(friendReqs.length>0?" ("+friendReqs.length+")":"")]].map(([id,label])=>(<button key={id} onClick={()=>setSocialView(id)} className={cn("flex-1 py-2 rounded-[10px] display text-[10px] font-bold uppercase tracking-wider transition-all",socialView===id?"nav-pill-active":"text-muted-foreground hover:text-foreground")}>{label}</button>))}</div></section>
             {socialView==="feed"&&friends.length>0&&(
